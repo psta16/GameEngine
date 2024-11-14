@@ -151,7 +151,6 @@ Global Restart.i=0 ; restarts the game engine
 ; Game
 #Max_Sprite_Instances = 2048 ; all sprites used by the game
 
-
 ;- Structures
 
 ; System
@@ -301,6 +300,10 @@ Structure Screen_Settings_Structure
   Screen_Active.i ; set when the screen is active (including the windowed screen)
   Classic_Screen_Background_Colour.i ; the colour used for the background of the classic screen (usually black)
   Full_Screen_Inactive.i             ; set when the user switches from the full screen to the desktop
+  Screen_Filter.i ; turns the screen filter on or off
+  Screen_Filter_Sprite.i             ; filter for CRT overlay
+  Zoomed_Width.i ; used to find the dimensions of the screen based on the biggest size while still having square pixels
+  Zoomed_Height.i
 EndStructure  
 
 Structure FPS_Structure
@@ -355,22 +358,22 @@ EndStructure
 ; System
 ;***************************************************
 
-Dim Variable.Variable_Structure(#Max_Variables)
+Dim Variable.Variable_Structure(#Max_Variables) ; variables used for displaying values on screen etc
 Dim Sprite_Resource.Sprite_Resource_Structure(#Max_Sprite_Resources) ; hold all sprite resources (the actual sprite image data)
 Dim Sprite_Instance.Sprite_Instance_Structure(#Max_Sprite_Instances) ; instances of sprites on screen
 Dim Debug_Var.s(#Max_Debug_Vars)
-Dim Menu_Control.Menu_Control_Structure(#Max_Menu_Controls)   ; array that holds menu controls
 Define System.System_Structure
 Define Window_Settings.Window_Settings_Structure
 Define Screen_Settings.Screen_Settings_Structure
 Define FPS_Data.FPS_Structure
-Define Menu_Settings.Menu_Settings_Structure
 
   
 ;***********************************************
 ; Menu
 ;***********************************************
-  
+
+Define Menu_Settings.Menu_Settings_Structure
+Dim Menu_Control.Menu_Control_Structure(#Max_Menu_Controls)   ; array that holds menu controls
   
 ;***********************************************
 ; Game
@@ -396,7 +399,7 @@ EndMacro
 
 CompilerIf #PB_Compiler_OS = #PB_OS_Linux
 Procedure InitGDK()
-  ; Used for Linux
+  ; Used for Linux to find the refresh rate of the monitor
   Protected Lib.i
   Lib = OpenLibrary(#PB_Any, "libgdk-3.so")
   If Lib
@@ -540,10 +543,46 @@ Procedure GetScreenHeight(*Screen_Settings.Screen_Settings_Structure)
   EndIf
 EndProcedure
 
+Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
+  ; Position is 0 to Pixel_Size - 1
+  Protected Angle.i, Return_Val.i
+  If Pixel_Size < 2
+    ProcedureReturn 0 ; no filter
+  EndIf
+  If Pixel_Size = 2
+    If Position = 0:ProcedureReturn 200:EndIf
+    If Position = 1:ProcedureReturn 0:EndIf
+  EndIf  
+  If Pixel_Size = 3
+    If Position = 0:ProcedureReturn 254:EndIf
+    If Position = 1:ProcedureReturn 0:EndIf
+    If Position = 2:ProcedureReturn 160:EndIf
+  EndIf
+  If Pixel_Size = 4
+    If Position = 0:ProcedureReturn 254:EndIf
+    If Position = 1:ProcedureReturn 80:EndIf
+    If Position = 2:ProcedureReturn 0:EndIf
+    If Position = 3:ProcedureReturn 160:EndIf
+  EndIf
+  If Pixel_Size = 5
+    If Position = 0:ProcedureReturn 254:EndIf
+    If Position = 1:ProcedureReturn 80:EndIf
+    If Position = 2:ProcedureReturn 0:EndIf
+    If Position = 3:ProcedureReturn 80:EndIf
+    If Position = 4:ProcedureReturn 180:EndIf
+  EndIf
+  If Pixel_Size >= 6
+    Angle = 360 / Pixel_Size * Position
+    Return_Val = (127 * Cos(Radian(Angle)) + 128) - 1
+    ProcedureReturn Return_Val
+  EndIf
+EndProcedure
+
 Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1))
   Protected c.i, f.s
   Protected x.i, y.i, col.l
   Protected r.i ; this is used as a variable for reading data to be discarded
+  Protected Found.i, Zoom.i
   *Screen_Settings\Pixel_Sprite = CreateSprite(#PB_Any, 1, 1, #PB_Sprite_AlphaBlending)
   StartDrawing(SpriteOutput(*Screen_Settings\Pixel_Sprite))
   DrawingMode(#PB_2DDrawing_AllChannels)
@@ -551,6 +590,30 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
   StopDrawing()
   *Screen_Settings\Screen_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height, #PB_Sprite_AlphaBlending)
   TransparentSpriteColor(*Screen_Settings\Screen_Sprite, #Magenta)
+  ; Find zoomed size that is as big as possible
+  Zoom = 0
+  Repeat
+    Zoom = Zoom + 1
+    *Screen_Settings\Zoomed_Width = *Screen_Settings\Screen_Res_Width * Zoom
+    *Screen_Settings\Zoomed_Height = *Screen_Settings\Screen_Res_Height * Zoom
+    If *Screen_Settings\Zoomed_Height > *Screen_Settings\Screen_Actual_Height
+      Found = 1
+      Zoom = Zoom - 1
+    EndIf
+  Until Found
+  *Screen_Settings\Screen_Filter_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height, #PB_Sprite_AlphaBlending)
+  TransparentSpriteColor(*Screen_Settings\Screen_Sprite, #Magenta)
+  Debug "Pixel height: " + Str(*Screen_Settings\Screen_Actual_Height / *Screen_Settings\Screen_Res_Height)
+  StartDrawing(SpriteOutput(*Screen_Settings\Screen_Filter_Sprite))
+  DrawingMode(#PB_2DDrawing_AllChannels)
+  y = 0
+  Repeat
+    For c = 0 To Zoom-1
+      Line(0, y+c, *Screen_Settings\Screen_Actual_Width, 1, RGBA(0, 0, 0, GetCRTFilterLineValue(Zoom, c)))
+    Next c
+    y = y + zoom
+  Until y > *Screen_Settings\Zoomed_Height-1
+  StopDrawing()
   Debug "LoadSpriteResources: loading sprite resource list"
   Select *System\Sprite_List_Data_Source
     Case #Data_Source_None
@@ -1269,11 +1332,11 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
   ;DrawLine(*Screen_Settings, 0, 20, 0, 80, RGBA(255, 255, 255, 255))
   ;DrawLine(*Screen_Settings, 0, 20, 60, 80, RGBA(255, 255, 255, 255))
   
-  ;DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 16, 255, #Red)
-  ;DisplaySystemFontString(*System, "abcdefghijklmnopqrstuvwxyz", 0, 24, 255, #Yellow)
-  ;DisplaySystemFontString(*System, "0123456789", 0, 32, 255, #Green)
-  ;DisplaySystemFontString(*System, " !" + Chr(34) + "#$%&'()*+,-./:;<=>?@|[]£\^`~{}€¥©™", 0, 40, 255, #White)
-  ;DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 48, 255, #Gray)
+  DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 16, 255, #Red)
+  DisplaySystemFontString(*System, "abcdefghijklmnopqrstuvwxyz", 0, 24, 255, #Yellow)
+  DisplaySystemFontString(*System, "0123456789", 0, 32, 255, #Green)
+  DisplaySystemFontString(*System, " !" + Chr(34) + "#$%&'()*+,-./:;<=>?@|[]£\^`~{}€¥©™", 0, 40, 255, #White)
+  DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 48, 255, #Gray)
   
   ;DisplayTransparentSprite(*System\Font_Char_Sprite[78], 100, 100, 255, #White)
   ;DisplaySpriteResource(*P, *System\Mouse_Sprite_Index, 80, 50)
@@ -1351,6 +1414,27 @@ Procedure ShowZoomed2DScreen(*Screen_Settings.Screen_Settings_Structure)
       Else
         ZoomSprite(*Screen_Settings\Screen_Sprite, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height)
         DisplayTransparentSprite(*Screen_Settings\Screen_Sprite, 0, 0)
+      EndIf
+    EndIf
+  EndIf
+EndProcedure
+
+Procedure AddScreenFilter(*Screen_Settings.Screen_Settings_Structure)
+  If *Screen_Settings\Screen_Filter
+    If *Screen_Settings\Full_Screen And *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
+      ;If *Screen_Settings\Border
+      ;  DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Inner_X, *Screen_Settings\Screen_Inner_Y)
+      ;Else
+      ;  DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Left, *Screen_Settings\Screen_Top)
+      ;EndIf      
+    Else
+      If *Screen_Settings\Border
+        ;DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Inner_X, *Screen_Settings\Screen_Inner_Y)
+      Else
+        SpriteQuality(#PB_Sprite_BilinearFiltering)
+        ZoomSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height)
+        DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, 0, 0)
+        SpriteQuality(#PB_Sprite_NoFiltering)
       EndIf
     EndIf
   EndIf
@@ -1557,6 +1641,11 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     ; ************************************************
     ; Process both full screen and window key commands
     ; ************************************************ 
+    
+    If KeyPressed(*System, #PB_Key_F3)
+      ; toggle border
+     *Screen_Settings\Screen_Filter = 1 - *Screen_Settings\Screen_Filter
+    EndIf    
     
     If KeyPressed(*System, #PB_Key_F9)
       ; toggle border
@@ -2054,6 +2143,10 @@ CompilerEndSelect
   Screen_Settings\Classic_Screen_Background_Colour = #Black
 
   ; C64 settings: border: 403x284 screen: 320x200
+  ;Screen_Settings\Border_Width = 400 ; optional border setting
+  ;Screen_Settings\Border_Height = 284
+  ;Screen_Settings\Screen_Res_Width = 320
+  ;Screen_Settings\Screen_Res_Height = 200
 
   ;Screen_Settings\Border_Width = 288 ; optional border setting
   ;Screen_Settings\Border_Height = 240
@@ -2065,10 +2158,10 @@ CompilerEndSelect
   ;Screen_Settings\Screen_Res_Width = 256
   ;Screen_Settings\Screen_Res_Height = 288
 
-  Screen_Settings\Border_Width = 400 ; optional border setting
-  Screen_Settings\Border_Height = 280
-  Screen_Settings\Screen_Res_Width = 320
-  Screen_Settings\Screen_Res_Height = 200
+  Screen_Settings\Border_Width = 316
+  Screen_Settings\Border_Height = 284
+  Screen_Settings\Screen_Res_Width = 256
+  Screen_Settings\Screen_Res_Height = 224
 
   Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
   Screen_Settings\Background_Colour = #Blue
@@ -2100,6 +2193,7 @@ CompilerEndSelect
       Draw2DGraphics(@System, @Screen_Settings)
       DrawBorder(@Screen_Settings)
       ShowZoomed2DScreen(@Screen_Settings)
+      AddScreenFilter(@Screen_Settings)
       DoPostProcessing(@System) ; eg screen capture
       DrawMouse(@System, @Screen_Settings, Sprite_Resource())
       ShowFullResGraphics(@Screen_Settings) ; eg system messages or console (not captured by screen capture)
@@ -2301,8 +2395,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1485
-; FirstLine = 1457
+; CursorPosition = 1414
+; FirstLine = 1389
 ; Folding = -----------
 ; EnableXP
 ; DPIAware
