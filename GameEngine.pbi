@@ -196,6 +196,8 @@ EndStructure
 Structure System_Structure
   Current_Directory.s
   Data_Directory.s
+  MutexID.i    ; used to check if more than one instance of the game is running
+  MutexError.i
   Minimum_Colour_Depth.i
   Sprites_Loaded.i
   Font_Char_Sprite.i[#Num_System_Font_Char] ; sprite ID for the system font
@@ -213,14 +215,40 @@ Structure System_Structure
   Render_Engine3D.i            ; select which 3D rendering engine to use, select none for 2D only
   Last_Debug_Window_Update.q   ; time in milliseconds when the debug window was last updated
   Show_Debug_Info.i            ; when set this will show things like FPS etc on screen
-  Debug_Window_Front_Colour.i
-  Debug_Window_Back_Colour.i
+  Show_Mouse.i           ; shows the mouse
+  Mouse_Control.i        ; mouse is controlling the player
+  Mouse_Sprite_Index.i   ; index of the sprite to use for the mouse
+  Mouse_X.f              ; location of the mouse pointer when it is over the window
+  Mouse_Offset_X.i       ; offset of the mouse sprite displayed
+  Mouse_Y.f
+  Mouse_Offset_Y.i
+  Take_Screen_Capture.i ; flag to take a screen capture
+  Mouse_Save_X.i   ; saves the position of the mouse when switching back to desktop (alt+tab)
+  Mouse_Save_Y.i
+  Quit.i                 ; flag to quit game 1 = quit. To restart the game use the global Restart variable
+  Allow_Restart.i        ; allows the game engine to be restarted
+  Allow_Switch_to_Window.i  ; to allow switching between window and full screen
+  Allow_Screen_Capture.i    ; allows a screenshot to be taken
+  Allow_AltF4_Full_Screen.i ; allows full screen to be quit using Alt+F4
+  Mouse_Sensitivity_X.f
+  Mouse_Sensitivity_Y.f
+  Mouse_Button_Left.i ; gives the actual mouse button state, only works in ExamineMouse() mode
+  Mouse_Button_Middle.i
+  Mouse_Button_Right.i  
+  Mouse_Wheel_Movement.i ; movement of the mouse wheel since the last ExamineMouse()  
+  Mouse_Left_Click.i  ; set when the mouse is clicked while in window mode
+  Mouse_Right_Click.i
+  Config_Loaded.i           ; set to 1 once the config is loaded. Cannot save until loaded  
+  Initialisation_Error.i    ; will be set when there's an error. Helps track down the first error causing an issue
+  Initialise_Error_Message.s; special string for giving an initialisation error message. Only set this using SetInitialiseError()
+  Initialised.i ; set when the game engine is initialised
 EndStructure
 
 Structure Window_Settings_Structure
   Allow_Window_Resize.i     ; to allow the game window to be resized or maximised (doesn't apply to full screen mode)
   Reset_Window.i            ; triggers a move back to the main monitor, useful if a monitor is unplugged
   Window_Maximised.i        ; set when window is maximised 
+  Window_Minimised.i    ; set when window is minimised
   Window_Open.i             ; flag is set when window successfully open
   Window_X.i                ; position of window
   Window_Y.i
@@ -231,6 +259,9 @@ Structure Window_Settings_Structure
   Window_Debug_W.i
   Window_Debug_H.i  
   Window_Debug_Edit_Gadget.i ; ID for the edit gadget
+  Debug_Window_Front_Colour.i
+  Debug_Window_Back_Colour.i
+  Window_Moved.i        ; triggers whenever the window in normal mode moves
 EndStructure
 
 Structure Screen_Settings_Structure
@@ -287,11 +318,21 @@ Structure FPS_Structure
 EndStructure
 
 ; Menu
-Structure Menu_Control_Structure
+Structure Menu_Control_Structure ; ways of controlling menus
   Menu_Control_Type.i ; specifies the type of the menu control system, see Enumeration Menu_System
   Menu_Control_Action.i ; this is the action the control will take, see Enumeration Menu_Control_Actions
   Menu_Control_Hardware_Type.i   ; see Enumeration Control_Hardware
   Menu_Control_ID.i              ; this is the ID of the actual control, for example a keyboard key
+EndStructure
+
+Structure Menu_Settings_Structure
+  Menu_Active.i           ; when true means that the menu system is active and has control
+  Menu_System_Type.i    ; the type of menu system
+  Menu_Background.i       ; see enumeration Menu_Background
+  Menu_Background_Data_Source.i   ; see enumeration Data_Source
+  Menu_Background_Colour.i        ; background colour for the menu
+  Menu_Action.i
+  Menu_Controls_Count.i ; total number of menu controls loaded
 EndStructure
 
 ; Game
@@ -305,110 +346,6 @@ Structure Sprite_Instance_Structure
   Visible.i
 EndStructure
 
-;- Parametres
-
-Structure Game_Parametres_Structure
-  ;***************************************************
-  ; System
-  ;***************************************************
-  
-  Allow_AltF4_Full_Screen.i ; allows full screen to be quit using Alt+F4
-  Allow_Restart.i           ; allows the game engine to be restarted
-  Allow_Screen_Capture.i    ; allows a screenshot to be taken
-  Allow_Switch_to_Window.i  ; to allow switching between window and full screen
-  Allow_Window.i            ; prevents window mode completely
-  
-  Background_Colour.i       ; background colour used when clearing the screen. This is set depending on what layer the system is running in
-  
-  Config_Loaded.i           ; set to 1 once the config is loaded. Cannot save until loaded  
-  
-  FPS.f                  ; current FPS
-  FPS_Samples.i[#Max_FPS_Samples] ; array for holding FPS samples
-  FPS_Average_Index.i    ; index for building an array of FPS times
-  FPS_Average_Sum.i      ; total of all FPS samples
-  FPS_Initialised.i      ; flag for when the FPS is initialised
-  FPS_Last_Time.i        ; stores the last time in milliseconds that FPS will be calculated from
-  ;Full_Screen.i          ; 0 = windowed, 1 = full screen
-  
-  ;Full_Screen_Type.i     ; see enumeration Full_Screen_Types, classic or windowed
-  
-  Game_Database_Location.s ; location of the database
-  Game_Loop_Start_Time.i   ; records the time in milliseconds when the main loop started
-
-  Game_Title.s             ; Name of the game
-  Initialisation_Error.i   ; will be set when there's an error. Helps track down the first error causing an issue
-  Initialise_Error_Message.s ; special string for giving an initialisation error message. Only set this using SetInitialiseError()
-  Initialised.i
-  
-  
-  Min_Window_Width.i           ; minimum width you can set a window to
-  Min_Window_Height.i
-  Mouse_Button_Left.i ; gives the actual mouse button state, only works in ExamineMouse() mode
-  Mouse_Button_Middle.i
-  Mouse_Button_Right.i
-  Mouse_Control.i     ; mouse is controlling the player
-  Mouse_Left_Click.i  ; set when the mouse is clicked while in window mode
-  Mouse_Right_Click.i
-  Mouse_Offset_X.i ; offset of the mouse sprite displayed
-  Mouse_Offset_Y.i ; usually 0 
-  Mouse_Save_X.i   ; saves the position of the mouse when switching back to desktop (alt+tab)
-  Mouse_Save_Y.i
-  Mouse_Sensitivity_X.f
-  Mouse_Sensitivity_Y.f
-  Mouse_Sprite_Index.i ; index of the sprite to use for the mouse
-  Mouse_Wheel_Movement.i ; movement of the mouse wheel since the last ExamineMouse()
-  Mouse_X.f              ; location of the mouse pointer when it is over the window
-  Mouse_Y.f
-  MutexError.i ; 
-  MutexID.i    ; used to check if more than one instance of the game is running
-  Quit.i                 ; flag to quit game 1 = quit. To restart the game use the global Restart variable
-  
-  
-  
-  Show_Loading_Screen.i  ; will show the loading screen during LoadConfig
-  Show_Mouse.i           ; shows the mouse
-  Simulate_Res.i         ; zooms sprites to simulate a low res game
-  Simulate_Res_W.i       ; width of simulated resolution
-  Simulate_Res_H.i
-  Simulate_Res_Stretch.i ; how to stretch the simulated resolution (see enumeration Simulated_Resolution_Stretch_Types)
-  
-  Sprite_Zoom_X.i ; zoom factor for displaying sprites to the current screen
-  Sprite_Zoom_Y.i
-  Take_Screen_Capture.i ; flag to take a screen capture
-  
-  Window_Flags.i        ; holds flags for game window
-  
-  Window_Minimised.i    ; set when window is minimised
-  Window_Moved.i        ; triggers whenever the window in normal mode moves
-  Window_Ratio.f ; ratio of Window_W and Window_H
-  Window_Ratio_Enable.i ; set to enforce keeping the ratio when resizing the window
-  
-  
-  ;***********************************************
-  ; Menu
-  ;***********************************************
-  
-  Menu_Action.i           ; which menu action to take
-  Menu_Active.i           ; when true means that the menu system is active and has control
-  Menu_Background.i       ; see enumeration Menu_Background
-  Menu_Background_Colour.i; background colour for the menu
-  Menu_Background_Data_Source.i   ; see enumeration Data_Source
-  Menu_Control.Menu_Control_Structure[#Max_Menu_Controls]   ; array that holds menu controls
-  
-  Menu_Controls_Count.i ; total number of menu controls loaded
-  Menu_System_Type.i    ; the type of menu system
-  
-  ;***********************************************
-  ; Game
-  ;***********************************************
-  ; The game layer includes all the game mechanics as well as the display mechanism for the levels
-  
-  Game_Active.i ; game is active
-  
-  Sprite_Instance_Count.i  
-  
-EndStructure
-
 ;- Defines
 
 ;***************************************************
@@ -419,10 +356,12 @@ Dim Variable.Variable_Structure(#Max_Variables)
 Dim Sprite_Resource.Sprite_Resource_Structure(#Max_Sprite_Resources) ; hold all sprite resources (the actual sprite image data)
 Dim Sprite_Instance.Sprite_Instance_Structure(#Max_Sprite_Instances) ; instances of sprites on screen
 Dim Debug_Var.s(#Max_Debug_Vars)
+Dim Menu_Control.Menu_Control_Structure(#Max_Menu_Controls)   ; array that holds menu controls
 Define System.System_Structure
 Define Window_Settings.Window_Settings_Structure
 Define Screen_Settings.Screen_Settings_Structure
 Define FPS_Data.FPS_Structure
+Define Menu_Settings.Menu_Settings_Structure
 
   
 ;***********************************************
@@ -469,62 +408,6 @@ Procedure InitGDK()
   ProcedureReturn Lib
 EndProcedure
 CompilerEndIf
-
-Procedure SetDefaults(*P.Game_Parametres_Structure)
-  ; System
-  
-  *P\Allow_Restart = 1
-  *P\Allow_Screen_Capture = 1
-  *P\Allow_Switch_to_Window = 1
-  
-  
-  *P\Config_Loaded = 0          ; config not yet loaded
-  
-  ;*Screen_Settings\Flip_Mode = #PB_Screen_NoSynchronization
-  
-  ;*Screen_Settings\Flip_Mode = #PB_Screen_SmartSynchronization
-  *P\FPS = 0
-  *P\FPS_Initialised = 0
-  *P\FPS_Last_Time = ElapsedMilliseconds() ; start the timer for calculating the FPS
-  ;*P\Full_Screen = 0
-  ;*P\Full_Screen_Type = #Full_Screen_Windowed
-  ;*P\Full_Screen_Type = #Full_Screen_Classic
-  *P\Game_Database_Location = ""
-  
-  *P\Initialisation_Error = 0
-  *P\Initialise_Error_Message = "none"
-  *P\Initialised = 0
-  
-  *P\Mouse_Control = 0 ; set when the mouse is controlling the player
-  *P\Mouse_Offset_X = 0
-  *P\Mouse_Offset_Y = 0
-  *P\Mouse_Sprite_Index = 1
-  *P\Mouse_Sensitivity_X = 3
-  *P\Mouse_Sensitivity_Y = 3
-  *P\Mouse_Wheel_Movement = 0
-  *P\Quit = 0
-
-  *P\Show_Loading_Screen = 1
-  *P\Show_Mouse = 1
-  *P\Simulate_Res = 1 ; simulate a low resolution game
-  *P\Simulate_Res_W = 320
-  *P\Simulate_Res_H = 200
-  *P\Simulate_Res_Stretch = #Simulated_Resolution_Stretch_Both
-  
-  *P\Take_Screen_Capture = 0
-  *P\Window_Minimised = 0
-  *P\Window_Moved = 0
-  *P\Window_Ratio_Enable = 1
-  
-  ; Menu
-  *P\Menu_Active = 0 ; game starts in system mode, when initialise finishes the menu becomes active
-  *P\Menu_Action = #Menu_Action_None ; make sure nothing has been pressed for the menu controls
-  *P\Menu_Background = #Menu_Background_None
-  *P\Menu_Background_Colour = #Black ; this will be changed when the menu is loaded
-  *P\Menu_Background_Data_Source = #Data_Source_Internal_Memory
-  *P\Menu_System_Type = #Menu_System_Menuless
-  
-EndProcedure
 
 ;- Error Handler
 
@@ -1042,7 +925,7 @@ Procedure Draw3DWorld(*System.System_Structure)
   EndSelect
 EndProcedure
 
-Procedure DisplaySpriteInstance(*P.Game_Parametres_Structure, *System.System_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1), Array Sprite_Instance.Sprite_Instance_Structure(1), i.i)
+Procedure DisplaySpriteInstance(*System.System_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1), Array Sprite_Instance.Sprite_Instance_Structure(1), i.i)
   ; Sprite instances are all the copies of sprites displayed in a level
   ; The only limit to how big a level can be is available memory
   If Sprite_Resource(Sprite_Instance(i)\Sprite_Resource)\Transparent
@@ -1052,7 +935,7 @@ Procedure DisplaySpriteInstance(*P.Game_Parametres_Structure, *System.System_Str
   EndIf
 EndProcedure
 
-Procedure DisplaySpriteResource(*P.Game_Parametres_Structure, *System.System_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1), s.i, x.i, y.i, Intensity.i=255)
+Procedure DisplaySpriteResource(*System.System_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1), s.i, x.i, y.i, Intensity.i=255)
   ; Used for manually displaying a sprite
   If Sprite_Resource(s)\Transparent
     DisplayTransparentSprite(Sprite_Resource(s)\ID, x, y, Intensity)
@@ -1181,7 +1064,7 @@ Procedure DisplaySystemFontString(*System.System_Structure, s.s, x.i, y.i, Inten
   Next
 EndProcedure
 
-Procedure ShowDebugInfo(*P.Game_Parametres_Structure, *System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Structure)
+Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Structure)
   Protected FPS.s
   If *System\Show_Debug_Info And Not *Screen_Settings\Full_Screen_Inactive
     FPS = "FPS:"
@@ -1200,15 +1083,16 @@ Procedure ShowDebugWindowInfo(*System.System_Structure, *Window_Settings.Window_
   Protected Displat_Text.s
   If Debug_Var(0) <> "" And Not *Window_Settings\Window_Debug_Edit_Gadget
     ; there is at least one variable
+    Debug "ShowDebugWindowInfo: creating debug window edit gadget"
     *Window_Settings\Window_Debug_Edit_Gadget = EditorGadget(#PB_Any, 10,  Text_Y, *Window_Settings\Window_Debug_W-20, *Window_Settings\Window_Debug_H-20, #PB_Editor_ReadOnly)
-    If *System\Debug_Window_Front_Colour Or *System\Debug_Window_Back_Colour
-      SetGadgetColor(*Window_Settings\Window_Debug_Edit_Gadget, #PB_Gadget_FrontColor, *System\Debug_Window_Front_Colour)
-      SetGadgetColor(*Window_Settings\Window_Debug_Edit_Gadget, #PB_Gadget_BackColor, *System\Debug_Window_Back_Colour)
+    If *Window_Settings\Debug_Window_Front_Colour Or *Window_Settings\Debug_Window_Back_Colour
+      SetGadgetColor(*Window_Settings\Window_Debug_Edit_Gadget, #PB_Gadget_FrontColor, *Window_Settings\Debug_Window_Front_Colour)
+      SetGadgetColor(*Window_Settings\Window_Debug_Edit_Gadget, #PB_Gadget_BackColor, *Window_Settings\Debug_Window_Back_Colour)
     EndIf
   EndIf
   If Current_Time - *System\Last_Debug_Window_Update > 200 ; 5 updates a second
     *System\Last_Debug_Window_Update = Current_Time
-    If IsWindow(#Game_Window_Debug)
+    If IsWindow(#Game_Window_Debug) And *Window_Settings\Window_Debug_Edit_Gadget
       ClearGadgetItems(*Window_Settings\Window_Debug_Edit_Gadget)
       For c = 1 To #Max_Debug_Vars
         If Debug_Var(c-1) <> ""
@@ -1368,7 +1252,7 @@ Procedure DrawDashedLine(*System.System_Structure, *Screen_Settings.Screen_Setti
   ProcedureReturn cc ; return the offset so drawing can continue
 EndProcedure
 
-Procedure DrawSprites(*P.Game_Parametres_Structure, *System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
+Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *Menu_Settings.Menu_Settings_Structure)
   Protected c.i
   ;For c = 1 To 1000
   ;  DrawPixel(*Screen_Settings, (Random(*Screen_Settings\Screen_Res_Width)), (Random(*Screen_Settings\Screen_Res_Height)), #White)
@@ -1380,14 +1264,14 @@ Procedure DrawSprites(*P.Game_Parametres_Structure, *System.System_Structure, *S
   ;DrawLine(*Screen_Settings, 0, 20, 0, 80, RGBA(255, 255, 255, 255))
   ;DrawLine(*Screen_Settings, 0, 20, 60, 80, RGBA(255, 255, 255, 255))
   
-  ;DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 16, 255, #Red)
-  ;DisplaySystemFontString(*System, "abcdefghijklmnopqrstuvwxyz", 0, 24, 255, #Yellow)
-  ;DisplaySystemFontString(*System, "0123456789", 0, 32, 255, #Green)
-  ;DisplaySystemFontString(*System, " !" + Chr(34) + "#$%&'()*+,-./:;<=>?@|[]£\^`~{}€¥©™", 0, 40, 255, #White)
-  ;DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 48, 255, #Gray)
+  DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 16, 255, #Red)
+  DisplaySystemFontString(*System, "abcdefghijklmnopqrstuvwxyz", 0, 24, 255, #Yellow)
+  DisplaySystemFontString(*System, "0123456789", 0, 32, 255, #Green)
+  DisplaySystemFontString(*System, " !" + Chr(34) + "#$%&'()*+,-./:;<=>?@|[]£\^`~{}€¥©™", 0, 40, 255, #White)
+  DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 48, 255, #Gray)
   
   ;DisplayTransparentSprite(*System\Font_Char_Sprite[78], 100, 100, 255, #White)
-  ;DisplaySpriteResource(*P, *P\Mouse_Sprite_Index, 80, 50)
+  ;DisplaySpriteResource(*P, *System\Mouse_Sprite_Index, 80, 50)
   
   ;DrawDashedLine(*System, *Screen_Settings, 100, 80, 200, 120, #Black, #White, 2)
   
@@ -1399,10 +1283,10 @@ Procedure DrawSprites(*P.Game_Parametres_Structure, *System.System_Structure, *S
     ; menu
     ; *************************************   
     ;StartDrawing(ScreenOutput())
-    If *P\Menu_Active
+    If *Menu_Settings\Menu_Active
       ; Only draw background and menus when active
       ; Draw menu background
-      Select *P\Menu_Background
+      Select *Menu_Settings\Menu_Background
         Case #Menu_Background_None
           ; nothing to do
         Case #Menu_Background_Vector
@@ -1422,7 +1306,7 @@ Procedure GrabScreen(*Screen_Settings.Screen_Settings_Structure)
   TransparentSpriteColor(*Screen_Settings\Screen_Sprite, #Magenta)
 EndProcedure
 
-Procedure Draw2DGraphics(*P.Game_Parametres_Structure, *System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
+Procedure Draw2DGraphics(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
   ;StartDrawing(SpriteOutput(*Screen_Settings\Screen_Sprite))
   ;DrawingMode(#PB_2DDrawing_Outlined)
   ;Box(0, 0, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height, RGBA(255, 0, 0, 255))
@@ -1472,27 +1356,27 @@ Procedure ShowFullResGraphics(*System.System_Structure)
   
 EndProcedure
 
-Procedure DrawMouse(*P.Game_Parametres_Structure, *System.System_Structure, *Screen_Settings.Screen_Settings_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1))
-  If *P\Show_Mouse And Not *Screen_Settings\Full_Screen_Inactive
-    If Not *P\Mouse_Control
+Procedure DrawMouse(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1))
+  If *System\Show_Mouse And Not *Screen_Settings\Full_Screen_Inactive
+    If Not *System\Mouse_Control
       ; dont show mouse when it's in control (ie first person mouse control)
      If *Screen_Settings\Full_Screen
         ; show the mouse sprite
         ; no need to show the mouse sprite in window mode when it's not in control of the player
-        DisplaySpriteResource(*P, *System, Sprite_Resource(), *P\Mouse_Sprite_Index, *P\Mouse_X - *P\Mouse_Offset_X, *P\Mouse_Y - *P\Mouse_Offset_Y)
+        DisplaySpriteResource(*System, Sprite_Resource(), *System\Mouse_Sprite_Index, *System\Mouse_X - *System\Mouse_Offset_X, *System\Mouse_Y - *System\Mouse_Offset_Y)
       EndIf
     EndIf
   EndIf
 EndProcedure
 
-Procedure DoPostProcessing(*P.Game_Parametres_Structure, *System.System_Structure)
-  If *P\Take_Screen_Capture
+Procedure DoPostProcessing(*System.System_Structure)
+  If *System\Take_Screen_Capture
     SaveScreen(*System)
-    *P\Take_Screen_Capture = 0
+    *System\Take_Screen_Capture = 0
   EndIf
 EndProcedure
 
-Procedure CheckFullScreen(*P.Game_Parametres_Structure, *System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure)
+Procedure CheckFullScreen(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure)
   ; Manages the full screen in case the user switches back
   ; to the operating system (ie using alt+tab)
   Protected e.i
@@ -1510,7 +1394,7 @@ Procedure CheckFullScreen(*P.Game_Parametres_Structure, *System.System_Structure
           *System\Fatal_Error_Message = "SetScreen failed"
           Fatal_Error(*System)
         EndIf
-        MouseLocate(*P\Mouse_Save_X, *P\Mouse_Save_Y) ; move the mouse back to the saved location
+        MouseLocate(*System\Mouse_Save_X, *System\Mouse_Save_Y) ; move the mouse back to the saved location
         ;LoadSpriteResources(*P)
         *Screen_Settings\Full_Screen_Inactive = 0
       EndIf      
@@ -1519,8 +1403,8 @@ Procedure CheckFullScreen(*P.Game_Parametres_Structure, *System.System_Structure
       *Screen_Settings\Screen_Active = IsScreenActive()
       If Not *Screen_Settings\Screen_Active And *Screen_Settings\Full_Screen And *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
         ; only process IsScreenActive if in full screen
-        *P\Mouse_Save_X = *P\Mouse_X ; Save the mouse position
-        *P\Mouse_Save_Y = *P\Mouse_Y
+        *System\Mouse_Save_X = *System\Mouse_X ; Save the mouse position
+        *System\Mouse_Save_Y = *System\Mouse_Y
         ReleaseMouse(1) ; release the mouse to the OS
         CloseScreen()
         *Screen_Settings\Screen_Open = 0
@@ -1534,8 +1418,8 @@ EndProcedure
 
 ;- Input
 
-Procedure ProcessKeyboard(*P.Game_Parametres_Structure, *System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
-                          Array Sprite_Resource.Sprite_Resource_Structure(1))
+Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
+                          *Menu_Settings.Menu_Settings_Structure, Array Menu_Control.Menu_Control_Structure(1), Array Sprite_Resource.Sprite_Resource_Structure(1))
   Protected c.i
   If Not *Screen_Settings\Full_Screen_Inactive
     ; Disable keyboard when classic full screen inactive
@@ -1552,16 +1436,16 @@ Procedure ProcessKeyboard(*P.Game_Parametres_Structure, *System.System_Structure
       ; Process control+shift commands
       If KeyboardPushed(#PB_Key_LeftShift) Or KeyboardPushed(#PB_Key_RightShift)
         If KeyboardReleased(#PB_Key_R)
-          If *P\Allow_Restart
+          If *System\Allow_Restart
             Debug "ProcessKeyboard: restarting"
-            Restart = 1
+            Restart = 1 ; global variable
           Else
             Debug "ProcessKeyboard: not allowed to restart"
           EndIf
         EndIf
         If KeyboardReleased(#PB_Key_Q)
           Debug "ProcessKeyboard: quit"
-          *P\Quit = 1
+          *System\Quit = 1
         EndIf
       EndIf
     EndIf    
@@ -1570,18 +1454,18 @@ Procedure ProcessKeyboard(*P.Game_Parametres_Structure, *System.System_Structure
     ; menu
     ; *************************************
     
-    If *P\Menu_Active
+    If *Menu_Settings\Menu_Active
       ; only process menu controls when the menu is active
-      *P\Menu_Action = #Menu_Action_None
+      *Menu_Settings\Menu_Action = #Menu_Action_None
       For c = 0 To #Max_Menu_Controls - 1
-        If *P\Menu_Control[c]\Menu_Control_Hardware_Type = #Control_Hardware_Keyboard
+        If Menu_Control(c)\Menu_Control_Hardware_Type = #Control_Hardware_Keyboard
           ; only check keyboard controls since this is the keyboard handler
-          If KeyboardReleased(*P\Menu_Control[c]\Menu_Control_ID)
-            Debug "ProcessKeyboard: menu control " + *P\Menu_Control[c]\Menu_Control_ID + " pressed"
-            *P\Menu_Action = *P\Menu_Control[c]\Menu_Control_Action
+          If KeyboardReleased(Menu_Control(c)\Menu_Control_ID)
+            Debug "ProcessKeyboard: menu control " + Menu_Control(c)\Menu_Control_ID + " pressed"
+            *Menu_Settings\Menu_Action = Menu_Control(c)\Menu_Control_Action
           EndIf
         EndIf
-        If *P\Menu_Action <> #Menu_Action_None : Break : EndIf 
+        If *Menu_Settings\Menu_Action <> #Menu_Action_None : Break : EndIf 
       Next
     EndIf    
     
@@ -1593,9 +1477,9 @@ Procedure ProcessKeyboard(*P.Game_Parametres_Structure, *System.System_Structure
     If *Screen_Settings\Full_Screen
       If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
         If KeyboardReleased(#PB_Key_F4)
-          If *P\Allow_AltF4_Full_Screen
+          If *System\Allow_AltF4_Full_Screen
             Debug "ProcessKeyboard: quit by Alt+F4 in fullscreen"
-            *P\Quit = 1
+            *System\Quit = 1
           Else
             Debug "ProcessKeyboard: not allowed to quit by Alt+F4 in fullscreen"
           EndIf
@@ -1657,7 +1541,7 @@ Procedure ProcessKeyboard(*P.Game_Parametres_Structure, *System.System_Structure
       EndIf
     EndIf
     If KeyboardReleased(#PB_Key_F11)
-      If *P\Allow_Switch_to_Window
+      If *System\Allow_Switch_to_Window
         ; switch between window or full screen
         SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
       Else
@@ -1665,35 +1549,35 @@ Procedure ProcessKeyboard(*P.Game_Parametres_Structure, *System.System_Structure
       EndIf
     EndIf
     If KeyboardReleased(#PB_Key_F12)
-      If *P\Allow_Screen_Capture
-        *P\Take_Screen_Capture = 1
+      If *System\Allow_Screen_Capture
+        *System\Take_Screen_Capture = 1
       Else
         Debug "ProcessKeyboard: not allowed to screen capture"
       EndIf
     EndIf    
     If KeyboardReleased(#PB_Key_Escape)
       Debug "ProcessKeyboard: quit"
-      *P\Quit = 1
+      *System\Quit = 1
     EndIf
   EndIf
 EndProcedure
 
-Procedure ProcessMouse(*P.Game_Parametres_Structure, *Screen_Settings.Screen_Settings_Structure)
+Procedure ProcessMouse(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
   Protected c.i
   If Not *Screen_Settings\Full_Screen_Inactive
     ; only process is there has been a change
-    If *Screen_Settings\Full_Screen Or *P\Mouse_Control
+    If *Screen_Settings\Full_Screen Or *System\Mouse_Control
       ; Mouse is contained within the screen
       ExamineMouse()
-      *P\Mouse_X = MouseX() * *P\Mouse_Sensitivity_X
-      *P\Mouse_Y = MouseY() * *P\Mouse_Sensitivity_Y
-      *P\Mouse_Button_Left = MouseButton(#PB_MouseButton_Left)
-      *P\Mouse_Button_Middle = MouseButton(#PB_MouseButton_Middle)
-      *P\Mouse_Button_Right = MouseButton(#PB_MouseButton_Right)
-      *P\Mouse_Wheel_Movement = MouseWheel()
+      *System\Mouse_X = MouseX() * *System\Mouse_Sensitivity_X
+      *System\Mouse_Y = MouseY() * *System\Mouse_Sensitivity_Y
+      *System\Mouse_Button_Left = MouseButton(#PB_MouseButton_Left)
+      *System\Mouse_Button_Middle = MouseButton(#PB_MouseButton_Middle)
+      *System\Mouse_Button_Right = MouseButton(#PB_MouseButton_Right)
+      *System\Mouse_Wheel_Movement = MouseWheel()
     Else
-      *P\Mouse_X = WindowMouseX(#Game_Window_Main)
-      *P\Mouse_Y = WindowMouseY(#Game_Window_Main)
+      *System\Mouse_X = WindowMouseX(#Game_Window_Main)
+      *System\Mouse_Y = WindowMouseY(#Game_Window_Main)
       ; Window mouse clicks are handled by ProcessWindowEvents
     EndIf 
     
@@ -1702,15 +1586,15 @@ EndProcedure
 
 ;- Events
 
-Procedure ProcessWindowEvents(*P.Game_Parametres_Structure, *System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
+Procedure ProcessWindowEvents(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
                               Array Sprite_Resource.Sprite_Resource_Structure(1))
   Protected Event.i, Event_Window.i
   Protected c.i
   Protected Result.i
   If Not *Screen_Settings\Full_Screen Or *Screen_Settings\Full_Screen_Type = #Full_Screen_Windowed
     ; only process window events in a window mode               
-    *P\Mouse_Left_Click = 0 ; Reset the mouse clicks
-    *P\Mouse_Right_Click = 0
+    *System\Mouse_Left_Click = 0 ; Reset the mouse clicks
+    *System\Mouse_Right_Click = 0
     Repeat              ; process all events
       Event = WindowEvent()
       Event_Window = EventWindow()
@@ -1724,7 +1608,7 @@ Procedure ProcessWindowEvents(*P.Game_Parametres_Structure, *System.System_Struc
         Case #PB_Event_CloseWindow
           Select Event_Window
             Case #Game_Window_Main
-              *P\Quit = 1
+              *System\Quit = 1
             Case #Game_Window_Debug
               *System\Debug_Window = 0
               CloseWindow(#Game_Window_Debug)
@@ -1739,8 +1623,8 @@ Procedure ProcessWindowEvents(*P.Game_Parametres_Structure, *System.System_Struc
                 If *Window_Settings\Window_W <> WindowWidth(#Game_Window_Main) * DesktopResolutionX() Or *Window_Settings\Window_H <> WindowHeight(#Game_Window_Main) * DesktopResolutionY()
                   *Window_Settings\Window_W = WindowWidth(#Game_Window_Main)
                   *Window_Settings\Window_H = WindowHeight(#Game_Window_Main)
-                  *P\Window_Moved = 1
-                  ; Don't close the window and reopen (SetScreen), just reset the window screen
+                  *Window_Settings\Window_Moved = 1
+                  ; Don't close the window And reopen (SetScreen), just reset the window screen
                   SetWindowScreen(*System, *Screen_Settings)
                   LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource()) ; have to reload sprites after setting a new Window Screen
                   ;InitialiseFonts(*System)
@@ -1758,7 +1642,7 @@ Procedure ProcessWindowEvents(*P.Game_Parametres_Structure, *System.System_Struc
             Case #Game_Window_Main
               If GetWindowState(#Game_Window_Main) = #PB_Window_Normal ; only change the coordinates if it's a normal window
                 Debug "ProcessWindowEvents: main window moved"
-                *P\Window_Moved = 1
+                *Window_Settings\Window_Moved = 1
                 *Window_Settings\Window_X = WindowX(#Game_Window_Main)
                 *Window_Settings\Window_Y = WindowY(#Game_Window_Main)
               EndIf
@@ -1770,7 +1654,7 @@ Procedure ProcessWindowEvents(*P.Game_Parametres_Structure, *System.System_Struc
         Case #PB_Event_MaximizeWindow
           Debug "ProcessWindowEvents: window maximised"
           *Window_Settings\Window_Maximised = 1
-          *P\Window_Minimised = 0
+          *Window_Settings\Window_Minimised = 0
           SetWindowScreen(*System, *Screen_Settings)
           LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource())    ; have to reload sprites after setting a new Window Screen
           ;InitialiseFonts(*System)
@@ -1778,7 +1662,7 @@ Procedure ProcessWindowEvents(*P.Game_Parametres_Structure, *System.System_Struc
         Case #PB_Event_RestoreWindow
           Debug "ProcessWindowEvents: window restored"
           *Window_Settings\Window_Maximised = 0
-          *P\Window_Minimised = 0
+          *Window_Settings\Window_Minimised = 0
           Debug "ProcessWindowEvents: resizing to: " + *Window_Settings\Window_W + " x " + *Window_Settings\Window_H
           ResizeWindow(#Game_Window_Main, *Window_Settings\Window_X, *Window_Settings\Window_Y, *Window_Settings\Window_W / DesktopResolutionX(), *Window_Settings\Window_H / DesktopResolutionY())  
           SetWindowScreen(*System, *Screen_Settings)
@@ -1787,13 +1671,13 @@ Procedure ProcessWindowEvents(*P.Game_Parametres_Structure, *System.System_Struc
           LoadSystemFont(*System)
         Case #PB_Event_MinimizeWindow
           *Window_Settings\Window_Maximised = 0
-          *P\Window_Minimised = 1
+          *Window_Settings\Window_Minimised = 1
         Case #PB_Event_LeftClick
           Debug "ProcessWindowEvents: primary mouse button clicked"
-          *P\Mouse_Left_Click = 1
+          *System\Mouse_Left_Click = 1
         Case #PB_Event_RightClick
           Debug "ProcessWindowEvents: secondary mouse button clicked"
-          *P\Mouse_Right_Click = 1
+          *System\Mouse_Right_Click = 1
       EndSelect
     Until Event = 0
   EndIf  
@@ -1833,12 +1717,12 @@ Procedure ProcessSystem(*FPS_Data.FPS_Structure)
   ProcessFPS(*FPS_Data)
 EndProcedure
 
-Procedure SaveConfig(*P.Game_Parametres_Structure, *System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, Level.i=1)
+Procedure SaveConfig(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, Level.i=1)
   ; Never call SaveConfig before LoadConfig
   ; Save levels: 1 - window settings, 2 - game settings
   Protected f.s
   f = GetCurrentDirectory() + *System\Game_Config_File
-  If *P\Config_Loaded ; only save if the config has been loaded
+  If *System\Config_Loaded ; only save if the config has been loaded
     If Level = 1 Or Level = 2
       ; Create or open the config file
       If Not *System\Config_File
@@ -1895,7 +1779,7 @@ Procedure SaveConfig(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
   EndIf
 EndProcedure
 
-Procedure LoadConfig(*P.Game_Parametres_Structure, *System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure)
+Procedure LoadConfig(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure)
   ; Loads configuration if available and sets defaults when no config is available
   ; If there is no config file then SaveConfig will be called
   Protected f.s
@@ -1920,22 +1804,22 @@ Procedure LoadConfig(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
   *Window_Settings\Window_Maximised = ReadPreferenceInteger("Window_Maximised", 0)
   PreferenceGroup("Grapics")
   ; *Screen_Settings\Flip_Mode = ReadPreferenceInteger("Flip_Mode", #Default_Flip_Mode)
-  *P\Config_Loaded = 1 ; set this so that SaveConfig can run. It's important to load config before saving
+  *System\Config_Loaded = 1 ; set this so that SaveConfig can run. It's important to load config before saving
   ClosePreferences()
   ProcedureReturn 1
 EndProcedure
 
-Procedure SetInitialiseError(*P.Game_Parametres_Structure, Message.s)
+Procedure SetInitialiseError(*System.System_Structure, Message.s)
   ; Sets a special error message on the first initialisation error encountered, to help troubleshooting
-  If Not *P\Initialisation_Error
+  If Not *System\Initialisation_Error
     ; Only set the error message if there has been no error yet, this helps with troubleshooting so you can see the first error
-    *P\Initialisation_Error = 1
-    *P\Initialise_Error_Message = Message
+    *System\Initialisation_Error = 1
+    *System\Initialise_Error_Message = Message
   EndIf
 EndProcedure
 
-Procedure Initialise(*P.Game_Parametres_Structure, *System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Structure,
-                     Array Sprite_Resource.Sprite_Resource_Structure(1))
+Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Structure,
+                     *Menu_Settings.Menu_Settings_Structure, Array Menu_Control.Menu_Control_Structure(1), Array Sprite_Resource.Sprite_Resource_Structure(1))
   ; Initialises the environment
   Protected Result.i, c.i
   
@@ -1945,12 +1829,10 @@ Procedure Initialise(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
   Debug "CPU cores: " + CountCPUs(#PB_System_CPUs)
   Debug "RAM: " + FormatNumber(GetPhysicalMem() / (1024 * 1024), 0) + "GB"  
   
-  SetDefaults(*P)
-  
   CompilerIf #PB_Compiler_OS = #PB_OS_Linux
     If Not InitGDK()
       Debug "Initialise: could not initialise GDK"
-      SetInitialiseError(*P, "Could not initialise GDK")
+      SetInitialiseError(*System, "Could not initialise GDK")
       ProcedureReturn 0
   EndIf
       
@@ -1958,13 +1840,13 @@ Procedure Initialise(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
   
   CompilerIf #PB_Compiler_OS = #PB_OS_Windows
     ; Check if game is already running
-    *P\MutexID = CreateMutex_(0, 1, *System\Game_Title)
-    *P\MutexError = GetLastError_()
-    If *P\MutexID = 0 Or *P\MutexError <> 0
-      ReleaseMutex_(*P\MutexID)
-      CloseHandle_(*P\MutexID)
+    *System\MutexID = CreateMutex_(0, 1, *System\Game_Title)
+    *System\MutexError = GetLastError_()
+    If *System\MutexID = 0 Or *System\MutexError <> 0
+      ReleaseMutex_(*System\MutexID)
+      CloseHandle_(*System\MutexID)
       Debug "Initialise: " + *System\Game_Title + " is already running, cannot run more than one instance"
-      SetInitialiseError(*P, *System\Game_Title + " is already running, cannot run more than one instance")
+      SetInitialiseError(*System, *System\Game_Title + " is already running, cannot run more than one instance")
       ProcedureReturn 0
     EndIf
   CompilerEndIf
@@ -1976,39 +1858,40 @@ Procedure Initialise(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
   
   If Not InitDesktop(*Screen_Settings, *FPS_Data)
     Debug "Initialise: could not initialise desktop"
-    SetInitialiseError(*P, "Could not initialise desktop (the operating system graphical display)")
+    SetInitialiseError(*System, "Could not initialise desktop (the operating system graphical display)")
     ProcedureReturn 0
   EndIf
   
   If *Screen_Settings\Desktop[0]\Depth < *System\Minimum_Colour_Depth
     Debug "Initialise: Unable to set minimum colour depth: " + *System\Minimum_Colour_Depth + " bit"
-    SetInitialiseError(*P, "Unable to set minimum colour depth: " + *System\Minimum_Colour_Depth + " bit")
+    SetInitialiseError(*System, "Unable to set minimum colour depth: " + *System\Minimum_Colour_Depth + " bit")
     ProcedureReturn 0    
   EndIf
   
   If Not InitSprite()
     Debug "Initialise: could not initialise sprite environment"
-    SetInitialiseError(*P, "Could not initialise sprite environment (usually this is a DirectX problem)")
+    SetInitialiseError(*System, "Could not initialise sprite environment (usually this is a DirectX problem)")
     ProcedureReturn 0    
   Else
     SpriteQuality(#PB_Sprite_NoFiltering)
   EndIf
   
-  If Not LoadConfig(*P, *System, *Window_Settings, *Screen_Settings)
+  If Not LoadConfig(*System, *Window_Settings, *Screen_Settings)
     Debug "Initialise: could not load config"
-    SetInitialiseError(*P, "Could not load config")
+    SetInitialiseError(*System, "Could not load config")
     ProcedureReturn 0
   EndIf    
   
-  SaveConfig(*P, *System, *Window_Settings, *Screen_Settings, 2) ; always save config on start in case of corrupt file
+  SaveConfig(*System, *Window_Settings, *Screen_Settings, 2) ; always save config on start in case of corrupt file
   
   If Not SetScreen(*System, *Window_Settings, *Screen_Settings)
     Debug "Initialise: could not set screen"
-    SetInitialiseError(*P, "Could not set screen")
+    SetInitialiseError(*System, "Could not set screen")
     ProcedureReturn 0
   EndIf
   
-  ClearScreen(*P\Background_Colour)
+  ClearScreen(*Screen_Settings\Background_Colour)
+  
   FlipBuffers()
   
   If *System\Render_Engine3D <> #Render_Engine3D_None
@@ -2022,7 +1905,7 @@ Procedure Initialise(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
   
   Debug "Initialise: loading menu controls"
   
-  Select *P\Menu_System_Type
+  Select *Menu_Settings\Menu_System_Type
     Case #Menu_System_Menuless
       Restore Menu_Controls_MenuLess_Data
     Case #Menu_System_Simple
@@ -2030,16 +1913,16 @@ Procedure Initialise(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
     Case #Menu_System_Pointer
       Restore Menu_Controls_Pointer_Data
   EndSelect
-  Read.i *P\Menu_Controls_Count
-  If *P\Menu_Controls_Count > #Max_Menu_Controls
+  Read.i *Menu_Settings\Menu_Controls_Count
+  If *Menu_Settings\Menu_Controls_Count > #Max_Menu_Controls
     *System\Fatal_Error_Message = "#Max_Menu_Controls too small to load all menu controls"
     Fatal_Error(*System)       
   EndIf
-  For c = 0 To *P\Menu_Controls_Count - 1
-    Read.i *P\Menu_Control[c]\Menu_Control_Type
-    Read.i *P\Menu_Control[c]\Menu_Control_Action
-    Read.i *P\Menu_Control[c]\Menu_Control_Hardware_Type
-    Read.i *P\Menu_Control[c]\Menu_Control_ID
+  For c = 0 To *Menu_Settings\Menu_Controls_Count - 1
+    Read.i Menu_Control(c)\Menu_Control_Type
+    Read.i Menu_Control(c)\Menu_Control_Action
+    Read.i Menu_Control(c)\Menu_Control_Hardware_Type
+    Read.i Menu_Control(c)\Menu_Control_ID
   Next
   
   LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource())
@@ -2052,22 +1935,22 @@ Procedure Initialise(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
   ;EndIf  
   
   ; Load Menu Background
-  Select *P\Menu_Background_Data_Source
+  Select *Menu_Settings\Menu_Background_Data_Source
     Case #Data_Source_Internal_Memory
       Restore Menu_Background_None_Data
-      Read.i *P\Menu_Background_Colour
+      Read.i *Menu_Settings\Menu_Background_Colour
   EndSelect
   
   ; Elevate control to layer 2 (menu)
-  *P\Background_Colour = *P\Menu_Background_Colour
-  *P\Menu_Active = 1
+  ;*Screen_Settings\Background_Colour = *Menu_Settings\Menu_Background_Colour
+  *Menu_Settings\Menu_Active = 1
   
   Debug "Initialise: completed"
-  *P\Initialised = 1
+  *System\Initialised = 1
   ProcedureReturn 1 ; Initialise successful
 EndProcedure
 
-Procedure Shutdown(*P.Game_Parametres_Structure, *System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure)
+Procedure Shutdown(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure)
   If *Screen_Settings\Screen_Open
     CloseScreen()
     *Screen_Settings\Screen_Open = 0
@@ -2076,66 +1959,21 @@ Procedure Shutdown(*P.Game_Parametres_Structure, *System.System_Structure, *Wind
     CloseWindow(0)
     *Window_Settings\Window_Open = 0
   EndIf 
-  SaveConfig(*P, *System, *Window_Settings, *Screen_Settings) ; only need to save screen/window variables
-  CompilerIf #PB_Compiler_OS = #PB_OS_Windows : CloseHandle_(*P\MutexID) : CompilerEndIf
-  FreeMemory(*P)
+  SaveConfig(*System, *Window_Settings, *Screen_Settings) ; only need to save screen/window variables
+  CompilerIf #PB_Compiler_OS = #PB_OS_Windows : CloseHandle_(*System\MutexID) : CompilerEndIf
 EndProcedure  
 
 ;- Self Test
 
 CompilerIf #PB_Compiler_IsMainFile
 
+;- Main loop
+
+Repeat ; used for restarting the game
+  If Restart : Debug "System: restarting..." : EndIf
+  Restart = 0 ; game has started so don't restart again
 ;- Set defaults
-System\Fatal_Error_Message = "none"
-System\Game_Title = "Universal Game Engine"
-System\Game_Config_File = "settings.cfg"
-System\Sprite_List_Data_Source = #Data_Source_Internal_Memory
-System\Game_Resource_Location = "Data"
-System\Debug_Window = 1
-System\Current_Directory = GetCurrentDirectory()
-System\Render_Engine3D = #Render_Engine3D_Builtin
-System\Show_Debug_Info = 0
-System\Debug_Var_Count = 1
-System\Debug_Window_Front_Colour = #Black
-System\Debug_Window_Back_Colour = #White
-
-FPS_Data\Initialised = 0
-FPS_Data\Frequency = 0
-FPS_Data\Frame = 0
-
-Window_Settings\Allow_Window_Resize = 1
-Window_Settings\Reset_Window = 0
-
-Screen_Settings\Num_Monitors = 0
-Screen_Settings\Total_Desktop_Width = 0
-Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
-Screen_Settings\Border_Enable = 1
-Screen_Settings\Border = 0 ; turn the border on by default
-Screen_Settings\Classic_Screen_Background_Colour = #Black
-
-; C64 settings: border: 403x284 screen: 320x200
-
-;Screen_Settings\Border_Width = 288 ; optional border setting
-;Screen_Settings\Border_Height = 240
-;Screen_Settings\Screen_Res_Width = 256
-;Screen_Settings\Screen_Res_Height = 224
-
-;Screen_Settings\Border_Width = 320 ; optional border setting
-;Screen_Settings\Border_Height = 352
-;Screen_Settings\Screen_Res_Width = 256
-;Screen_Settings\Screen_Res_Height = 288
-
-Screen_Settings\Border_Width = 400 ; optional border setting
-Screen_Settings\Border_Height = 280
-Screen_Settings\Screen_Res_Width = 320
-Screen_Settings\Screen_Res_Height = 200
-
-Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
-Screen_Settings\Background_Colour = #Blue
-Screen_Settings\Full_Screen = 0
-Screen_Settings\Full_Screen_Type = #Full_Screen_Windowed
-;Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
-
+  
 CompilerSelect #PB_Compiler_OS
   CompilerCase #PB_OS_Windows
     System\Minimum_Colour_Depth = 32
@@ -2144,43 +1982,103 @@ CompilerSelect #PB_Compiler_OS
   CompilerCase #PB_OS_MacOS
     System\Minimum_Colour_Depth = 32
 CompilerEndSelect  
-  
-;- Main loop
 
-Repeat ; used for restarting the game
-  If Restart : Debug "System: restarting..." : EndIf
-  Restart = 0 ; game has started so don't restart again
-  Define *P.Game_Parametres_Structure
-  *P = AllocateMemory(SizeOf(Game_Parametres_Structure)) ; Allocate game memory
-  If *P And Initialise(*P, @System, @Window_Settings, @Screen_Settings, @FPS_Data, Sprite_Resource())
+  System\Fatal_Error_Message = "none"
+  System\Game_Title = "Universal Game Engine"
+  System\Game_Config_File = "settings.cfg"
+  System\Sprite_List_Data_Source = #Data_Source_Internal_Memory
+  System\Game_Resource_Location = "Data"
+  System\Debug_Window = 1
+  System\Current_Directory = GetCurrentDirectory()
+  System\Render_Engine3D = #Render_Engine3D_Builtin
+  System\Show_Debug_Info = 0
+  System\Debug_Var_Count = 1
+  System\Show_Mouse = 1
+  System\Mouse_Sprite_Index = 1
+  System\Quit = 0
+  System\Allow_Restart = 1
+  System\Allow_Switch_to_Window = 1
+  System\Allow_Screen_Capture = 1
+  System\Mouse_Sensitivity_X = 3
+  System\Mouse_Sensitivity_Y = 3
+  System\Config_Loaded = 0  
+  System\Initialise_Error_Message = "none"  
+
+  FPS_Data\Initialised = 0
+  FPS_Data\Frequency = 0
+  FPS_Data\Frame = 0
+
+  Window_Settings\Allow_Window_Resize = 1
+  Window_Settings\Reset_Window = 0
+  Window_Settings\Debug_Window_Front_Colour = #Black
+  Window_Settings\Debug_Window_Back_Colour = #White
+  Window_Settings\Window_Debug_Edit_Gadget = 0 ; reset the gadget ID for debug window
+
+  Screen_Settings\Num_Monitors = 0
+  Screen_Settings\Total_Desktop_Width = 0
+  Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
+  Screen_Settings\Border_Enable = 1
+  Screen_Settings\Border = 0 ; turn the border on by default
+  Screen_Settings\Classic_Screen_Background_Colour = #Black
+
+  ; C64 settings: border: 403x284 screen: 320x200
+
+  ;Screen_Settings\Border_Width = 288 ; optional border setting
+  ;Screen_Settings\Border_Height = 240
+  ;Screen_Settings\Screen_Res_Width = 256
+  ;Screen_Settings\Screen_Res_Height = 224
+
+  ;Screen_Settings\Border_Width = 320 ; optional border setting
+  ;Screen_Settings\Border_Height = 352
+  ;Screen_Settings\Screen_Res_Width = 256
+  ;Screen_Settings\Screen_Res_Height = 288
+
+  Screen_Settings\Border_Width = 400 ; optional border setting
+  Screen_Settings\Border_Height = 280
+  Screen_Settings\Screen_Res_Width = 320
+  Screen_Settings\Screen_Res_Height = 200
+
+  Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
+  Screen_Settings\Background_Colour = #Blue
+  Screen_Settings\Full_Screen = 0
+  Screen_Settings\Full_Screen_Type = #Full_Screen_Windowed
+  ;Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
+
+  Menu_Settings\Menu_Background = #Menu_Background_None
+  Menu_Settings\Menu_Background_Colour = #Black ; this will be changed when the menu is loaded
+  Menu_Settings\Menu_Background_Data_Source = #Data_Source_Internal_Memory
+  Menu_Settings\Menu_Action = #Menu_Action_None ; make sure nothing has been pressed for the menu controls  
+  Menu_Settings\Menu_System_Type = #Menu_System_Menuless
+
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, Menu_Control(), Sprite_Resource())
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
     Repeat
       ; main game loop
       ProcessSystem(@FPS_Data) ; must be first in the main loop
       Debug_Var(0) = "FPS: " + FPS_Data\FPS
-      ProcessWindowEvents(*P, @System, @Window_Settings, @Screen_Settings, Sprite_Resource())
-      ProcessMouse(*P, @Screen_Settings)
-      ProcessKeyboard(*P, @System, @Window_Settings, @Screen_Settings, Sprite_Resource())
+      ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, Sprite_Resource())
+      ProcessMouse(@System, @Screen_Settings)
+      ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, Menu_Control(), Sprite_Resource())
       DoClearScreen(@System, @Screen_Settings)
-      Draw3DWorld(*P)
-      DrawSprites(*P, @System, @Screen_Settings)
-      ShowDebugInfo(*P, @System, @Screen_Settings, @FPS_Data)
+      Draw3DWorld(@System)
+      DrawSprites(@System, @Screen_Settings, @Menu_Settings)
+      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
       GrabScreen(@Screen_Settings)
-      Draw2DGraphics(*P, @System, @Screen_Settings)
+      Draw2DGraphics(@System, @Screen_Settings)
       DrawBorder(@Screen_Settings)
       ShowZoomed2DScreen(@Screen_Settings)
-      DoPostProcessing(*P, @System) ; eg screen capture
-      DrawMouse(*P, @System, @Screen_Settings, Sprite_Resource())
+      DoPostProcessing(@System) ; eg screen capture
+      DrawMouse(@System, @Screen_Settings, Sprite_Resource())
       ShowFullResGraphics(@Screen_Settings) ; eg system messages or console (not captured by screen capture)
       ShowDebugWindowInfo(@System, @Window_Settings, @FPS_Data, Debug_Var())
-      DoFlipBuffer(*P)
-      CheckFullScreen(*P, @System, @Window_Settings, @Screen_Settings)  ; check for switching back to main window system (alt+tab), must be after FlipBuffers      
-    Until *P\Quit Or Restart
+      DoFlipBuffer(@Screen_Settings)
+      CheckFullScreen(@System, @Window_Settings, @Screen_Settings)  ; check for switching back to main window system (alt+tab), must be after FlipBuffers      
+    Until System\Quit Or Restart
     Debug "System: shutting down..."
-    Shutdown(*P, @System, @Window_Settings, @Screen_Settings)
+    Shutdown(@System, @Window_Settings, @Screen_Settings)
   Else
-    MessageRequester ("Unable to start " + System\Game_Title, *P\Initialise_Error_Message, #PB_MessageRequester_Error)
+    MessageRequester ("Unable to start " + System\Game_Title, System\Initialise_Error_Message, #PB_MessageRequester_Error)
   EndIf
 Until Not Restart
 
@@ -2371,9 +2269,9 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 979
-; FirstLine = 975
-; Folding = -----------
+; CursorPosition = 2041
+; FirstLine = 2031
+; Folding = ----------
 ; EnableXP
 ; DPIAware
 ; Executable = ..\main.exe
