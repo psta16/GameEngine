@@ -198,6 +198,7 @@ Structure Sprite_Resource_Structure
 EndStructure
 
 Structure System_Structure
+  Current_Directory.s
   Data_Directory.s
   Minimum_Colour_Depth.i
   Sprites_Loaded.i
@@ -214,6 +215,8 @@ Structure System_Structure
   Window_Debug_W.i
   Window_Debug_H.i
   Config_File.i             ; set to 1 if config file exists, used for when there's no config file
+  Last_Screen_Capture_File.s; last file used by screen capture
+  Last_Screen_Capture_Number.i ; used for capturing more than one frame per second  
 EndStructure
 
 Structure Window_Settings_Structure
@@ -260,6 +263,7 @@ Structure Screen_Settings_Structure
   Screen_Open.i; flag set when screen successfuly open (window or full screen)
   Screen_Active.i ; set when the screen is active (including the windowed screen)
   Classic_Screen_Background_Colour.i ; the colour used for the background of the classic screen (usually black)
+  Full_Screen_Inactive.i             ; set when the user switches from the full screen to the desktop
 EndStructure  
 
 Structure FPS_Structure
@@ -314,7 +318,7 @@ Structure Game_Parametres_Structure
   Background_Colour.i       ; background colour used when clearing the screen. This is set depending on what layer the system is running in
   
   Config_Loaded.i           ; set to 1 once the config is loaded. Cannot save until loaded  
-  Current_Directory.s
+  
   FPS.f                  ; current FPS
   FPS_Samples.i[#Max_FPS_Samples] ; array for holding FPS samples
   FPS_Average_Index.i    ; index for building an array of FPS times
@@ -322,7 +326,7 @@ Structure Game_Parametres_Structure
   FPS_Initialised.i      ; flag for when the FPS is initialised
   FPS_Last_Time.i        ; stores the last time in milliseconds that FPS will be calculated from
   ;Full_Screen.i          ; 0 = windowed, 1 = full screen
-  Full_Screen_Inactive.i ; set when the user switches from the full screen to the desktop
+  
   ;Full_Screen_Type.i     ; see enumeration Full_Screen_Types, classic or windowed
   
   Game_Database_Location.s ; location of the database
@@ -332,8 +336,8 @@ Structure Game_Parametres_Structure
   Initialisation_Error.i   ; will be set when there's an error. Helps track down the first error causing an issue
   Initialise_Error_Message.s ; special string for giving an initialisation error message. Only set this using SetInitialiseError()
   Initialised.i
-  Last_Screen_Capture_File.s ; last file used by screen capture
-  Last_Screen_Capture_Number.i ; used for capturing more than one frame per second  
+  
+  
   Min_Window_Width.i           ; minimum width you can set a window to
   Min_Window_Height.i
   Mouse_Button_Left.i ; gives the actual mouse button state, only works in ExamineMouse() mode
@@ -470,7 +474,6 @@ Procedure SetDefaults(*P.Game_Parametres_Structure)
   
   
   *P\Config_Loaded = 0          ; config not yet loaded
-  *P\Current_Directory = GetCurrentDirectory()
   
   ;*Screen_Settings\Flip_Mode = #PB_Screen_NoSynchronization
   
@@ -481,14 +484,12 @@ Procedure SetDefaults(*P.Game_Parametres_Structure)
   ;*P\Full_Screen = 0
   ;*P\Full_Screen_Type = #Full_Screen_Windowed
   ;*P\Full_Screen_Type = #Full_Screen_Classic
-  *P\Full_Screen_Inactive = 0
   *P\Game_Database_Location = ""
   
   *P\Initialisation_Error = 0
   *P\Initialise_Error_Message = "none"
   *P\Initialised = 0
-  *P\Last_Screen_Capture_File = ""
-  *P\Last_Screen_Capture_Number = 0 ; reset the screen capture counter for more than one per second
+  
   *P\Mouse_Control = 0 ; set when the mouse is controlling the player
   *P\Mouse_Offset_X = 0
   *P\Mouse_Offset_Y = 0
@@ -968,7 +969,7 @@ Procedure ResetScreen(*System.System_Structure, *Window_Settings.Window_Settings
   LoadSystemFont(*System)
 EndProcedure
 
-Procedure SwitchFullScreen(*P.Game_Parametres_Structure, *System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
+Procedure SwitchFullScreen(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
   Array Sprite_Resource.Sprite_Resource_Structure(1))
   ; Handles reloading of resources
   Protected x.i, y.i
@@ -987,23 +988,23 @@ Procedure SwitchFullScreen(*P.Game_Parametres_Structure, *System.System_Structur
   LoadSystemFont(*System)
 EndProcedure
 
-Procedure SaveScreen(*P.Game_Parametres_Structure)
+Procedure SaveScreen(*System.System_Structure)
   Protected s.i, d.s, n.s, f.s
   s = GrabSprite(#PB_Any, 0, 0, ScreenWidth(), ScreenHeight())
   d = FormatDate("%yyyy%mm%dd-%hh%ii%ss", Date())
   n = ""
-  If *P\Last_Screen_Capture_File = d
+  If *System\Last_Screen_Capture_File = d
     ; add counter to end of date
-    *P\Last_Screen_Capture_Number = *P\Last_Screen_Capture_Number + 1
-    n = "-" + Str(*P\Last_Screen_Capture_Number)
+    *System\Last_Screen_Capture_Number = *System\Last_Screen_Capture_Number + 1
+    n = "-" + Str(*System\Last_Screen_Capture_Number)
   Else
     ; reset the counter because the time has incremented to the next second
-    *P\Last_Screen_Capture_Number = 0
+    *System\Last_Screen_Capture_Number = 0
   EndIf
-  f = *P\Current_Directory + "screen_capture_" + d + n + ".png"
-  *P\Last_Screen_Capture_File = d
+  f = *System\Current_Directory + "screen-capture-" + d + n + ".png"
+  *System\Last_Screen_Capture_File = d
   If SaveSprite(s, f, #PB_ImagePlugin_PNG)
-    Debug "SaveScreen: saved screen_capture_" + d + n + ".png"
+    Debug "SaveScreen: saved screen-capture-" + d + n + ".png"
   Else
     Debug "SaveScreen: failed"
   EndIf
@@ -1016,14 +1017,14 @@ Procedure DoClearScreen(*P.Game_Parametres_Structure, *System.System_Structure, 
     ZoomSprite(*Screen_Settings\Pixel_Sprite, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height)
     DisplayTransparentSprite(*Screen_Settings\Pixel_Sprite, 0, 0, 255, *Screen_Settings\Background_Colour)
   Else
-    If Not *P\Full_Screen_Inactive
+    If Not *Screen_Settings\Full_Screen_Inactive
       ClearScreen(*Screen_Settings\Background_Colour)
     EndIf
   EndIf
 EndProcedure
 
-Procedure DoFlipBuffer(*P.Game_Parametres_Structure)
-  If Not *P\Full_Screen_Inactive
+Procedure DoFlipBuffer(*Screen_Settings.Screen_Settings_Structure)
+  If Not *Screen_Settings\Full_Screen_Inactive
     ; don't try and flip an inactive full screen
     FlipBuffers()
   EndIf
@@ -1175,9 +1176,9 @@ Procedure DisplaySystemFontString(*System.System_Structure, s.s, x.i, y.i, Inten
   Next
 EndProcedure
 
-Procedure ShowDebugInfo(*P.Game_Parametres_Structure, *System.System_Structure, *FPS_Data.FPS_Structure)
+Procedure ShowDebugInfo(*P.Game_Parametres_Structure, *System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Structure)
   Protected FPS.s
-  If *P\Show_Debug_Info And Not *P\Full_Screen_Inactive
+  If *P\Show_Debug_Info And Not *Screen_Settings\Full_Screen_Inactive
     FPS = "FPS:"
     FPS = FPS + Str(*FPS_Data\FPS)
     ;Font::DisplayStringSpriteUnicode(#Font_Fixedsys_Neo_Plus, FPS, 0, 0)
@@ -1356,7 +1357,10 @@ Procedure DrawSprites(*P.Game_Parametres_Structure, *System.System_Structure, *S
   ;DisplaySpriteResource(*P, *P\Mouse_Sprite_Index, 80, 50)
   
   ;DrawDashedLine(*System, *Screen_Settings, 100, 80, 200, 120, #Black, #White, 2)
-  If Not *P\Full_Screen_Inactive ; don't draw anything if full screen has been alt+tabbed
+  
+  
+  
+  If Not *Screen_Settings\Full_Screen_Inactive ; don't draw anything if full screen has been alt+tabbed
     
     ; *************************************
     ; menu
@@ -1430,8 +1434,13 @@ Procedure ShowZoomed2DScreen(*Screen_Settings.Screen_Settings_Structure)
   EndIf
 EndProcedure
 
+Procedure ShowFullResGraphics(*System.System_Structure)
+  ; Useful for showing system messages or a console etc
+  
+EndProcedure
+
 Procedure DrawMouse(*P.Game_Parametres_Structure, *System.System_Structure, *Screen_Settings.Screen_Settings_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1))
-  If *P\Show_Mouse And Not *P\Full_Screen_Inactive
+  If *P\Show_Mouse And Not *Screen_Settings\Full_Screen_Inactive
     If Not *P\Mouse_Control
       ; dont show mouse when it's in control (ie first person mouse control)
      If *Screen_Settings\Full_Screen
@@ -1443,9 +1452,9 @@ Procedure DrawMouse(*P.Game_Parametres_Structure, *System.System_Structure, *Scr
   EndIf
 EndProcedure
 
-Procedure DoPostProcessing(*P.Game_Parametres_Structure)
+Procedure DoPostProcessing(*P.Game_Parametres_Structure, *System.System_Structure)
   If *P\Take_Screen_Capture
-    SaveScreen(*P)
+    SaveScreen(*System)
     *P\Take_Screen_Capture = 0
   EndIf
 EndProcedure
@@ -1455,7 +1464,7 @@ Procedure CheckFullScreen(*P.Game_Parametres_Structure, *System.System_Structure
   ; to the operating system (ie using alt+tab)
   Protected e.i
   If *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
-    If *P\Full_Screen_Inactive
+    If *Screen_Settings\Full_Screen_Inactive
       ; process window events for the minimised window
       e = WaitWindowEvent(10)
       If e = #PB_Event_ActivateWindow
@@ -1470,7 +1479,7 @@ Procedure CheckFullScreen(*P.Game_Parametres_Structure, *System.System_Structure
         EndIf
         MouseLocate(*P\Mouse_Save_X, *P\Mouse_Save_Y) ; move the mouse back to the saved location
         ;LoadSpriteResources(*P)
-        *P\Full_Screen_Inactive = 0
+        *Screen_Settings\Full_Screen_Inactive = 0
       EndIf      
     Else
       ; Check if the screen has gone inactive
@@ -1482,7 +1491,7 @@ Procedure CheckFullScreen(*P.Game_Parametres_Structure, *System.System_Structure
         ReleaseMouse(1) ; release the mouse to the OS
         CloseScreen()
         *Screen_Settings\Screen_Open = 0
-        *P\Full_Screen_Inactive = 1
+        *Screen_Settings\Full_Screen_Inactive = 1
         OpenWindow(#Game_Window_Full_Screen_Minimised, 1, 1, 1, 1, *System\Game_Title, #PB_Window_Minimize)
         Debug "CheckFullScreen: screen inactive, waiting for user to switch back"
       EndIf
@@ -1495,14 +1504,14 @@ EndProcedure
 Procedure ProcessKeyboard(*P.Game_Parametres_Structure, *System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
                           Array Sprite_Resource.Sprite_Resource_Structure(1))
   Protected c.i
-  If Not *P\Full_Screen_Inactive
+  If Not *Screen_Settings\Full_Screen_Inactive
     ; Disable keyboard when classic full screen inactive
     ExamineKeyboard()
     ; Always process CTRL, SHIFT and ALT pushed commands first
     ; Process alt commands
     If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
       If KeyboardReleased(#PB_Key_Return)
-        SwitchFullScreen(*P, *System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+        SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
       EndIf
     EndIf
     ; Process control commands
@@ -1617,7 +1626,7 @@ Procedure ProcessKeyboard(*P.Game_Parametres_Structure, *System.System_Structure
     If KeyboardReleased(#PB_Key_F11)
       If *P\Allow_Switch_to_Window
         ; switch between window or full screen
-        SwitchFullScreen(*P, *System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+        SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
       Else
         Debug "ProcessKeyboard: not allowed to switch between full screen and window"
       EndIf
@@ -1638,7 +1647,7 @@ EndProcedure
 
 Procedure ProcessMouse(*P.Game_Parametres_Structure, *Screen_Settings.Screen_Settings_Structure)
   Protected c.i
-  If Not *P\Full_Screen_Inactive
+  If Not *Screen_Settings\Full_Screen_Inactive
     ; only process is there has been a change
     If *Screen_Settings\Full_Screen Or *P\Mouse_Control
       ; Mouse is contained within the screen
@@ -2049,6 +2058,7 @@ System\Game_Config_File = "settings.cfg"
 System\Sprite_List_Data_Source = #Data_Source_Internal_Memory
 System\Game_Resource_Location = "Data"
 System\Debug_Window = 1
+System\Current_Directory = GetCurrentDirectory()
 
 FPS_Data\Initialised = 0
 FPS_Data\Frequency = 0
@@ -2115,13 +2125,14 @@ Repeat ; used for restarting the game
       DoClearScreen(*P, @System, @Screen_Settings)
       Draw3DWorld(*P)
       DrawSprites(*P, @System, @Screen_Settings)
-      ShowDebugInfo(*P, @System, @FPS_Data)
+      ShowDebugInfo(*P, @System, @Screen_Settings, @FPS_Data)
       GrabScreen(@Screen_Settings)
       Draw2DGraphics(*P, @System, @Screen_Settings)
       DrawBorder(@Screen_Settings)
       ShowZoomed2DScreen(@Screen_Settings)
+      DoPostProcessing(*P, @System) ; eg screen capture
       DrawMouse(*P, @System, @Screen_Settings, Sprite_Resource())
-      DoPostProcessing(*P) ; eg screen capture
+      ShowFullResGraphics(@Screen_Settings) ; eg system messages or console (not captured by screen capture)
       DoFlipBuffer(*P)      
       CheckFullScreen(*P, @System, @Window_Settings, @Screen_Settings)  ; check for switching back to main window system (alt+tab), must be after FlipBuffers      
     Until *P\Quit Or Restart
@@ -2319,8 +2330,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1584
-; FirstLine = 1549
+; CursorPosition = 2134
+; FirstLine = 2108
 ; Folding = ----------
 ; EnableXP
 ; DPIAware
