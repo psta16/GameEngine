@@ -143,6 +143,7 @@ Global Restart.i=0 ; restarts the game engine
 #Max_Sprite_Resources = 256 ; total amount of individual sprites supported
 #Num_System_Font_Char = 101 ; number of characters in the system font
 #Max_Variables = 128
+#Max_Debug_Vars = 32
 
 ; Menu
 #Max_Menu_Controls = 12
@@ -168,11 +169,6 @@ Structure Variable_Structure
     Float.f
     Double.d
   EndStructureUnion
-  String.s
-EndStructure
-
-Structure Variable_String_Structure
-  Name.s
   String.s
 EndStructure
 
@@ -210,13 +206,15 @@ Structure System_Structure
   Sprite_Resource_Count.i   ; number of sprite resources
   Game_Resource_Location.s                                         ; location of files
   Debug_Window.i                                                   ; turns on the debug window
-  Window_Debug_X.i ; debug window coordinates
-  Window_Debug_Y.i
-  Window_Debug_W.i
-  Window_Debug_H.i
+  Debug_Var_Count.i ; count of the number of debug variables in the Debug_Var() array, used with the debug window
   Config_File.i             ; set to 1 if config file exists, used for when there's no config file
   Last_Screen_Capture_File.s; last file used by screen capture
   Last_Screen_Capture_Number.i ; used for capturing more than one frame per second  
+  Render_Engine3D.i            ; select which 3D rendering engine to use, select none for 2D only
+  Last_Debug_Window_Update.q   ; time in milliseconds when the debug window was last updated
+  Show_Debug_Info.i            ; when set this will show things like FPS etc on screen
+  Debug_Window_Front_Colour.i
+  Debug_Window_Back_Colour.i
 EndStructure
 
 Structure Window_Settings_Structure
@@ -228,6 +226,11 @@ Structure Window_Settings_Structure
   Window_Y.i
   Window_W.i            ; size of the window when in window mode
   Window_H.i
+  Window_Debug_X.i ; debug window coordinates
+  Window_Debug_Y.i
+  Window_Debug_W.i
+  Window_Debug_H.i  
+  Window_Debug_Edit_Gadget.i ; ID for the edit gadget
 EndStructure
 
 Structure Screen_Settings_Structure
@@ -359,9 +362,9 @@ Structure Game_Parametres_Structure
   MutexError.i ; 
   MutexID.i    ; used to check if more than one instance of the game is running
   Quit.i                 ; flag to quit game 1 = quit. To restart the game use the global Restart variable
-  Render_Engine3D.i      ; select which 3D rendering engine to use, select none for 2D only
   
-  Show_Debug_Info.i      ; when set this will show things like FPS etc on screen
+  
+  
   Show_Loading_Screen.i  ; will show the loading screen during LoadConfig
   Show_Mouse.i           ; shows the mouse
   Simulate_Res.i         ; zooms sprites to simulate a low res game
@@ -401,7 +404,7 @@ Structure Game_Parametres_Structure
   ; The game layer includes all the game mechanics as well as the display mechanism for the levels
   
   Game_Active.i ; game is active
-  Sprite_Instance.Sprite_Instance_Structure[#Max_Sprite_Instances]
+  
   Sprite_Instance_Count.i  
   
 EndStructure
@@ -414,6 +417,8 @@ EndStructure
 
 Dim Variable.Variable_Structure(#Max_Variables)
 Dim Sprite_Resource.Sprite_Resource_Structure(#Max_Sprite_Resources) ; hold all sprite resources (the actual sprite image data)
+Dim Sprite_Instance.Sprite_Instance_Structure(#Max_Sprite_Instances) ; instances of sprites on screen
+Dim Debug_Var.s(#Max_Debug_Vars)
 Define System.System_Structure
 Define Window_Settings.Window_Settings_Structure
 Define Screen_Settings.Screen_Settings_Structure
@@ -494,13 +499,11 @@ Procedure SetDefaults(*P.Game_Parametres_Structure)
   *P\Mouse_Offset_X = 0
   *P\Mouse_Offset_Y = 0
   *P\Mouse_Sprite_Index = 1
-  *P\Mouse_Sensitivity_X = 1.5
-  *P\Mouse_Sensitivity_Y = 1.5
+  *P\Mouse_Sensitivity_X = 3
+  *P\Mouse_Sensitivity_Y = 3
   *P\Mouse_Wheel_Movement = 0
   *P\Quit = 0
-  *P\Render_Engine3D = #Render_Engine3D_Builtin
- 
-  *P\Show_Debug_Info = 1
+
   *P\Show_Loading_Screen = 1
   *P\Show_Mouse = 1
   *P\Simulate_Res = 1 ; simulate a low resolution game
@@ -909,7 +912,7 @@ Procedure SetScreen(*System.System_Structure, *Window_Settings.Window_Settings_S
       EndIf
       If *System\Debug_Window
         Debug "SetScreen: opening debug window"
-        OpenWindow(#Game_Window_Debug, *System\Window_Debug_X, *System\Window_Debug_Y, *System\Window_Debug_W, *System\Window_Debug_H, "Debug", #PB_Window_SystemMenu | #PB_Window_MinimizeGadget | #PB_Window_SizeGadget)
+        OpenWindow(#Game_Window_Debug, *Window_Settings\Window_Debug_X, *Window_Settings\Window_Debug_Y, *Window_Settings\Window_Debug_W, *Window_Settings\Window_Debug_H, "Debug", #PB_Window_SystemMenu | #PB_Window_MinimizeGadget | #PB_Window_SizeGadget)
         WindowBounds(#Game_Window_Debug, 200, 300, #PB_Default, #PB_Default)
         StickyWindow(#Game_Window_Debug, #True) 
       EndIf
@@ -963,6 +966,7 @@ EndProcedure
 
 Procedure ResetScreen(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
                       Array Sprite_Resource.Sprite_Resource_Structure(1))
+  *Window_Settings\Window_Debug_Edit_Gadget = 0 ; reset the gadgets on the debug window
   SetScreen(*System, *Window_Settings, *Screen_Settings)
   LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource())
   ;InitialiseFonts(*System)
@@ -973,14 +977,15 @@ Procedure SwitchFullScreen(*System.System_Structure, *Window_Settings.Window_Set
   Array Sprite_Resource.Sprite_Resource_Structure(1))
   ; Handles reloading of resources
   Protected x.i, y.i
-  If Not *Screen_Settings\Full_Screen
-    x = DesktopMouseX()
-    y = DesktopMouseY()    
-  EndIf
+  *Window_Settings\Window_Debug_Edit_Gadget = 0 ; reset the gadgets on the debug window
   *Screen_Settings\Full_Screen = 1 - *Screen_Settings\Full_Screen ; toggle full screen
   If Not SetScreen(*System, *Window_Settings, *Screen_Settings)
     *System\Fatal_Error_Message = "SetScreen failed"
     Fatal_Error(*System)
+  EndIf
+  If *Screen_Settings\Full_Screen
+    x = (*Screen_Settings\Screen_Actual_Width / 2) / DesktopResolutionX()
+    y = (*Screen_Settings\Screen_Actual_Height / 2) / DesktopResolutionY()
   EndIf
   MouseLocate(x, y)
   LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource()) ; need to reload sprites anytime SetScreen is called
@@ -1011,7 +1016,7 @@ Procedure SaveScreen(*System.System_Structure)
   FreeSprite(s)
 EndProcedure
 
-Procedure DoClearScreen(*P.Game_Parametres_Structure, *System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
+Procedure DoClearScreen(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
   If *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic And *Screen_Settings\Full_Screen
     ClearScreen(*Screen_Settings\Classic_Screen_Background_Colour)
     ZoomSprite(*Screen_Settings\Pixel_Sprite, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height)
@@ -1030,20 +1035,20 @@ Procedure DoFlipBuffer(*Screen_Settings.Screen_Settings_Structure)
   EndIf
 EndProcedure
 
-Procedure Draw3DWorld(*P.Game_Parametres_Structure)
-  Select *P\Render_Engine3D
+Procedure Draw3DWorld(*System.System_Structure)
+  Select *System\Render_Engine3D
     Case #Render_Engine3D_Ogre
       ; Insert 3D engine here
   EndSelect
 EndProcedure
 
-Procedure DisplaySpriteInstance(*P.Game_Parametres_Structure, *System.System_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1), i.i)
+Procedure DisplaySpriteInstance(*P.Game_Parametres_Structure, *System.System_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1), Array Sprite_Instance.Sprite_Instance_Structure(1), i.i)
   ; Sprite instances are all the copies of sprites displayed in a level
   ; The only limit to how big a level can be is available memory
-  If Sprite_Resource(*P\Sprite_Instance[i]\Sprite_Resource)\Transparent
-    DisplayTransparentSprite(*P\Sprite_Instance[i]\Sprite_Resource, *P\Sprite_Instance[i]\X, *P\Sprite_Instance[i]\Y, *P\Sprite_Instance[i]\Intensity)
+  If Sprite_Resource(Sprite_Instance(i)\Sprite_Resource)\Transparent
+    DisplayTransparentSprite(Sprite_Instance(i)\Sprite_Resource, Sprite_Instance(i)\X, Sprite_Instance(i)\Y, Sprite_Instance(i)\Intensity)
   Else
-    DisplaySprite(*P\Sprite_Instance[i]\Sprite_Resource, *P\Sprite_Instance[i]\X, *P\Sprite_Instance[i]\Y)
+    DisplaySprite(Sprite_Instance(i)\Sprite_Resource, Sprite_Instance(i)\X, Sprite_Instance(i)\Y)
   EndIf
 EndProcedure
 
@@ -1178,11 +1183,39 @@ EndProcedure
 
 Procedure ShowDebugInfo(*P.Game_Parametres_Structure, *System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Structure)
   Protected FPS.s
-  If *P\Show_Debug_Info And Not *Screen_Settings\Full_Screen_Inactive
+  If *System\Show_Debug_Info And Not *Screen_Settings\Full_Screen_Inactive
     FPS = "FPS:"
     FPS = FPS + Str(*FPS_Data\FPS)
     ;Font::DisplayStringSpriteUnicode(#Font_Fixedsys_Neo_Plus, FPS, 0, 0)
     DisplaySystemFontString(*System, FPS, 0, 0, 255, #White)
+  EndIf
+EndProcedure
+
+Procedure ShowDebugWindowInfo(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *FPS_Data.FPS_Structure, Array Debug_Var.s(1))
+  ; Shows the variables in the Debug_Var array
+  Protected Current_Time.q = ElapsedMilliseconds()
+  Protected Text_Y.i = 2
+  Protected Text_Height = 20
+  Protected c.i
+  Protected Displat_Text.s
+  If Debug_Var(0) <> "" And Not *Window_Settings\Window_Debug_Edit_Gadget
+    ; there is at least one variable
+    *Window_Settings\Window_Debug_Edit_Gadget = EditorGadget(#PB_Any, 10,  Text_Y, *Window_Settings\Window_Debug_W-20, *Window_Settings\Window_Debug_H-20, #PB_Editor_ReadOnly)
+    If *System\Debug_Window_Front_Colour Or *System\Debug_Window_Back_Colour
+      SetGadgetColor(*Window_Settings\Window_Debug_Edit_Gadget, #PB_Gadget_FrontColor, *System\Debug_Window_Front_Colour)
+      SetGadgetColor(*Window_Settings\Window_Debug_Edit_Gadget, #PB_Gadget_BackColor, *System\Debug_Window_Back_Colour)
+    EndIf
+  EndIf
+  If Current_Time - *System\Last_Debug_Window_Update > 200 ; 5 updates a second
+    *System\Last_Debug_Window_Update = Current_Time
+    If IsWindow(#Game_Window_Debug)
+      ClearGadgetItems(*Window_Settings\Window_Debug_Edit_Gadget)
+      For c = 1 To #Max_Debug_Vars
+        If Debug_Var(c-1) <> ""
+          AddGadgetItem(*Window_Settings\Window_Debug_Edit_Gadget, c-1, Debug_Var(c-1))
+        EndIf
+      Next c
+    EndIf
   EndIf
 EndProcedure
 
@@ -1716,8 +1749,9 @@ Procedure ProcessWindowEvents(*P.Game_Parametres_Structure, *System.System_Struc
               EndIf
             Case #Game_Window_Debug
               Debug "Resizing debug window"
-              *System\Window_Debug_W = WindowWidth(#Game_Window_Debug)
-              *System\Window_Debug_H = WindowHeight(#Game_Window_Debug)
+              *Window_Settings\Window_Debug_W = WindowWidth(#Game_Window_Debug)
+              *Window_Settings\Window_Debug_H = WindowHeight(#Game_Window_Debug)
+              ResizeGadget(*Window_Settings\Window_Debug_Edit_Gadget, 10, 10, *Window_Settings\Window_Debug_W-20, *Window_Settings\Window_Debug_H-20)
           EndSelect
         Case #PB_Event_MoveWindow
           Select Event_Window
@@ -1730,8 +1764,8 @@ Procedure ProcessWindowEvents(*P.Game_Parametres_Structure, *System.System_Struc
               EndIf
             Case #Game_Window_Debug
               Debug "ProcessWindowEvents: debug window moved"
-              *System\Window_Debug_X = WindowX(#Game_Window_Debug)
-              *System\Window_Debug_Y = WindowY(#Game_Window_Debug)              
+              *Window_Settings\Window_Debug_X = WindowX(#Game_Window_Debug)
+              *Window_Settings\Window_Debug_Y = WindowY(#Game_Window_Debug)              
           EndSelect
         Case #PB_Event_MaximizeWindow
           Debug "ProcessWindowEvents: window maximised"
@@ -1830,17 +1864,17 @@ Procedure SaveConfig(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
       WritePreferenceInteger("Full_Screen", *Screen_Settings\Full_Screen)
       WritePreferenceInteger("Window_X", *Window_Settings\Window_X)
       WritePreferenceInteger("Window_Y", *Window_Settings\Window_Y)
-      If *Window_Settings\Window_Maximised Or (*Screen_Settings\Full_Screen And *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic)
+      If *Window_Settings\Window_Maximised Or *Screen_Settings\Full_Screen
         WritePreferenceInteger("Window_W", *Window_Settings\Window_W)
         WritePreferenceInteger("Window_H", *Window_Settings\Window_H)
       Else        
         WritePreferenceInteger("Window_W", *Screen_Settings\Screen_Actual_Width)
         WritePreferenceInteger("Window_H", *Screen_Settings\Screen_Actual_Height)
       EndIf
-      WritePreferenceInteger("Window_Debug_X", *System\Window_Debug_X)
-      WritePreferenceInteger("Window_Debug_Y", *System\Window_Debug_Y)
-      WritePreferenceInteger("Window_Debug_W", *System\Window_Debug_W)
-      WritePreferenceInteger("Window_Debug_H", *System\Window_Debug_H)      
+      WritePreferenceInteger("Window_Debug_X", *Window_Settings\Window_Debug_X)
+      WritePreferenceInteger("Window_Debug_Y", *Window_Settings\Window_Debug_Y)
+      WritePreferenceInteger("Window_Debug_W", *Window_Settings\Window_Debug_W)
+      WritePreferenceInteger("Window_Debug_H", *Window_Settings\Window_Debug_H)      
       WritePreferenceInteger("Window_Maximised", *Window_Settings\Window_Maximised)
       If Level = 2
         ; write the level 2 settings
@@ -1879,10 +1913,10 @@ Procedure LoadConfig(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
   *Window_Settings\Window_Y = ReadPreferenceInteger("Window_Y", 0)
   *Window_Settings\Window_W = ReadPreferenceInteger("Window_W", *Window_Settings\Window_W)
   *Window_Settings\Window_H = ReadPreferenceInteger("Window_H", *Window_Settings\Window_H)
-  *System\Window_Debug_X = ReadPreferenceInteger("Window_Debug_X", 0)
-  *System\Window_Debug_Y = ReadPreferenceInteger("Window_Debug_Y", 0)
-  *System\Window_Debug_W = ReadPreferenceInteger("Window_Debug_W", *System\Window_Debug_W)
-  *System\Window_Debug_H = ReadPreferenceInteger("Window_Debug_H", *System\Window_Debug_H)  
+  *Window_Settings\Window_Debug_X = ReadPreferenceInteger("Window_Debug_X", 0)
+  *Window_Settings\Window_Debug_Y = ReadPreferenceInteger("Window_Debug_Y", 0)
+  *Window_Settings\Window_Debug_W = ReadPreferenceInteger("Window_Debug_W", *Window_Settings\Window_Debug_W)
+  *Window_Settings\Window_Debug_H = ReadPreferenceInteger("Window_Debug_H", *Window_Settings\Window_Debug_H)  
   *Window_Settings\Window_Maximised = ReadPreferenceInteger("Window_Maximised", 0)
   PreferenceGroup("Grapics")
   ; *Screen_Settings\Flip_Mode = ReadPreferenceInteger("Flip_Mode", #Default_Flip_Mode)
@@ -1977,10 +2011,10 @@ Procedure Initialise(*P.Game_Parametres_Structure, *System.System_Structure, *Wi
   ClearScreen(*P\Background_Colour)
   FlipBuffers()
   
-  If *P\Render_Engine3D <> #Render_Engine3D_None
+  If *System\Render_Engine3D <> #Render_Engine3D_None
     ; Don't initialise 3D if it is not enabled
     Debug "Initialise: 3D engine"
-    Select *P\Render_Engine3D ; Initialise render engine
+    Select *System\Render_Engine3D ; Initialise render engine
       Case #Render_Engine3D_Builtin
         ; not written yet
     EndSelect
@@ -2059,6 +2093,11 @@ System\Sprite_List_Data_Source = #Data_Source_Internal_Memory
 System\Game_Resource_Location = "Data"
 System\Debug_Window = 1
 System\Current_Directory = GetCurrentDirectory()
+System\Render_Engine3D = #Render_Engine3D_Builtin
+System\Show_Debug_Info = 0
+System\Debug_Var_Count = 1
+System\Debug_Window_Front_Colour = #Black
+System\Debug_Window_Back_Colour = #White
 
 FPS_Data\Initialised = 0
 FPS_Data\Frequency = 0
@@ -2119,10 +2158,11 @@ Repeat ; used for restarting the game
     Repeat
       ; main game loop
       ProcessSystem(@FPS_Data) ; must be first in the main loop
+      Debug_Var(0) = "FPS: " + FPS_Data\FPS
       ProcessWindowEvents(*P, @System, @Window_Settings, @Screen_Settings, Sprite_Resource())
       ProcessMouse(*P, @Screen_Settings)
       ProcessKeyboard(*P, @System, @Window_Settings, @Screen_Settings, Sprite_Resource())
-      DoClearScreen(*P, @System, @Screen_Settings)
+      DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(*P)
       DrawSprites(*P, @System, @Screen_Settings)
       ShowDebugInfo(*P, @System, @Screen_Settings, @FPS_Data)
@@ -2133,7 +2173,8 @@ Repeat ; used for restarting the game
       DoPostProcessing(*P, @System) ; eg screen capture
       DrawMouse(*P, @System, @Screen_Settings, Sprite_Resource())
       ShowFullResGraphics(@Screen_Settings) ; eg system messages or console (not captured by screen capture)
-      DoFlipBuffer(*P)      
+      ShowDebugWindowInfo(@System, @Window_Settings, @FPS_Data, Debug_Var())
+      DoFlipBuffer(*P)
       CheckFullScreen(*P, @System, @Window_Settings, @Screen_Settings)  ; check for switching back to main window system (alt+tab), must be after FlipBuffers      
     Until *P\Quit Or Restart
     Debug "System: shutting down..."
@@ -2330,9 +2371,9 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2134
-; FirstLine = 2108
-; Folding = ----------
+; CursorPosition = 979
+; FirstLine = 975
+; Folding = -----------
 ; EnableXP
 ; DPIAware
 ; Executable = ..\main.exe
