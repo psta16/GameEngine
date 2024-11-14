@@ -2400,5 +2400,5 @@ EndDataSection
 ; Folding = -----------
 ; EnableXP
 ; DPIAware
-; Executable = ..\main.exe
+; Executable = ..\..\GameEngine.exe
 ; EnableUnicode
