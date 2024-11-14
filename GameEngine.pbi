@@ -153,6 +153,7 @@ Global Restart.i=0 ; restarts the game engine
 
 
 ;- Structures
+
 ; System
 
 Structure Variable_Structure
@@ -226,6 +227,7 @@ Structure System_Structure
   Mouse_Save_X.i   ; saves the position of the mouse when switching back to desktop (alt+tab)
   Mouse_Save_Y.i
   Quit.i                 ; flag to quit game 1 = quit. To restart the game use the global Restart variable
+  Keyb.i[255]       ; Array to hold which keyboard keys are pushed
   Allow_Restart.i        ; allows the game engine to be restarted
   Allow_Switch_to_Window.i  ; to allow switching between window and full screen
   Allow_Screen_Capture.i    ; allows a screenshot to be taken
@@ -241,7 +243,8 @@ Structure System_Structure
   Config_Loaded.i           ; set to 1 once the config is loaded. Cannot save until loaded  
   Initialisation_Error.i    ; will be set when there's an error. Helps track down the first error causing an issue
   Initialise_Error_Message.s; special string for giving an initialisation error message. Only set this using SetInitialiseError()
-  Initialised.i ; set when the game engine is initialised
+  Initialised.i             ; set when the game engine is initialised
+  Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
 EndStructure
 
 Structure Window_Settings_Structure
@@ -721,6 +724,7 @@ Procedure SetScreen(*System.System_Structure, *Window_Settings.Window_Settings_S
   Protected Temp_Zoom.i, Temp_Min_Width.i, Temp_Min_Height.i
   Protected Old_Width.i, Old_Height.i
   Protected Window_Flags.i
+  Protected c.i
   If *Screen_Settings\Screen_Open
     Debug "SetScreen: closing screen"
     CloseScreen()
@@ -874,6 +878,7 @@ Procedure SwitchFullScreen(*System.System_Structure, *Window_Settings.Window_Set
   LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource()) ; need to reload sprites anytime SetScreen is called
   ;InitialiseFonts(*System)
   LoadSystemFont(*System)
+  *System\Time_Full_Screen_Switched = ElapsedMilliseconds()
 EndProcedure
 
 Procedure SaveScreen(*System.System_Structure)
@@ -1264,11 +1269,11 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
   ;DrawLine(*Screen_Settings, 0, 20, 0, 80, RGBA(255, 255, 255, 255))
   ;DrawLine(*Screen_Settings, 0, 20, 60, 80, RGBA(255, 255, 255, 255))
   
-  DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 16, 255, #Red)
-  DisplaySystemFontString(*System, "abcdefghijklmnopqrstuvwxyz", 0, 24, 255, #Yellow)
-  DisplaySystemFontString(*System, "0123456789", 0, 32, 255, #Green)
-  DisplaySystemFontString(*System, " !" + Chr(34) + "#$%&'()*+,-./:;<=>?@|[]£\^`~{}€¥©™", 0, 40, 255, #White)
-  DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 48, 255, #Gray)
+  ;DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 16, 255, #Red)
+  ;DisplaySystemFontString(*System, "abcdefghijklmnopqrstuvwxyz", 0, 24, 255, #Yellow)
+  ;DisplaySystemFontString(*System, "0123456789", 0, 32, 255, #Green)
+  ;DisplaySystemFontString(*System, " !" + Chr(34) + "#$%&'()*+,-./:;<=>?@|[]£\^`~{}€¥©™", 0, 40, 255, #White)
+  ;DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 48, 255, #Gray)
   
   ;DisplayTransparentSprite(*System\Font_Char_Sprite[78], 100, 100, 255, #White)
   ;DisplaySpriteResource(*P, *System\Mouse_Sprite_Index, 80, 50)
@@ -1418,6 +1423,23 @@ EndProcedure
 
 ;- Input
 
+Procedure KeyPressed(*System.System_Structure, k.i)
+  ; Returns whether a key was pressed, one shot
+  Protected Pressed.i = 0
+      If KeyboardReleased(k)
+        *System\Keyb[k] = 0
+        Pressed = 0
+      EndIf
+      If KeyboardPushed(k)
+        If Not *System\Keyb[k]
+          ; Key push has not been registered yet
+          *System\Keyb[k] = 1
+          Pressed = 1
+        EndIf
+      EndIf
+  ProcedureReturn Pressed
+EndProcedure
+
 Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
                           *Menu_Settings.Menu_Settings_Structure, Array Menu_Control.Menu_Control_Structure(1), Array Sprite_Resource.Sprite_Resource_Structure(1))
   Protected c.i
@@ -1427,7 +1449,8 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     ; Always process CTRL, SHIFT and ALT pushed commands first
     ; Process alt commands
     If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
-      If KeyboardReleased(#PB_Key_Return)
+      If KeyPressed(*System, #PB_Key_Return)
+        Debug "ProcessKeyboard: switch full screen"
         SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
       EndIf
     EndIf
@@ -1435,7 +1458,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     If KeyboardPushed(#PB_Key_LeftControl) Or KeyboardPushed(#PB_Key_RightControl)
       ; Process control+shift commands
       If KeyboardPushed(#PB_Key_LeftShift) Or KeyboardPushed(#PB_Key_RightShift)
-        If KeyboardReleased(#PB_Key_R)
+        If KeyPressed(*System, #PB_Key_R)
           If *System\Allow_Restart
             Debug "ProcessKeyboard: restarting"
             Restart = 1 ; global variable
@@ -1443,7 +1466,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
             Debug "ProcessKeyboard: not allowed to restart"
           EndIf
         EndIf
-        If KeyboardReleased(#PB_Key_Q)
+        If KeyPressed(*System, #PB_Key_Q)
           Debug "ProcessKeyboard: quit"
           *System\Quit = 1
         EndIf
@@ -1460,7 +1483,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
       For c = 0 To #Max_Menu_Controls - 1
         If Menu_Control(c)\Menu_Control_Hardware_Type = #Control_Hardware_Keyboard
           ; only check keyboard controls since this is the keyboard handler
-          If KeyboardReleased(Menu_Control(c)\Menu_Control_ID)
+          If KeyPressed(*System, Menu_Control(c)\Menu_Control_ID)
             Debug "ProcessKeyboard: menu control " + Menu_Control(c)\Menu_Control_ID + " pressed"
             *Menu_Settings\Menu_Action = Menu_Control(c)\Menu_Control_Action
           EndIf
@@ -1476,7 +1499,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     ; *************************************
     If *Screen_Settings\Full_Screen
       If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
-        If KeyboardReleased(#PB_Key_F4)
+        If KeyPressed(*System, #PB_Key_F4)
           If *System\Allow_AltF4_Full_Screen
             Debug "ProcessKeyboard: quit by Alt+F4 in fullscreen"
             *System\Quit = 1
@@ -1493,39 +1516,39 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
         ;  Debug "ProcessKeyboard: F10/Alt key pushed while in Window mode"
       CompilerEndIf
       If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
-        If KeyboardReleased(#PB_Key_1)
+        If KeyPressed(*System, #PB_Key_1)
           *Screen_Settings\Set_Zoom = 1
           ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
         EndIf
-        If KeyboardReleased(#PB_Key_2)
+        If KeyPressed(*System, #PB_Key_2)
           *Screen_Settings\Set_Zoom = 2
           ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
         EndIf
-        If KeyboardReleased(#PB_Key_3)
+        If KeyPressed(*System, #PB_Key_3)
           *Screen_Settings\Set_Zoom = 3
           ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
         EndIf
-        If KeyboardReleased(#PB_Key_4)
+        If KeyPressed(*System, #PB_Key_4)
           *Screen_Settings\Set_Zoom = 4
           ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
         EndIf
-        If KeyboardReleased(#PB_Key_5)
+        If KeyPressed(*System, #PB_Key_5)
           *Screen_Settings\Set_Zoom = 5
           ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
         EndIf
-        If KeyboardReleased(#PB_Key_6)
+        If KeyPressed(*System, #PB_Key_6)
           *Screen_Settings\Set_Zoom = 6
           ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
         EndIf
-        If KeyboardReleased(#PB_Key_7)
+        If KeyPressed(*System, #PB_Key_7)
           *Screen_Settings\Set_Zoom = 7
           ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
         EndIf
-        If KeyboardReleased(#PB_Key_8)
+        If KeyPressed(*System, #PB_Key_8)
           *Screen_Settings\Set_Zoom = 8
           ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
         EndIf
-        If KeyboardReleased(#PB_Key_9)
+        If KeyPressed(*System, #PB_Key_9)
           *Screen_Settings\Set_Zoom = 9
           ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
         EndIf          
@@ -1534,13 +1557,15 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     ; ************************************************
     ; Process both full screen and window key commands
     ; ************************************************ 
-    If KeyboardReleased(#PB_Key_F9)
+    
+    If KeyPressed(*System, #PB_Key_F9)
       ; toggle border
       If *Screen_Settings\Border_Enable
         *Screen_Settings\Border = 1 - *Screen_Settings\Border
-      EndIf
+      EndIf    
     EndIf
-    If KeyboardReleased(#PB_Key_F11)
+    
+    If KeyPressed(*System, #PB_Key_F11)
       If *System\Allow_Switch_to_Window
         ; switch between window or full screen
         SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
@@ -1548,14 +1573,21 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
         Debug "ProcessKeyboard: not allowed to switch between full screen and window"
       EndIf
     EndIf
-    If KeyboardReleased(#PB_Key_F12)
+    
+    If ElapsedMilliseconds() - *System\Time_Full_Screen_Switched > 1000
+      ; The F11 key needs to be released on a timer since resetting the screen resets the keyboard buffer
+      *System\Keyb[#PB_Key_F11] = 0
+    EndIf
+    
+    If KeyPressed(*System, #PB_Key_F12)
       If *System\Allow_Screen_Capture
         *System\Take_Screen_Capture = 1
       Else
         Debug "ProcessKeyboard: not allowed to screen capture"
       EndIf
-    EndIf    
-    If KeyboardReleased(#PB_Key_Escape)
+    EndIf 
+    
+    If KeyPressed(*System, #PB_Key_Escape)
       Debug "ProcessKeyboard: quit"
       *System\Quit = 1
     EndIf
@@ -2269,9 +2301,9 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2041
-; FirstLine = 2031
-; Folding = ----------
+; CursorPosition = 1485
+; FirstLine = 1457
+; Folding = -----------
 ; EnableXP
 ; DPIAware
 ; Executable = ..\main.exe
