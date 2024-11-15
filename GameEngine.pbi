@@ -92,6 +92,16 @@ Enumeration Fonts
   #Font_Fixedsys_Neo_Plus
 EndEnumeration
 
+Enumeration Shapes ; used for vector graphics
+  #Shape_None
+  #Shape_Box
+  #Shape_Round_Box
+  #Shape_Line
+  #Shape_Circle
+  #Shape_Polygon
+  #Shape_Fill ; use this to fill an area
+EndEnumeration
+
 ; Layer 2 - Menus and controls
 
 Enumeration Control_Hardware
@@ -108,12 +118,10 @@ EndEnumeration
 Enumeration Menu_Action
   ; specifies different actions a menu will take
   #Menu_Action_None
-  
   ; menuless
   #Menu_Action_Start  ; starts the game
   #Menu_Action_Select ; selects which mode of the game to play
   #Menu_Action_Reset  ; resets the game
-  
   ; simple
   #Menu_Action_Confirm
   #Menu_Action_Back
@@ -121,7 +129,6 @@ Enumeration Menu_Action
   #Menu_Action_Down
   #Menu_Action_Left
   #Menu_Action_Right
-  
   ; pointer based menu controls
   #Menu_Action_Click
 EndEnumeration
@@ -129,9 +136,8 @@ EndEnumeration
 Enumeration Menu_Background
   #Menu_Background_None ; displays a solid colour
   #Menu_Background_Vector
-  #Menu_Background_Image
+  #Data_Menu_Background_Image
 EndEnumeration
-
 
 ;- Globals
 Global Restart.i=0 ; restarts the game engine
@@ -144,6 +150,9 @@ Global Restart.i=0 ; restarts the game engine
 #Num_System_Font_Char = 101 ; number of characters in the system font
 #Max_Variables = 128
 #Max_Debug_Vars = 32
+#Max_Keyboard_Value = 300 ; used for storing which keys are down
+#Mouse_Sprite = 0
+#Max_Vector_Graphics_Resources = 32
 
 ; Menu
 #Max_Menu_Controls = 12
@@ -180,19 +189,6 @@ Structure Desktop_Structure ; structure to store parametres for each available d
   Frequency.i
 EndStructure
 
-Structure Sprite_Resource_Structure
-  ; Source collection of sprites
-  ID.i
-  Width.i
-  Height.i
-  Mode.i ; #PB_Sprite_PixelCollision and #PB_Sprite_AlphaBlending
-  Transparent.i ; set if the sprite uses transparency
-  Data_Source.i ; See Data_Source enumeration
-  Memory_Location.i ; use one of these
-  File_Location.s
-  Database_Location.i
-EndStructure
-
 Structure System_Structure
   Current_Directory.s
   Data_Directory.s
@@ -206,6 +202,7 @@ Structure System_Structure
   Game_Config_File.s     ; filename of the confg file
   Sprite_List_Data_Source.i ; The source for the sprite resource list (see enumeration Data_Source)
   Sprite_Resource_Count.i   ; number of sprite resources
+  Sprite_Instance_Count.i ; number of sprite instances
   Game_Resource_Location.s                                         ; location of files
   Debug_Window.i                                                   ; turns on the debug window
   Debug_Var_Count.i ; count of the number of debug variables in the Debug_Var() array, used with the debug window
@@ -217,7 +214,6 @@ Structure System_Structure
   Show_Debug_Info.i            ; when set this will show things like FPS etc on screen
   Show_Mouse.i           ; shows the mouse
   Mouse_Control.i        ; mouse is controlling the player
-  Mouse_Sprite_Index.i   ; index of the sprite to use for the mouse
   Mouse_X.f              ; location of the mouse pointer when it is over the window
   Mouse_Offset_X.i       ; offset of the mouse sprite displayed
   Mouse_Y.f
@@ -226,7 +222,7 @@ Structure System_Structure
   Mouse_Save_X.i   ; saves the position of the mouse when switching back to desktop (alt+tab)
   Mouse_Save_Y.i
   Quit.i                 ; flag to quit game 1 = quit. To restart the game use the global Restart variable
-  Keyb.i[255]       ; Array to hold which keyboard keys are pushed
+  Keyb.i[#Max_Keyboard_Value]       ; Array to hold which keyboard keys are pushed
   Allow_Restart.i        ; allows the game engine to be restarted
   Allow_Switch_to_Window.i  ; to allow switching between window and full screen
   Allow_Screen_Capture.i    ; allows a screenshot to be taken
@@ -244,6 +240,7 @@ Structure System_Structure
   Initialise_Error_Message.s; special string for giving an initialisation error message. Only set this using SetInitialiseError()
   Initialised.i             ; set when the game engine is initialised
   Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
+  Sprite_Vector_Resource_Count.i ; number of vector resources
 EndStructure
 
 Structure Window_Settings_Structure
@@ -306,7 +303,7 @@ Structure Screen_Settings_Structure
   Zoomed_Height.i
 EndStructure  
 
-Structure FPS_Structure
+Structure FPS_Data_Structure
   ; variables for measuring FPS
   Initialised.i
   Game_Start_Time.i ; when the game begins
@@ -323,7 +320,58 @@ Structure FPS_Structure
   FPS_Limit.i ; frequency of screen, FPS does not go higher than this
 EndStructure
 
+Structure Sprite_Resource_Structure
+  ; Source collection of sprites
+  ID.i
+  Width.i
+  Height.i
+  Mode.i ; #PB_Sprite_PixelCollision and #PB_Sprite_AlphaBlending
+  Transparent.i ; set if the sprite uses transparency
+  Data_Source.i ; See Data_Source enumeration
+  Memory_Location.i ; use one of these
+  File_Location.s
+  Database_Location.i
+  Vector_Drawn.i ; used to select whether it will be drawn using vectors
+EndStructure
+
+Structure Vector_Graphics_Structure
+  Shape_Type.i
+  Background_Transparent.i
+  Colour.i
+  Background_Colour.i
+  X.i 
+  Y.i
+  Width.i
+  Height.i
+  Radius.i
+  Round_X.i ; used for rounded boxes
+  Round_Y.i
+  Cont.i ; indicates this is the last shape
+EndStructure
+
+Structure Sprite_Instance_Structure
+  Sprite_Resource.i
+  X.d
+  Y.d
+  Width.i
+  Height.i
+  Velocity_X.d
+  Velocity_Y.d
+  Intensity.i ; only works for transparent sprites
+  Colour.i    ; only works for transparent sprites
+  Layer.i     ; used to sort the sprite instance array for drawing order, 0 is background
+  Visible.i
+  Controlled_By.i
+EndStructure
+
+Structure Graphics_Structure
+  Vector_Graphics_Resource.Vector_Graphics_Structure[#Max_Vector_Graphics_Resources] ; used for reading vector data and drawing onto a sprite
+  Sprite_Resource.Sprite_Resource_Structure[#Max_Sprite_Resources] ; hold all sprite resources (the actual sprite image data)
+  Sprite_Instance.Sprite_Instance_Structure[#Max_Sprite_Instances] ; instances of sprites on screen
+EndStructure
+
 ; Menu
+
 Structure Menu_Control_Structure ; ways of controlling menus
   Menu_Control_Type.i ; specifies the type of the menu control system, see Enumeration Menu_System
   Menu_Control_Action.i ; this is the action the control will take, see Enumeration Menu_Control_Actions
@@ -335,22 +383,13 @@ Structure Menu_Settings_Structure
   Menu_Active.i           ; when true means that the menu system is active and has control
   Menu_System_Type.i    ; the type of menu system
   Menu_Background.i       ; see enumeration Menu_Background
-  Menu_Background_Data_Source.i   ; see enumeration Data_Source
+  Data_Menu_Background_Source.i   ; see enumeration Data_Source
   Menu_Background_Colour.i        ; background colour for the menu
   Menu_Action.i
   Menu_Controls_Count.i ; total number of menu controls loaded
 EndStructure
 
 ; Game
-Structure Sprite_Instance_Structure
-  Sprite_Resource.i
-  X.i
-  Y.i
-  Intensity.i ; only works for transparent sprites
-  Colour.i    ; only works for transparent sprites, not yet implemented
-  Layer.i     ; used to sort the sprite instance array for drawing order, 0 is background
-  Visible.i
-EndStructure
 
 ;- Defines
 
@@ -359,14 +398,12 @@ EndStructure
 ;***************************************************
 
 Dim Variable.Variable_Structure(#Max_Variables) ; variables used for displaying values on screen etc
-Dim Sprite_Resource.Sprite_Resource_Structure(#Max_Sprite_Resources) ; hold all sprite resources (the actual sprite image data)
-Dim Sprite_Instance.Sprite_Instance_Structure(#Max_Sprite_Instances) ; instances of sprites on screen
 Dim Debug_Var.s(#Max_Debug_Vars)
 Define System.System_Structure
 Define Window_Settings.Window_Settings_Structure
 Define Screen_Settings.Screen_Settings_Structure
-Define FPS_Data.FPS_Structure
-
+Define FPS_Data.FPS_Data_Structure
+Define Graphics.Graphics_Structure
   
 ;***********************************************
 ; Menu
@@ -466,7 +503,7 @@ EndProcedure
 
 ;- Graphics
 
-Procedure InitDesktop(*Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Structure)
+Procedure InitDesktop(*Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure)
   ; used to check which monitors are connected and how to display the game by default
   Protected c.i, t.i
   Protected *Display, *GDKWindow, *Monitor
@@ -578,16 +615,44 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
   EndIf
 EndProcedure
 
-Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1))
-  Protected c.i, f.s
+Procedure LoadVectorResources(*System.System_Structure, *Graphics.Graphics_Structure)
+  Protected c.i
+  Debug "LoadVectorResources: loading vector resources"
+  Restore Data_Vector_Resources ; start by loading the internal sprites in the game engine (other sprites are loaded from the game file)
+  Read *System\Sprite_Vector_Resource_Count
+  If *System\Sprite_Vector_Resource_Count > #Max_Vector_Graphics_Resources
+    *System\Fatal_Error_Message = "#Max_Sprite_Resources too small to load all vector resources"
+    Fatal_Error(*System)
+  EndIf
+  For c = 0 To *System\Sprite_Vector_Resource_Count - 1
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Shape_Type
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Background_Transparent
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Background_Colour
+    Read.i *Graphics\Vector_Graphics_Resource[c]\X
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Y
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Width
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Height
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Round_X
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Round_Y
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Cont
+  Next
+  Debug "LoadVectorResources: " + *System\Sprite_Vector_Resource_Count + " vector resource(s) loaded"
+EndProcedure
+
+Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
+  Protected a.i, c.i, d.i, i.i, j.i
+  Protected f.s
+  Protected Count.i
   Protected x.i, y.i, col.l
-  Protected r.i ; this is used as a variable for reading data to be discarded
+  Protected Scratch.i ; this is used as a variable for reading data to be discarded
   Protected Found.i, Zoom.i
+  ; Create pixel sprite
   *Screen_Settings\Pixel_Sprite = CreateSprite(#PB_Any, 1, 1, #PB_Sprite_AlphaBlending)
   StartDrawing(SpriteOutput(*Screen_Settings\Pixel_Sprite))
   DrawingMode(#PB_2DDrawing_AllChannels)
   Plot(0, 0, RGBA(255, 255, 255, 255))
   StopDrawing()
+  ; Create screen sprite
   *Screen_Settings\Screen_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height, #PB_Sprite_AlphaBlending)
   TransparentSpriteColor(*Screen_Settings\Screen_Sprite, #Magenta)
   ; Find zoomed size that is as big as possible
@@ -603,7 +668,6 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
   Until Found
   *Screen_Settings\Screen_Filter_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height, #PB_Sprite_AlphaBlending)
   TransparentSpriteColor(*Screen_Settings\Screen_Sprite, #Magenta)
-  Debug "Pixel height: " + Str(*Screen_Settings\Screen_Actual_Height / *Screen_Settings\Screen_Res_Height)
   StartDrawing(SpriteOutput(*Screen_Settings\Screen_Filter_Sprite))
   DrawingMode(#PB_2DDrawing_AllChannels)
   y = 0
@@ -614,86 +678,141 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
     y = y + zoom
   Until y > *Screen_Settings\Zoomed_Height-1
   StopDrawing()
-  Debug "LoadSpriteResources: loading sprite resource list"
-  Select *System\Sprite_List_Data_Source
-    Case #Data_Source_None
-      *System\Sprite_Resource_Count = 0
-      Debug "LoadSpriteResources: no sprite resources to load"
-    Case #Data_Source_Internal_Memory
-      Restore Sprite_Resource_Data
-      Read *System\Sprite_Resource_Count
-      If *System\Sprite_Resource_Count > #Max_Sprite_Resources
-        *System\Fatal_Error_Message = "#Max_Sprite_Resources too small to load all sprite resources"
-        Fatal_Error(*System)
-      EndIf
-      ; Read complete sprite resource list first
-      ; That way sprites can be loaded from the DataSection  
-      For c = 0 To *System\Sprite_Resource_Count - 1
-        Read.i Sprite_Resource(c)\Width
-        Read.i Sprite_Resource(c)\Height
-        Read.i Sprite_Resource(c)\Mode
-        Read.i Sprite_Resource(c)\Transparent
-        Read.i Sprite_Resource(c)\Data_Source
-        Select Sprite_Resource(c)\Data_Source
+  a = 0 ; used to read internal then external sprite resources
+  i = 0 ; used to load sprite resources
+  j = 0 ; used to load sprites
+  *System\Sprite_Resource_Count = 0
+  Repeat ; loop to read both internal and external data
+    Debug "LoadSpriteResources: loading sprite resource list"
+    Select *System\Sprite_List_Data_Source
+      Case #Data_Source_None
+        *System\Sprite_Resource_Count = 0
+        Debug "LoadSpriteResources: no sprite resources to load"
+      Case #Data_Source_Internal_Memory
+        If a = 0
+          Debug "LoadSpriteResources: loading internal sprite resource list from memory"
+          Restore Data_Internal_Sprite_Resources ; start by loading the internal sprites in the game engine (other sprites are loaded from the game file)
+        EndIf
+        If a = 1
+          Debug "LoadSpriteResources: loading custom sprite resource list from memory"
+          Restore Data_Custom_Sprite_Resources ; start by loading the internal sprites in the game engine (other sprites are loaded from the game file)
+        EndIf
+        Read Count
+        If Count > #Max_Sprite_Resources
+          *System\Fatal_Error_Message = "#Max_Sprite_Resources too small to load all sprite resources"
+          Fatal_Error(*System)
+        EndIf
+        ; Read complete sprite resource list first
+        ; That way sprites can be loaded from the DataSection  
+        For c = 0 To Count - 1
+          Read.i *Graphics\Sprite_Resource[i]\Width
+          Read.i *Graphics\Sprite_Resource[i]\Height
+          Read.i *Graphics\Sprite_Resource[i]\Mode
+          Read.i *Graphics\Sprite_Resource[i]\Transparent
+          Read.i *Graphics\Sprite_Resource[i]\Vector_Drawn
+          Read.i *Graphics\Sprite_Resource[i]\Data_Source
+          Select *Graphics\Sprite_Resource[i]\Data_Source
             ; Have to specify which variable we read the next data in to
+            Case #Data_Source_None
+              Read.i Scratch
+            Case #Data_Source_Internal_Memory
+              Read.i *Graphics\Sprite_Resource[i]\Memory_Location
+            Case #Data_Source_File
+              Read.s *Graphics\Sprite_Resource[i]\File_Location
+            Case #Data_Source_Database   
+              Read.i *Graphics\Sprite_Resource[i]\Database_Location
+          EndSelect
+          i = i + 1
+        Next
+      Case #Data_Source_File
+      Case #Data_Source_Database
+    EndSelect
+    ; Now that the resource list has been stored, load the sprites.
+    ; This is necessary so that sprites can be stored in the DataSection
+    If Count > 0
+      Restore Data_Sprites
+      For c = 0 To Count - 1
+        Select *Graphics\Sprite_Resource[j]\Data_Source
           Case #Data_Source_None
-            Read.i r
+            ; Nothing to do, empty sprite            
           Case #Data_Source_Internal_Memory
-            Read.i Sprite_Resource(c)\Memory_Location
+            *Graphics\Sprite_Resource[j]\ID = CreateSprite(#PB_Any, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, *Graphics\Sprite_Resource[j]\Mode)
+            TransparentSpriteColor(*Graphics\Sprite_Resource[j]\ID, #Magenta)
+            If *Graphics\Sprite_Resource[j]\Vector_Drawn
+              Select *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Shape_Type
+                Case #Shape_None
+                  StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
+                  DrawingMode(#PB_2DDrawing_Default)
+                  ;DrawingMode(#PB_2DDrawing_Outlined)
+                  Box(0, 0, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Background_Colour)
+                  StopDrawing()
+              EndSelect
+            Else
+              If Not *Graphics\Sprite_Resource[j]\ID
+                *System\Fatal_Error_Message = "Unable to create sprite " + j
+                Fatal_Error(*System) 
+              EndIf
+              StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
+              DrawingMode(#PB_2DDrawing_AllChannels)
+              For y = 0 To *Graphics\Sprite_Resource[j]\Height - 1
+                For x = 0 To *Graphics\Sprite_Resource[j]\Width - 1
+                  Read.l col
+                  Plot(x,y,col)
+                Next
+              Next
+              StopDrawing()
+            EndIf
           Case #Data_Source_File
-            Read.s Sprite_Resource(c)\File_Location
-          Case #Data_Source_Database   
-            Read.i Sprite_Resource(c)\Database_Location
+            f = *System\Game_Resource_Location + "\" + *Graphics\Sprite_Resource[j]\File_Location
+            *Graphics\Sprite_Resource[j]\ID = LoadSprite(#PB_Any, f, *Graphics\Sprite_Resource[c]\Mode)
+            If Not *Graphics\Sprite_Resource[j]\ID
+              *System\Fatal_Error_Message = "Unable to load sprite " + f
+              Fatal_Error(*System)
+            EndIf
+          Case #Data_Source_Database
+            *System\Fatal_Error_Message = "Loading sprites from a database not yet supported"
+            Fatal_Error(*System)              
         EndSelect
+        j = j + 1
       Next
-    Case #Data_Source_File
-    Case #Data_Source_Database
-  EndSelect
-  ; Now that the resource list has been stored, load the sprites.
-  ; This is necessary so that sprites can be stored in the DataSection
-  If *System\Sprite_Resource_Count > 0
-    Debug "LoadSprites: loading sprites"
-    Restore Sprite_Data
-    For c = 0 To *System\Sprite_Resource_Count - 1
-      Select Sprite_Resource(c)\Data_Source
-        Case #Data_Source_None
-          ; Nothing to do, empty sprite            
-        Case #Data_Source_Internal_Memory
-          Sprite_Resource(c)\ID = CreateSprite(#PB_Any, Sprite_Resource(c)\Width, Sprite_Resource(c)\Height, Sprite_Resource(c)\Mode)
-          TransparentSpriteColor(Sprite_Resource(c)\ID, #Magenta)
-          If Not Sprite_Resource(c)\ID
-            *System\Fatal_Error_Message = "Unable to create sprite " + c
-            Fatal_Error(*System) 
-          EndIf
-          StartDrawing(SpriteOutput(Sprite_Resource(c)\ID))
-          DrawingMode(#PB_2DDrawing_AllChannels)
-          For y = 0 To Sprite_Resource(c)\Height - 1
-            For x = 0 To Sprite_Resource(c)\Width - 1
-              Read.l col
-              Plot(x,y,col)
-            Next
-          Next
-          StopDrawing()
-        Case #Data_Source_File
-          f = *System\Game_Resource_Location + "\" + Sprite_Resource(c)\File_Location
-          Sprite_Resource(c)\ID = LoadSprite(#PB_Any, f, Sprite_Resource(c)\Mode)
-          If Not Sprite_Resource(c)\ID
-            *System\Fatal_Error_Message = "Unable to load sprite " + f
-            Fatal_Error(*System)
-          EndIf
-        Case #Data_Source_Database
-          *System\Fatal_Error_Message = "Loading sprites from a database not yet supported"
-          Fatal_Error(*System)              
-      EndSelect
-    Next
-  EndIf
+    EndIf
+    *System\Sprite_Resource_Count = *System\Sprite_Resource_Count + Count
+    a = a + 1
+  Until a = 2
   Debug "LoadSprites: " + *System\Sprite_Resource_Count + " sprite resource(s) loaded"
+EndProcedure
+
+Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Structure)
+  Protected c.i
+  Debug "LoadSpriteInstances: loading sprite instance list"
+  Restore Data_Sprite_Instances
+  Read *System\Sprite_Instance_Count
+  For c = 0 To *System\Sprite_Instance_Count - 1
+    Read.i *Graphics\Sprite_Instance[c]\Sprite_Resource
+    Read.i *Graphics\Sprite_Instance[c]\X
+    Read.i *Graphics\Sprite_Instance[c]\Y
+    Read.i *Graphics\Sprite_Instance[c]\Width
+    Read.i *Graphics\Sprite_Instance[c]\Height    
+    Read.i *Graphics\Sprite_Instance[c]\Velocity_X
+    Read.i *Graphics\Sprite_Instance[c]\Velocity_Y
+    Read.i *Graphics\Sprite_Instance[c]\Intensity
+    Read.i *Graphics\Sprite_Instance[c]\Colour
+    Read.i *Graphics\Sprite_Instance[c]\Layer
+    Read.i *Graphics\Sprite_Instance[c]\Visible
+    Read.i *Graphics\Sprite_Instance[c]\Controlled_By
+    If *Graphics\Sprite_Instance[c]\Colour > -1 And *Graphics\Sprite_Instance[c]\Intensity = -1
+      ; automatically make intensity 255 if there is a colour set and intensity is -1
+      *Graphics\Sprite_Instance[c]\Intensity = 255
+    EndIf
+  Next c
+  
+  Debug "LoadSpriteInstances: " + *System\Sprite_Instance_Count + " sprite instance(s) loaded"
 EndProcedure
 
 Procedure LoadSystemFont(*System.System_Structure)
   Protected c.i, x.i, y.i, Bit.i, BitV.i
   Protected PixelData.a
-  Restore Sprite_Data_System_Font
+  Restore Data_Sprite_System_Font
   For c = 0 To #Num_System_Font_Char-1
     *System\Font_Char_Sprite[c] = CreateSprite(#PB_Any, 8, 8, #PB_Sprite_AlphaBlending)
     TransparentSpriteColor(*System\Font_Char_Sprite[c], #Magenta)
@@ -914,17 +1033,15 @@ EndProcedure
 ;  ProcedureReturn 1
 ;EndProcedure
 
-Procedure ResetScreen(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
-                      Array Sprite_Resource.Sprite_Resource_Structure(1))
+Procedure ResetScreen(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
   *Window_Settings\Window_Debug_Edit_Gadget = 0 ; reset the gadgets on the debug window
   SetScreen(*System, *Window_Settings, *Screen_Settings)
-  LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource())
+  LoadSpriteResources(*System, *Screen_Settings, *Graphics)
   ;InitialiseFonts(*System)
   LoadSystemFont(*System)
 EndProcedure
 
-Procedure SwitchFullScreen(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
-  Array Sprite_Resource.Sprite_Resource_Structure(1))
+Procedure SwitchFullScreen(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
   ; Handles reloading of resources
   Protected x.i, y.i
   *Window_Settings\Window_Debug_Edit_Gadget = 0 ; reset the gadgets on the debug window
@@ -938,7 +1055,7 @@ Procedure SwitchFullScreen(*System.System_Structure, *Window_Settings.Window_Set
     y = (*Screen_Settings\Screen_Actual_Height / 2) / DesktopResolutionY()
   EndIf
   MouseLocate(x, y)
-  LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource()) ; need to reload sprites anytime SetScreen is called
+  LoadSpriteResources(*System, *Screen_Settings, *Graphics) ; need to reload sprites anytime SetScreen is called
   ;InitialiseFonts(*System)
   LoadSystemFont(*System)
   *System\Time_Full_Screen_Switched = ElapsedMilliseconds()
@@ -993,22 +1110,35 @@ Procedure Draw3DWorld(*System.System_Structure)
   EndSelect
 EndProcedure
 
-Procedure DisplaySpriteInstance(*System.System_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1), Array Sprite_Instance.Sprite_Instance_Structure(1), i.i)
+Procedure DisplaySpriteInstance(*Graphics.Graphics_Structure, i.i)
   ; Sprite instances are all the copies of sprites displayed in a level
-  ; The only limit to how big a level can be is available memory
-  If Sprite_Resource(Sprite_Instance(i)\Sprite_Resource)\Transparent
-    DisplayTransparentSprite(Sprite_Instance(i)\Sprite_Resource, Sprite_Instance(i)\X, Sprite_Instance(i)\Y, Sprite_Instance(i)\Intensity)
+  ;Debug "Zooming sprite to: " + *Graphics\Sprite_Instance[i]\Width + " x " + *Graphics\Sprite_Instance[i]\Height
+  ZoomSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\Width, *Graphics\Sprite_Instance[i]\Height)
+  ;DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y)
+  
+  If *Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\Transparent
+    If *Graphics\Sprite_Instance[i]\Intensity > -1 And *Graphics\Sprite_Instance[i]\Colour = -1
+      ; set intensity but not colour
+      DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity)
+    ElseIf *Graphics\Sprite_Instance[i]\Intensity > -1 And *Graphics\Sprite_Instance[i]\Colour > -1
+      ; set intensity and colour
+      DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity, *Graphics\Sprite_Instance[i]\Colour)
+    ElseIf *Graphics\Sprite_Instance[i]\Intensity = -1 And *Graphics\Sprite_Instance[i]\Colour = -1
+      ; ignore both intensity and colour
+      Debug "Show sprite: " + *Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID
+      DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y)
+    EndIf
   Else
-    DisplaySprite(Sprite_Instance(i)\Sprite_Resource, Sprite_Instance(i)\X, Sprite_Instance(i)\Y)
+    DisplaySprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y)
   EndIf
 EndProcedure
 
-Procedure DisplaySpriteResource(*System.System_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1), s.i, x.i, y.i, Intensity.i=255)
+Procedure DisplaySpriteResource(*System.System_Structure, *Graphics.Graphics_Structure, s.i, x.i, y.i, Intensity.i=255)
   ; Used for manually displaying a sprite
-  If Sprite_Resource(s)\Transparent
-    DisplayTransparentSprite(Sprite_Resource(s)\ID, x, y, Intensity)
+  If *Graphics\Sprite_Resource[s]\Transparent
+    DisplayTransparentSprite(*Graphics\Sprite_Resource[s]\ID, x, y, Intensity)
   Else
-    DisplaySprite(Sprite_Resource(s)\ID, x, y)
+    DisplaySprite(*Graphics\Sprite_Resource[s]\ID, x, y)
   EndIf 
 EndProcedure
 
@@ -1132,7 +1262,7 @@ Procedure DisplaySystemFontString(*System.System_Structure, s.s, x.i, y.i, Inten
   Next
 EndProcedure
 
-Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Structure)
+Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure)
   Protected FPS.s
   If *System\Show_Debug_Info And Not *Screen_Settings\Full_Screen_Inactive
     FPS = "FPS:"
@@ -1142,7 +1272,7 @@ Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settin
   EndIf
 EndProcedure
 
-Procedure ShowDebugWindowInfo(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *FPS_Data.FPS_Structure, Array Debug_Var.s(1))
+Procedure ShowDebugWindowInfo(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *FPS_Data.FPS_Data_Structure, Array Debug_Var.s(1))
   ; Shows the variables in the Debug_Var array
   Protected Current_Time.q = ElapsedMilliseconds()
   Protected Text_Y.i = 2
@@ -1320,7 +1450,7 @@ Procedure DrawDashedLine(*System.System_Structure, *Screen_Settings.Screen_Setti
   ProcedureReturn cc ; return the offset so drawing can continue
 EndProcedure
 
-Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *Menu_Settings.Menu_Settings_Structure)
+Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure)
   Protected c.i
   ;For c = 1 To 1000
   ;  DrawPixel(*Screen_Settings, (Random(*Screen_Settings\Screen_Res_Width)), (Random(*Screen_Settings\Screen_Res_Height)), #White)
@@ -1332,18 +1462,22 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
   ;DrawLine(*Screen_Settings, 0, 20, 0, 80, RGBA(255, 255, 255, 255))
   ;DrawLine(*Screen_Settings, 0, 20, 60, 80, RGBA(255, 255, 255, 255))
   
-  DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 16, 255, #Red)
-  DisplaySystemFontString(*System, "abcdefghijklmnopqrstuvwxyz", 0, 24, 255, #Yellow)
-  DisplaySystemFontString(*System, "0123456789", 0, 32, 255, #Green)
-  DisplaySystemFontString(*System, " !" + Chr(34) + "#$%&'()*+,-./:;<=>?@|[]£\^`~{}€¥©™", 0, 40, 255, #White)
-  DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 48, 255, #Gray)
+  ;DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 16, 255, #Red)
+  ;DisplaySystemFontString(*System, "abcdefghijklmnopqrstuvwxyz", 0, 24, 255, #Yellow)
+  ;DisplaySystemFontString(*System, "0123456789", 0, 32, 255, #Green)
+  ;DisplaySystemFontString(*System, " !" + Chr(34) + "#$%&'()*+,-./:;<=>?@|[]£\^`~{}€¥©™", 0, 40, 255, #White)
+  ;DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 48, 255, #Gray)
   
   ;DisplayTransparentSprite(*System\Font_Char_Sprite[78], 100, 100, 255, #White)
   ;DisplaySpriteResource(*P, *System\Mouse_Sprite_Index, 80, 50)
   
   ;DrawDashedLine(*System, *Screen_Settings, 100, 80, 200, 120, #Black, #White, 2)
   
+  ;DisplayTransparentSprite(*Graphics\Sprite_Resource[1]\ID, 10, 10)
   
+  For c = 0 To *System\Sprite_Instance_Count - 1
+    DisplaySpriteInstance(*Graphics, c)
+  Next c
   
   If Not *Screen_Settings\Full_Screen_Inactive ; don't draw anything if full screen has been alt+tabbed
     
@@ -1358,7 +1492,7 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
         Case #Menu_Background_None
           ; nothing to do
         Case #Menu_Background_Vector
-        Case #Menu_Background_Image
+        Case #Data_Menu_Background_Image
       EndSelect
     EndIf
     ;StopDrawing()
@@ -1445,14 +1579,14 @@ Procedure ShowFullResGraphics(*System.System_Structure)
   
 EndProcedure
 
-Procedure DrawMouse(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, Array Sprite_Resource.Sprite_Resource_Structure(1))
+Procedure DrawMouse(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
   If *System\Show_Mouse And Not *Screen_Settings\Full_Screen_Inactive
     If Not *System\Mouse_Control
       ; dont show mouse when it's in control (ie first person mouse control)
      If *Screen_Settings\Full_Screen
         ; show the mouse sprite
         ; no need to show the mouse sprite in window mode when it's not in control of the player
-        DisplaySpriteResource(*System, Sprite_Resource(), *System\Mouse_Sprite_Index, *System\Mouse_X - *System\Mouse_Offset_X, *System\Mouse_Y - *System\Mouse_Offset_Y)
+        DisplaySpriteResource(*System, *Graphics, #Mouse_Sprite, *System\Mouse_X - *System\Mouse_Offset_X, *System\Mouse_Y - *System\Mouse_Offset_Y)
       EndIf
     EndIf
   EndIf
@@ -1525,7 +1659,7 @@ Procedure KeyPressed(*System.System_Structure, k.i)
 EndProcedure
 
 Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
-                          *Menu_Settings.Menu_Settings_Structure, Array Menu_Control.Menu_Control_Structure(1), Array Sprite_Resource.Sprite_Resource_Structure(1))
+                          *Menu_Settings.Menu_Settings_Structure, Array Menu_Control.Menu_Control_Structure(1), *Graphics.Graphics_Structure)
   Protected c.i
   If Not *Screen_Settings\Full_Screen_Inactive
     ; Disable keyboard when classic full screen inactive
@@ -1535,7 +1669,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
       If KeyPressed(*System, #PB_Key_Return)
         Debug "ProcessKeyboard: switch full screen"
-        SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+        SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
       EndIf
     EndIf
     ; Process control commands
@@ -1602,39 +1736,39 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
       If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
         If KeyPressed(*System, #PB_Key_1)
           *Screen_Settings\Set_Zoom = 1
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
         EndIf
         If KeyPressed(*System, #PB_Key_2)
           *Screen_Settings\Set_Zoom = 2
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
         EndIf
         If KeyPressed(*System, #PB_Key_3)
           *Screen_Settings\Set_Zoom = 3
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
         EndIf
         If KeyPressed(*System, #PB_Key_4)
           *Screen_Settings\Set_Zoom = 4
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
         EndIf
         If KeyPressed(*System, #PB_Key_5)
           *Screen_Settings\Set_Zoom = 5
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
         EndIf
         If KeyPressed(*System, #PB_Key_6)
           *Screen_Settings\Set_Zoom = 6
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
         EndIf
         If KeyPressed(*System, #PB_Key_7)
           *Screen_Settings\Set_Zoom = 7
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
         EndIf
         If KeyPressed(*System, #PB_Key_8)
           *Screen_Settings\Set_Zoom = 8
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
         EndIf
         If KeyPressed(*System, #PB_Key_9)
           *Screen_Settings\Set_Zoom = 9
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
         EndIf          
       EndIf
     EndIf
@@ -1657,7 +1791,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     If KeyPressed(*System, #PB_Key_F11)
       If *System\Allow_Switch_to_Window
         ; switch between window or full screen
-        SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, Sprite_Resource())
+        SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
       Else
         Debug "ProcessKeyboard: not allowed to switch between full screen and window"
       EndIf
@@ -1707,8 +1841,7 @@ EndProcedure
 
 ;- Events
 
-Procedure ProcessWindowEvents(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
-                              Array Sprite_Resource.Sprite_Resource_Structure(1))
+Procedure ProcessWindowEvents(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
   Protected Event.i, Event_Window.i
   Protected c.i
   Protected Result.i
@@ -1747,7 +1880,7 @@ Procedure ProcessWindowEvents(*System.System_Structure, *Window_Settings.Window_
                   *Window_Settings\Window_Moved = 1
                   ; Don't close the window And reopen (SetScreen), just reset the window screen
                   SetWindowScreen(*System, *Screen_Settings)
-                  LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource()) ; have to reload sprites after setting a new Window Screen
+                  LoadSpriteResources(*System, *Screen_Settings, *Graphics) ; have to reload sprites after setting a new Window Screen
                   ;InitialiseFonts(*System)
                   LoadSystemFont(*System)
                 EndIf 
@@ -1777,7 +1910,7 @@ Procedure ProcessWindowEvents(*System.System_Structure, *Window_Settings.Window_
           *Window_Settings\Window_Maximised = 1
           *Window_Settings\Window_Minimised = 0
           SetWindowScreen(*System, *Screen_Settings)
-          LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource())    ; have to reload sprites after setting a new Window Screen
+          LoadSpriteResources(*System, *Screen_Settings, *Graphics)    ; have to reload sprites after setting a new Window Screen
           ;InitialiseFonts(*System)
           LoadSystemFont(*System)
         Case #PB_Event_RestoreWindow
@@ -1787,7 +1920,7 @@ Procedure ProcessWindowEvents(*System.System_Structure, *Window_Settings.Window_
           Debug "ProcessWindowEvents: resizing to: " + *Window_Settings\Window_W + " x " + *Window_Settings\Window_H
           ResizeWindow(#Game_Window_Main, *Window_Settings\Window_X, *Window_Settings\Window_Y, *Window_Settings\Window_W / DesktopResolutionX(), *Window_Settings\Window_H / DesktopResolutionY())  
           SetWindowScreen(*System, *Screen_Settings)
-          LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource()) ; have to reload sprites after setting a new Window Screen
+          LoadSpriteResources(*System, *Screen_Settings, *Graphics) ; have to reload sprites after setting a new Window Screen
           ;InitialiseFonts(*System)
           LoadSystemFont(*System)
         Case #PB_Event_MinimizeWindow
@@ -1806,7 +1939,7 @@ EndProcedure
 
 ;- System
 
-Procedure ProcessFPS(*FPS_Data.FPS_Structure)
+Procedure ProcessFPS(*FPS_Data.FPS_Data_Structure)
   *FPS_Data\Last_Frame_Time = ElapsedMilliseconds() - *FPS_Data\Begin_Time
   *FPS_Data\Begin_Time = ElapsedMilliseconds()
   If *FPS_Data\Frame > 20
@@ -1830,7 +1963,7 @@ Procedure ProcessFPS(*FPS_Data.FPS_Structure)
   EndIf
 EndProcedure  
 
-Procedure ProcessSystem(*FPS_Data.FPS_Structure)
+Procedure ProcessSystem(*FPS_Data.FPS_Data_Structure)
   ;*P\Game_Loop_Start_Time = ElapsedMilliseconds()
   *FPS_Data\Frame_Start_Time = ElapsedMilliseconds() 
   *FPS_Data\Game_Run_Time = ElapsedMilliseconds() - *FPS_Data\Game_Start_Time
@@ -1939,8 +2072,8 @@ Procedure SetInitialiseError(*System.System_Structure, Message.s)
   EndIf
 EndProcedure
 
-Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Structure,
-                     *Menu_Settings.Menu_Settings_Structure, Array Menu_Control.Menu_Control_Structure(1), Array Sprite_Resource.Sprite_Resource_Structure(1))
+Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure,
+                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, Array Menu_Control.Menu_Control_Structure(1))
   ; Initialises the environment
   Protected Result.i, c.i
   
@@ -2028,11 +2161,11 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   
   Select *Menu_Settings\Menu_System_Type
     Case #Menu_System_Menuless
-      Restore Menu_Controls_MenuLess_Data
+      Restore Data_Menu_Controls_Menuless
     Case #Menu_System_Simple
-      Restore Menu_Controls_Simple_Data
+      Restore Data_Menu_Controls_Simple
     Case #Menu_System_Pointer
-      Restore Menu_Controls_Pointer_Data
+      Restore Data_Menu_Controls_Pointer
   EndSelect
   Read.i *Menu_Settings\Menu_Controls_Count
   If *Menu_Settings\Menu_Controls_Count > #Max_Menu_Controls
@@ -2046,7 +2179,9 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
     Read.i Menu_Control(c)\Menu_Control_ID
   Next
   
-  LoadSpriteResources(*System, *Screen_Settings, Sprite_Resource())
+  LoadVectorResources(*System, *Graphics)
+  LoadSpriteResources(*System, *Screen_Settings, *Graphics)
+  LoadSpriteInstances(*System, *Graphics)
   LoadSystemFont(*System)
   
   ;If Not InitialiseFonts(*System)
@@ -2054,13 +2189,6 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   ;  SetInitialiseError(*P, "Could not initialise fonts")
   ;  ProcedureReturn 0
   ;EndIf  
-  
-  ; Load Menu Background
-  Select *Menu_Settings\Menu_Background_Data_Source
-    Case #Data_Source_Internal_Memory
-      Restore Menu_Background_None_Data
-      Read.i *Menu_Settings\Menu_Background_Colour
-  EndSelect
   
   ; Elevate control to layer 2 (menu)
   ;*Screen_Settings\Background_Colour = *Menu_Settings\Menu_Background_Colour
@@ -2084,149 +2212,20 @@ Procedure Shutdown(*System.System_Structure, *Window_Settings.Window_Settings_St
   CompilerIf #PB_Compiler_OS = #PB_OS_Windows : CloseHandle_(*System\MutexID) : CompilerEndIf
 EndProcedure  
 
-;- Self Test
-
-CompilerIf #PB_Compiler_IsMainFile
-
-;- Main loop
-
-Repeat ; used for restarting the game
-  If Restart : Debug "System: restarting..." : EndIf
-  Restart = 0 ; game has started so don't restart again
-;- Set defaults
-  
-CompilerSelect #PB_Compiler_OS
-  CompilerCase #PB_OS_Windows
-    System\Minimum_Colour_Depth = 32
-  CompilerCase #PB_OS_Linux
-    System\Minimum_Colour_Depth = 24
-  CompilerCase #PB_OS_MacOS
-    System\Minimum_Colour_Depth = 32
-CompilerEndSelect  
-
-  System\Fatal_Error_Message = "none"
-  System\Game_Title = "Universal Game Engine"
-  System\Game_Config_File = "settings.cfg"
-  System\Sprite_List_Data_Source = #Data_Source_Internal_Memory
-  System\Game_Resource_Location = "Data"
-  System\Debug_Window = 1
-  System\Current_Directory = GetCurrentDirectory()
-  System\Render_Engine3D = #Render_Engine3D_Builtin
-  System\Show_Debug_Info = 0
-  System\Debug_Var_Count = 1
-  System\Show_Mouse = 1
-  System\Mouse_Sprite_Index = 1
-  System\Quit = 0
-  System\Allow_Restart = 1
-  System\Allow_Switch_to_Window = 1
-  System\Allow_Screen_Capture = 1
-  System\Mouse_Sensitivity_X = 3
-  System\Mouse_Sensitivity_Y = 3
-  System\Config_Loaded = 0  
-  System\Initialise_Error_Message = "none"  
-
-  FPS_Data\Initialised = 0
-  FPS_Data\Frequency = 0
-  FPS_Data\Frame = 0
-
-  Window_Settings\Allow_Window_Resize = 1
-  Window_Settings\Reset_Window = 0
-  Window_Settings\Debug_Window_Front_Colour = #Black
-  Window_Settings\Debug_Window_Back_Colour = #White
-  Window_Settings\Window_Debug_Edit_Gadget = 0 ; reset the gadget ID for debug window
-
-  Screen_Settings\Num_Monitors = 0
-  Screen_Settings\Total_Desktop_Width = 0
-  Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
-  Screen_Settings\Border_Enable = 1
-  Screen_Settings\Border = 0 ; turn the border on by default
-  Screen_Settings\Classic_Screen_Background_Colour = #Black
-
-  ; C64 settings: border: 403x284 screen: 320x200
-  ;Screen_Settings\Border_Width = 400 ; optional border setting
-  ;Screen_Settings\Border_Height = 284
-  ;Screen_Settings\Screen_Res_Width = 320
-  ;Screen_Settings\Screen_Res_Height = 200
-
-  ;Screen_Settings\Border_Width = 288 ; optional border setting
-  ;Screen_Settings\Border_Height = 240
-  ;Screen_Settings\Screen_Res_Width = 256
-  ;Screen_Settings\Screen_Res_Height = 224
-
-  ;Screen_Settings\Border_Width = 320 ; optional border setting
-  ;Screen_Settings\Border_Height = 352
-  ;Screen_Settings\Screen_Res_Width = 256
-  ;Screen_Settings\Screen_Res_Height = 288
-
-  Screen_Settings\Border_Width = 316
-  Screen_Settings\Border_Height = 284
-  Screen_Settings\Screen_Res_Width = 256
-  Screen_Settings\Screen_Res_Height = 224
-
-  Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
-  Screen_Settings\Background_Colour = #Blue
-  Screen_Settings\Full_Screen = 0
-  Screen_Settings\Full_Screen_Type = #Full_Screen_Windowed
-  ;Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
-
-  Menu_Settings\Menu_Background = #Menu_Background_None
-  Menu_Settings\Menu_Background_Colour = #Black ; this will be changed when the menu is loaded
-  Menu_Settings\Menu_Background_Data_Source = #Data_Source_Internal_Memory
-  Menu_Settings\Menu_Action = #Menu_Action_None ; make sure nothing has been pressed for the menu controls  
-  Menu_Settings\Menu_System_Type = #Menu_System_Menuless
-
-  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, Menu_Control(), Sprite_Resource())
-    Debug "System: starting main loop"
-    FPS_Data\Game_Start_Time = ElapsedMilliseconds()
-    Repeat
-      ; main game loop
-      ProcessSystem(@FPS_Data) ; must be first in the main loop
-      Debug_Var(0) = "FPS: " + FPS_Data\FPS
-      ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, Sprite_Resource())
-      ProcessMouse(@System, @Screen_Settings)
-      ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, Menu_Control(), Sprite_Resource())
-      DoClearScreen(@System, @Screen_Settings)
-      Draw3DWorld(@System)
-      DrawSprites(@System, @Screen_Settings, @Menu_Settings)
-      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
-      GrabScreen(@Screen_Settings)
-      Draw2DGraphics(@System, @Screen_Settings)
-      DrawBorder(@Screen_Settings)
-      ShowZoomed2DScreen(@Screen_Settings)
-      AddScreenFilter(@Screen_Settings)
-      DoPostProcessing(@System) ; eg screen capture
-      DrawMouse(@System, @Screen_Settings, Sprite_Resource())
-      ShowFullResGraphics(@Screen_Settings) ; eg system messages or console (not captured by screen capture)
-      ShowDebugWindowInfo(@System, @Window_Settings, @FPS_Data, Debug_Var())
-      DoFlipBuffer(@Screen_Settings)
-      CheckFullScreen(@System, @Window_Settings, @Screen_Settings)  ; check for switching back to main window system (alt+tab), must be after FlipBuffers      
-    Until System\Quit Or Restart
-    Debug "System: shutting down..."
-    Shutdown(@System, @Window_Settings, @Screen_Settings)
-  Else
-    MessageRequester ("Unable to start " + System\Game_Title, System\Initialise_Error_Message, #PB_MessageRequester_Error)
-  EndIf
-Until Not Restart
-
-Debug "System: game ended"
-End 0
-
-CompilerEndIf
-
 ;- Data section
 DataSection
-  Menu_Controls_Data:
+  Data_Menu_Controls:
   ; First record is the number of records (make sure #Max_Menu_Controls is higher than the largest)
   ; Data is in the format of the Structure Menu_Control_Type
   ; menuless system
-  Menu_Controls_Menuless_Data:
+  Data_Menu_Controls_Menuless:
   ; This menu control system is like the Atari 2600 and is only included for making very simple games
   Data.i 3
   Data.i #Menu_System_Menuless, #Menu_Action_Start, #Control_Hardware_Keyboard, #PB_Key_Space
   Data.i #Menu_System_Menuless, #Menu_Action_Select, #Control_Hardware_Keyboard, #PB_Key_F1
   Data.i #Menu_System_Menuless, #Menu_Action_Reset, #Control_Hardware_Keyboard, #PB_Key_F2
   ; simple menu system
-  Menu_Controls_Simple_Data:
+  Data_Menu_Controls_Simple:
   ; This menu system is for making console type games where the menu is controlled by up/down/left/right etc
   Data.i 6
   Data.i #Menu_System_Simple, #Menu_Action_Confirm, #Control_Hardware_Keyboard, #PB_Key_Return
@@ -2236,35 +2235,26 @@ DataSection
   Data.i #Menu_System_Simple, #Menu_Action_Left, #Control_Hardware_Keyboard, #PB_Key_Left
   Data.i #Menu_System_Simple, #Menu_Action_Right, #Control_Hardware_Keyboard, #PB_Key_Right
   ; pointer menu system
-  Menu_Controls_Pointer_Data:
+  Data_Menu_Controls_Pointer:
   ; This menu system is the most common for PC games
   Data.i 3
   Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Hardware_Keyboard, #PB_Key_Return
   Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Hardware_Keyboard, #PB_Key_Space
   Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Hardware_Mouse, #PB_MouseButton_Left
   
-  Image_Data:
+  Data_Images:
   ; These are all the 2D images loaded by the system available to the game
   Data.i 0 ; Number of records
   
-  Sprite_Resource_Data:
+  Data_Internal_Sprite_Resources:
   ; Provides a list of sprite resources to be loaded
-  ; Examples:
-  ; Loading a sprite from internal memory is not yet supported
-  ; Format: Width, Height, Mode, Transparent, Source, Index/file
-  ; From DataSection: Data.i 30, 30, #PB_Sprite_AlphaBlending, #Data_Source_Internal_Memory, 0
-  ; From a file: Data.i 30, 30, 0, #Data_Source_File : Data.s "test.bmp"
-  ; From a database: Data.i 30, 30, 0, #Data_Source_Database, 100
-  Data.i 2 ; Number of records
-  Data.i 8, 8, #PB_Sprite_AlphaBlending, #True, #Data_Source_None, 0
-  ; This is the scratch sprite, used for zooming 2D drawing operations when simulating low resolution
-  Data.i 12, 19, #PB_Sprite_AlphaBlending, #True, #Data_Source_Internal_Memory, 0
-  ;Data.i 12, 19, #PB_Sprite_AlphaBlending, #True, #Data_Source_File : Data.s "mouse.png"
+  ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file
+  Data.i 1 ; Number of records
+  Data.i 12, 19, #PB_Sprite_AlphaBlending, #True, #False, #Data_Source_Internal_Memory, 0 ; Mouse sprite
   
-  Sprite_Data:
-  ; Provides actual sprites in the DataSection
-  ; This can be ignored if necessary but leave the label above as the code needs it to work
-  Sprite_Data_Mouse:
+  Data_Sprites:
+
+  Data_Sprite_Mouse:
   Data.l $FF000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000
   Data.l $FF000000,$FF000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000
   Data.l $FF000000,$FFFFFFFF,$FF000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000
@@ -2284,7 +2274,8 @@ DataSection
   Data.l $FF000000,$FF000000,$00000000,$00000000,$00000000,$00000000,$FF000000,$FFFFFFFF,$FFFFFFFF,$FF000000,$00000000,$00000000
   Data.l $00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$FF000000,$FFFFFFFF,$FFFFFFFF,$FF000000,$00000000,$00000000
   Data.l $00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$FF000000,$FF000000,$00000000,$00000000,$00000000
-  Sprite_Data_System_Font: ; C64 8x8 style
+  
+  Data_Sprite_System_Font: ; C64 8x8 style
   Data.a %00110000, %01111000, %11001100, %11111100, %11001100, %11001100, %11001100, %00000000 ;A
   Data.a %11111000, %11001100, %11111000, %11001100, %11001100, %11001100, %11111000, %00000000 ;B
   Data.a %01111000, %11001100, %11000000, %11000000, %11000000, %11001100, %01111000, %00000000 ;C
@@ -2385,18 +2376,14 @@ DataSection
   Data.a %11001100, %11001100, %01111000, %11111100, %00110000, %11111100, %00110000, %00000000 ;¥ (non C64)
   Data.a %01111100, %10000010, %10111010, %10100010, %10111010, %10000010, %01111100, %00000000 ;© (non C64)
   Data.a %11101010, %01001110, %01010101, %00000000, %00000000, %00000000, %00000000, %00000000 ;™ (non C64)
-  Data.a %11111110, %11000110, %10101010, %10010010, %10101010, %11000110, %11111110, %00000000 ;unknown
-  Menu_Background_Data:
-  ; Data for displaying the menu background
-  Menu_Background_None_Data:
-  Data.i 8723235 ; colour to be displayed as background
-  Menu_Background_Vector_Data:
-  Menu_Background_Image_Data:
+  Data.a %11111110, %11000110, %10101010, %10010010, %10101010, %11000110, %11111110, %00000000 ;unknown  
   
 EndDataSection
+
+
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1414
-; FirstLine = 1389
+; CursorPosition = 804
+; FirstLine = 777
 ; Folding = -----------
 ; EnableXP
 ; DPIAware
