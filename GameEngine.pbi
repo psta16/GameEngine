@@ -102,12 +102,13 @@ Enumeration Shapes ; used for vector graphics
   #Shape_Fill ; use this to fill an area
 EndEnumeration
 
-; Layer 2 - Menus and controls
+Enumeration Control_Type
+  #Control_Type_Keyboard
+  #Control_Type_Joystick
+  #Control_Type_Mouse
+EndEnumeration  
 
-Enumeration Control_Hardware
-  #Control_Hardware_Keyboard
-  #Control_Hardware_Mouse
-EndEnumeration 
+; Layer 2 - Menus and controls
 
 Enumeration Menu_System ; specifies how the menu will be navigated
   #Menu_System_Menuless ; uses buttons only to start and reset the game
@@ -153,6 +154,7 @@ Global Restart.i=0 ; restarts the game engine
 #Max_Keyboard_Value = 300 ; used for storing which keys are down
 #Mouse_Sprite = 0
 #Max_Vector_Graphics_Resources = 32
+#Max_System_Font_Instances = 32
 
 ; Menu
 #Max_Menu_Controls = 12
@@ -242,6 +244,7 @@ Structure System_Structure
   Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
   Sprite_Vector_Resource_Count.i ; number of vector resources
   Variable.Variable_Structure[#Max_Variables] ; variables used for displaying values on screen etc
+  System_Font_Instance_Count.i ; number of system font instances
 EndStructure
 
 Structure Debug_Structure
@@ -369,10 +372,51 @@ Structure Sprite_Instance_Structure
   Controlled_By.i
 EndStructure
 
+Structure System_Font_Instance_Structure
+  S.s ; string to display
+  Variable.i ; variable to use instead of string (-1 means not used)
+  X.d
+  Y.d
+  Char_Width.i
+  Char_Height.i
+  Intensity.i
+  Colour.i
+  Layer.i     ; used to sort the sprite instance array for drawing order, 0 is background
+  Visible.i
+EndStructure
+
+
 Structure Graphics_Structure
   Vector_Graphics_Resource.Vector_Graphics_Structure[#Max_Vector_Graphics_Resources] ; used for reading vector data and drawing onto a sprite
   Sprite_Resource.Sprite_Resource_Structure[#Max_Sprite_Resources] ; hold all sprite resources (the actual sprite image data)
   Sprite_Instance.Sprite_Instance_Structure[#Max_Sprite_Instances] ; instances of sprites on screen
+  System_Font_Instance.System_Font_Instance_Structure[#Max_System_Font_Instances] ; instances of system font strings
+EndStructure
+
+Structure Control_Set_Structure
+  ; Control sets can be saved for easy retrival
+  Control_Type.i ; Enumeration Control_Type
+  Up.i
+  Down.i
+  Left.i
+  Right.i
+  A.i
+  B.i
+  X.i
+  Y.i
+  Left_Shoulder.i
+  Right_Shoulder.i
+  Left_Triger_Axis.i
+  Right_Trigger_Axis.i
+  Left_Stick_X.i
+  Left_Stick_Y.i
+  Right_Stick_X.i
+  Right_Stick_Y.i
+  Left_Stick_Click.i
+  Right_Stick_Click.i
+  Start.i
+  Select_Button.i
+  Home.i
 EndStructure
 
 ; Menu
@@ -396,6 +440,12 @@ Structure Menu_Settings_Structure
 EndStructure
 
 ; Game
+
+Structure Player_Structure
+  Player_Name.s
+  Control_Set.Control_Set_Structure
+EndStructure
+
 
 ;- Defines
 
@@ -809,8 +859,31 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
       *Graphics\Sprite_Instance[c]\Intensity = 255
     EndIf
   Next c
-  
   Debug "LoadSpriteInstances: " + *System\Sprite_Instance_Count + " sprite instance(s) loaded"
+EndProcedure
+
+Procedure LoadSystemFontInstances(*System.System_Structure, *Graphics.Graphics_Structure)
+  Protected c.i
+  Debug "LoadSystemFontInstances: loading system font instance list"
+  Restore Data_System_Font_Instances
+  Read *System\System_Font_Instance_Count
+  For c = 0 To *System\System_Font_Instance_Count - 1
+    Read.s *Graphics\System_Font_Instance[c]\S
+    Read.i *Graphics\System_Font_Instance[c]\Variable
+    Read.i *Graphics\System_Font_Instance[c]\X
+    Read.i *Graphics\System_Font_Instance[c]\Y
+    Read.i *Graphics\System_Font_Instance[c]\Char_Width
+    Read.i *Graphics\System_Font_Instance[c]\Char_Height
+    Read.i *Graphics\System_Font_Instance[c]\Intensity
+    Read.i *Graphics\System_Font_Instance[c]\Colour
+    Read.i *Graphics\System_Font_Instance[c]\Layer
+    Read.i *Graphics\System_Font_Instance[c]\Visible
+    If *Graphics\System_Font_Instance[c]\Colour > -1 And *Graphics\System_Font_Instance[c]\Intensity = -1
+      ; automatically make intensity 255 if there is a colour set and intensity is -1
+      *Graphics\System_Font_Instance[c]\Intensity = 255
+    EndIf
+  Next c
+  Debug "LoadSystemFontInstances: " + *System\System_Font_Instance_Count + " system font instance(s) loaded"
 EndProcedure
 
 Procedure LoadSystemFont(*System.System_Structure)
@@ -1129,7 +1202,6 @@ Procedure DisplaySpriteInstance(*Graphics.Graphics_Structure, i.i)
       DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity, *Graphics\Sprite_Instance[i]\Colour)
     ElseIf *Graphics\Sprite_Instance[i]\Intensity = -1 And *Graphics\Sprite_Instance[i]\Colour = -1
       ; ignore both intensity and colour
-      Debug "Show sprite: " + *Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID
       DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y)
     EndIf
   Else
@@ -1252,7 +1324,7 @@ Procedure GetSystemFontChar(c.i)
   EndSelect
 EndProcedure
 
-Procedure DisplaySystemFontString(*System.System_Structure, s.s, x.i, y.i, Intensity.i, Colour.i, Zoom.d = 1)
+Procedure DisplaySystemFontString(*System.System_Structure, s.s, x.i, y.i, Intensity.i, Colour.i, Width.i, Height.i)
   Protected c.i
   Protected Char.s
   Protected SystemFontIndex.i
@@ -1260,10 +1332,15 @@ Procedure DisplaySystemFontString(*System.System_Structure, s.s, x.i, y.i, Inten
     Char = Mid(s, c, 1)
     SystemFontIndex = Asc(Char)
     SpriteQuality(#PB_Sprite_NoFiltering)
-    ZoomSprite(*System\Font_Char_Sprite[GetSystemFontChar(SystemFontIndex)], 8 * Zoom, 8 * Zoom)
+    ZoomSprite(*System\Font_Char_Sprite[GetSystemFontChar(SystemFontIndex)], Width, Height)
     DisplayTransparentSprite(*System\Font_Char_Sprite[GetSystemFontChar(SystemFontIndex)], x, y, Intensity, Colour)
-    x = x + 8 * Zoom
+    x = x + Width
   Next
+EndProcedure
+
+Procedure DisplaySystemFontInstance(*System.System_Structure, *Graphics.Graphics_Structure, i.i)
+  DisplaySystemFontString(*System, *Graphics\System_Font_Instance[i]\S, *Graphics\System_Font_Instance[i]\X, *Graphics\System_Font_Instance[i]\Y, *Graphics\System_Font_Instance[i]\Intensity,
+                          *Graphics\System_Font_Instance[i]\Colour, *Graphics\System_Font_Instance[i]\Char_Width, *Graphics\System_Font_Instance[i]\Char_Height)
 EndProcedure
 
 Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure)
@@ -1272,7 +1349,7 @@ Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settin
     FPS = "FPS:"
     FPS = FPS + Str(*FPS_Data\FPS)
     ;Font::DisplayStringSpriteUnicode(#Font_Fixedsys_Neo_Plus, FPS, 0, 0)
-    DisplaySystemFontString(*System, FPS, 0, 0, 255, #White)
+    DisplaySystemFontString(*System, FPS, 0, 0, 255, #White, 8, 8)
   EndIf
 EndProcedure
 
@@ -1482,6 +1559,10 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
   For c = 0 To *System\Sprite_Instance_Count - 1
     DisplaySpriteInstance(*Graphics, c)
   Next c
+  For c = 0 To *System\System_Font_Instance_Count - 1
+    DisplaySystemFontInstance(*System, *Graphics, c)
+  Next c
+  
   
   If Not *Screen_Settings\Full_Screen_Inactive ; don't draw anything if full screen has been alt+tabbed
     
@@ -1699,20 +1780,20 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     ; menu
     ; *************************************
     
-    If *Menu_Settings\Menu_Active
-      ; only process menu controls when the menu is active
-      *Menu_Settings\Menu_Action = #Menu_Action_None
-      For c = 0 To #Max_Menu_Controls - 1
-        If *Menu_Settings\Menu_Control[c]\Menu_Control_Hardware_Type = #Control_Hardware_Keyboard
-          ; only check keyboard controls since this is the keyboard handler
-          If KeyPressed(*System, *Menu_Settings\Menu_Control[c]\Menu_Control_ID)
-            Debug "ProcessKeyboard: menu control " + *Menu_Settings\Menu_Control[c]\Menu_Control_ID + " pressed"
-            *Menu_Settings\Menu_Action = *Menu_Settings\Menu_Control[c]\Menu_Control_Action
-          EndIf
-        EndIf
-        If *Menu_Settings\Menu_Action <> #Menu_Action_None : Break : EndIf 
-      Next
-    EndIf    
+    ;If *Menu_Settings\Menu_Active
+    ;  ; only process menu controls when the menu is active
+    ;  *Menu_Settings\Menu_Action = #Menu_Action_None
+    ;  For c = 0 To #Max_Menu_Controls - 1
+    ;    If *Menu_Settings\Menu_Control[c]\Menu_Control_Hardware_Type = #Control_Hardware_Keyboard
+    ;      ; only check keyboard controls since this is the keyboard handler
+    ;      If KeyPressed(*System, *Menu_Settings\Menu_Control[c]\Menu_Control_ID)
+    ;        Debug "ProcessKeyboard: menu control " + *Menu_Settings\Menu_Control[c]\Menu_Control_ID + " pressed"
+    ;        *Menu_Settings\Menu_Action = *Menu_Settings\Menu_Control[c]\Menu_Control_Action
+    ;      EndIf
+    ;    EndIf
+    ;    If *Menu_Settings\Menu_Action <> #Menu_Action_None : Break : EndIf 
+    ;  Next
+    ;EndIf    
     
     ; *************************************
     ; system
@@ -1819,6 +1900,9 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
       *System\Quit = 1
     EndIf
   EndIf
+EndProcedure
+
+Procedure ProcessControls()
 EndProcedure
 
 Procedure ProcessMouse(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
@@ -2186,6 +2270,7 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   LoadVectorResources(*System, *Graphics)
   LoadSpriteResources(*System, *Screen_Settings, *Graphics)
   LoadSpriteInstances(*System, *Graphics)
+  LoadSystemFontInstances(*System, *Graphics)
   LoadSystemFont(*System)
   
   ;If Not InitialiseFonts(*System)
@@ -2265,6 +2350,7 @@ Repeat ; used for restarting the game
       ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, @Graphics)
       ProcessMouse(@System, @Screen_Settings)
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
+      ProcessControls()
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -2300,26 +2386,26 @@ DataSection
   Data_Menu_Controls_Menuless:
   ; This menu control system is like the Atari 2600 and is only included for making very simple games
   Data.i 3
-  Data.i #Menu_System_Menuless, #Menu_Action_Start, #Control_Hardware_Keyboard, #PB_Key_Space
-  Data.i #Menu_System_Menuless, #Menu_Action_Select, #Control_Hardware_Keyboard, #PB_Key_F1
-  Data.i #Menu_System_Menuless, #Menu_Action_Reset, #Control_Hardware_Keyboard, #PB_Key_F2
+  Data.i #Menu_System_Menuless, #Menu_Action_Start, #Control_Type_Keyboard, #PB_Key_Space
+  Data.i #Menu_System_Menuless, #Menu_Action_Select, #Control_Type_Keyboard, #PB_Key_F1
+  Data.i #Menu_System_Menuless, #Menu_Action_Reset, #Control_Type_Keyboard, #PB_Key_F2
   ; simple menu system
   Data_Menu_Controls_Simple:
   ; This menu system is for making console type games where the menu is controlled by up/down/left/right etc
   Data.i 6
-  Data.i #Menu_System_Simple, #Menu_Action_Confirm, #Control_Hardware_Keyboard, #PB_Key_Return
-  Data.i #Menu_System_Simple, #Menu_Action_Back, #Control_Hardware_Keyboard, #PB_Key_Escape
-  Data.i #Menu_System_Simple, #Menu_Action_Up, #Control_Hardware_Keyboard, #PB_Key_Up
-  Data.i #Menu_System_Simple, #Menu_Action_Down, #Control_Hardware_Keyboard, #PB_Key_Down
-  Data.i #Menu_System_Simple, #Menu_Action_Left, #Control_Hardware_Keyboard, #PB_Key_Left
-  Data.i #Menu_System_Simple, #Menu_Action_Right, #Control_Hardware_Keyboard, #PB_Key_Right
+  Data.i #Menu_System_Simple, #Menu_Action_Confirm, #Control_Type_Keyboard, #PB_Key_Return
+  Data.i #Menu_System_Simple, #Menu_Action_Back, #Control_Type_Keyboard, #PB_Key_Escape
+  Data.i #Menu_System_Simple, #Menu_Action_Up, #Control_Type_Keyboard, #PB_Key_Up
+  Data.i #Menu_System_Simple, #Menu_Action_Down, #Control_Type_Keyboard, #PB_Key_Down
+  Data.i #Menu_System_Simple, #Menu_Action_Left, #Control_Type_Keyboard, #PB_Key_Left
+  Data.i #Menu_System_Simple, #Menu_Action_Right, #Control_Type_Keyboard, #PB_Key_Right
   ; pointer menu system
   Data_Menu_Controls_Pointer:
   ; This menu system is the most common for PC games
   Data.i 3
-  Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Hardware_Keyboard, #PB_Key_Return
-  Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Hardware_Keyboard, #PB_Key_Space
-  Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Hardware_Mouse, #PB_MouseButton_Left
+  Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Type_Keyboard, #PB_Key_Return
+  Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Type_Keyboard, #PB_Key_Space
+  Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Type_Mouse, #PB_MouseButton_Left
   
   Data_Images:
   ; These are all the 2D images loaded by the system available to the game
@@ -2381,32 +2467,32 @@ DataSection
   Data.a %11001100, %11001100, %01111000, %00110000, %01111000, %11001100, %11001100, %00000000 ;X
   Data.a %11001100, %11001100, %11001100, %01111000, %00110000, %00110000, %00110000, %00000000 ;Y
   Data.a %11111100, %00001100, %00011000, %00110000, %01100000, %11000000, %11111100, %00000000 ;Z
-  Data.a %00000000, %01111000, %00001100, %01111100, %11001100, %01111100, %00000000, %00000000 ;a
-  Data.a %11000000, %11000000, %11111000, %11001100, %11001100, %11111000, %00000000, %00000000 ;b
-  Data.a %00000000, %01111000, %11000000, %11000000, %11000000, %01111000, %00000000, %00000000 ;c
-  Data.a %00001100, %00001100, %01111100, %11001100, %11001100, %01111100, %00000000, %00000000 ;d
-  Data.a %00000000, %01111000, %11001100, %11111100, %11000000, %01111000, %00000000, %00000000 ;e
-  Data.a %00111000, %01100000, %11111000, %01100000, %01100000, %01100000, %00000000, %00000000 ;f
-  Data.a %00000000, %01111100, %11001100, %11001100, %01111100, %00001100, %01111000, %00000000 ;g
-  Data.a %11000000, %11000000, %11111000, %11001100, %11001100, %11001100, %00000000, %00000000 ;h
-  Data.a %00110000, %00000000, %01110000, %00110000, %00110000, %01111000, %00000000, %00000000 ;i
-  Data.a %00011000, %00000000, %00011000, %00011000, %00011000, %00011000, %11110000, %00000000 ;j
-  Data.a %11000000, %11000000, %11011000, %11110000, %11011000, %11001100, %00000000, %00000000 ;k
-  Data.a %01110000, %00110000, %00110000, %00110000, %00110000, %01111000, %00000000, %00000000 ;l
-  Data.a %00000000, %11001100, %11111110, %11010110, %11000110, %11000110, %00000000, %00000000 ;m
-  Data.a %00000000, %11111000, %11001100, %11001100, %11001100, %11001100, %00000000, %00000000 ;n
-  Data.a %00000000, %01111000, %11001100, %11001100, %11001100, %01111000, %00000000, %00000000 ;o
-  Data.a %00000000, %11111000, %11001100, %11001100, %11111000, %11000000, %11000000, %00000000 ;p
-  Data.a %00000000, %01111100, %11001100, %11001100, %01111100, %00001100, %00001100, %00000000 ;q
-  Data.a %00000000, %11111000, %11001100, %11000000, %11000000, %11000000, %00000000, %00000000 ;r
-  Data.a %00000000, %01111100, %11000000, %01111000, %00001100, %11111000, %00000000, %00000000 ;s
-  Data.a %00110000, %11111100, %00110000, %00110000, %00110000, %00011100, %00000000, %00000000 ;t
-  Data.a %00000000, %11001100, %11001100, %11001100, %11001100, %01111100, %00000000, %00000000 ;u
-  Data.a %00000000, %11001100, %11001100, %11001100, %01111000, %00110000, %00000000, %00000000 ;v
-  Data.a %00000000, %11000110, %11010110, %11111110, %01111100, %01101100, %00000000, %00000000 ;w
-  Data.a %00000000, %11001100, %01111000, %00110000, %01111000, %11001100, %00000000, %00000000 ;x
-  Data.a %00000000, %11001100, %11001100, %11001100, %01111100, %00011000, %11110000, %00000000 ;y
-  Data.a %00000000, %11111100, %00011000, %00110000, %01100000, %11111100, %00000000, %00000000 ;z
+  Data.a %00000000, %00000000, %01111000, %00001100, %01111100, %11001100, %01111100, %00000000 ;a
+  Data.a %00000000, %11000000, %11000000, %11111000, %11001100, %11001100, %11111000, %00000000 ;b
+  Data.a %00000000, %00000000, %01111000, %11000000, %11000000, %11000000, %01111000, %00000000 ;c
+  Data.a %00000000, %00001100, %00001100, %01111100, %11001100, %11001100, %01111100, %00000000 ;d
+  Data.a %00000000, %00000000, %01111000, %11001100, %11111100, %11000000, %01111000, %00000000 ;e
+  Data.a %00000000, %00111000, %01100000, %11111000, %01100000, %01100000, %01100000, %00000000 ;f
+  Data.a %00000000, %00000000, %01111100, %11001100, %11001100, %01111100, %00001100, %01111000 ;g
+  Data.a %00000000, %11000000, %11000000, %11111000, %11001100, %11001100, %11001100, %00000000 ;h
+  Data.a %00000000, %00110000, %00000000, %01110000, %00110000, %00110000, %01111000, %00000000 ;i
+  Data.a %00000000, %00011000, %00000000, %00011000, %00011000, %00011000, %00011000, %11110000 ;j
+  Data.a %00000000, %11000000, %11000000, %11011000, %11110000, %11011000, %11001100, %00000000 ;k
+  Data.a %00000000, %01110000, %00110000, %00110000, %00110000, %00110000, %01111000, %00000000 ;l
+  Data.a %00000000, %00000000, %11001100, %11111110, %11010110, %11000110, %11000110, %00000000 ;m
+  Data.a %00000000, %00000000, %11111000, %11001100, %11001100, %11001100, %11001100, %00000000 ;n
+  Data.a %00000000, %00000000, %01111000, %11001100, %11001100, %11001100, %01111000, %00000000 ;o
+  Data.a %00000000, %00000000, %11111000, %11001100, %11001100, %11111000, %11000000, %11000000 ;p
+  Data.a %00000000, %00000000, %01111100, %11001100, %11001100, %01111100, %00001100, %00001100 ;q
+  Data.a %00000000, %00000000, %11111000, %11001100, %11000000, %11000000, %11000000, %00000000 ;r
+  Data.a %00000000, %00000000, %01111100, %11000000, %01111000, %00001100, %11111000, %00000000 ;s
+  Data.a %00000000, %00110000, %11111100, %00110000, %00110000, %00110000, %00011100, %00000000 ;t
+  Data.a %00000000, %00000000, %11001100, %11001100, %11001100, %11001100, %01111100, %00000000 ;u
+  Data.a %00000000, %00000000, %11001100, %11001100, %11001100, %01111000, %00110000, %00000000 ;v
+  Data.a %00000000, %00000000, %11000110, %11010110, %11111110, %01111100, %01101100, %00000000 ;w
+  Data.a %00000000, %00000000, %11001100, %01111000, %00110000, %01111000, %11001100, %00000000 ;x
+  Data.a %00000000, %00000000, %11001100, %11001100, %11001100, %01111100, %00011000, %11110000 ;y
+  Data.a %00000000, %00000000, %11111100, %00011000, %00110000, %01100000, %11111100, %00000000 ;z
   Data.a %01111000, %11001100, %11011100, %11101100, %11001100, %11001100, %01111000, %00000000 ;0
   Data.a %00110000, %01110000, %00110000, %00110000, %00110000, %00110000, %11111100, %00000000 ;1
   Data.a %01111000, %11001100, %00001100, %00011000, %01100000, %11000000, %11111100, %00000000 ;2
@@ -2462,29 +2548,30 @@ DataSection
   Data_Vector_Resources:
   ; Format: Shape type, Background Transparent (T/F), Colour, Background colour, X, Y, Width, Height, Radius, Round_X, Round_Y, Continue
   Data.i 0 ; Number of records
-  
   Data_Custom_Sprite_Resources:
   ; Provides a list of sprite resources to be loaded
   ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file
   Data.i 0 ; Number of records
-
   Data_Sprite_Instances:
   ; Format: Sprite_Resource, X, Y, Width, Height, Velocity_X, Velocity_Y, Intensity, Colour, Layer, Visible, Controlled_By
   ; Layer 0 is background, higher numbers are on top
   ; Intensity and Colour of -1 means don't use a colour
   ; You have to set an intensity if you want to set a colour
   Data.i 0 ; Number of records
+  Data_System_Font_Instances:
+  ; Used for displaying the system font
+  ; Format: String, Variable, X, Y, Char_Width, Char_Height, Intensity, Colour, Layer, Visible
+  Data.i 0 ; Number of records
   
   CompilerEndIf
-  
-  
   
 EndDataSection
 
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; FirstLine = 360
-; Folding = -----------
+; CursorPosition = 2494
+; FirstLine = 2440
+; Folding = ------------
 ; EnableXP
 ; DPIAware
 ; Executable = ..\..\GameEngine.exe
