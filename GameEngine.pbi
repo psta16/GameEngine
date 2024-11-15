@@ -241,6 +241,11 @@ Structure System_Structure
   Initialised.i             ; set when the game engine is initialised
   Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
   Sprite_Vector_Resource_Count.i ; number of vector resources
+  Variable.Variable_Structure[#Max_Variables] ; variables used for displaying values on screen etc
+EndStructure
+
+Structure Debug_Structure
+  Debug_Var.s[#Max_Debug_Vars]
 EndStructure
 
 Structure Window_Settings_Structure
@@ -387,6 +392,7 @@ Structure Menu_Settings_Structure
   Menu_Background_Colour.i        ; background colour for the menu
   Menu_Action.i
   Menu_Controls_Count.i ; total number of menu controls loaded
+  Menu_Control.Menu_Control_Structure[#Max_Menu_Controls] ; array that holds menu controls
 EndStructure
 
 ; Game
@@ -397,9 +403,8 @@ EndStructure
 ; System
 ;***************************************************
 
-Dim Variable.Variable_Structure(#Max_Variables) ; variables used for displaying values on screen etc
-Dim Debug_Var.s(#Max_Debug_Vars)
 Define System.System_Structure
+Define Debug_Settings.Debug_Structure
 Define Window_Settings.Window_Settings_Structure
 Define Screen_Settings.Screen_Settings_Structure
 Define FPS_Data.FPS_Data_Structure
@@ -410,7 +415,6 @@ Define Graphics.Graphics_Structure
 ;***********************************************
 
 Define Menu_Settings.Menu_Settings_Structure
-Dim Menu_Control.Menu_Control_Structure(#Max_Menu_Controls)   ; array that holds menu controls
   
 ;***********************************************
 ; Game
@@ -1272,14 +1276,14 @@ Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settin
   EndIf
 EndProcedure
 
-Procedure ShowDebugWindowInfo(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *FPS_Data.FPS_Data_Structure, Array Debug_Var.s(1))
+Procedure ShowDebugWindowInfo(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *FPS_Data.FPS_Data_Structure, *Debug_Settings.Debug_Structure)
   ; Shows the variables in the Debug_Var array
   Protected Current_Time.q = ElapsedMilliseconds()
   Protected Text_Y.i = 2
   Protected Text_Height = 20
   Protected c.i
   Protected Displat_Text.s
-  If Debug_Var(0) <> "" And Not *Window_Settings\Window_Debug_Edit_Gadget
+  If *Debug_Settings\Debug_Var[0] <> "" And Not *Window_Settings\Window_Debug_Edit_Gadget
     ; there is at least one variable
     Debug "ShowDebugWindowInfo: creating debug window edit gadget"
     *Window_Settings\Window_Debug_Edit_Gadget = EditorGadget(#PB_Any, 10,  Text_Y, *Window_Settings\Window_Debug_W-20, *Window_Settings\Window_Debug_H-20, #PB_Editor_ReadOnly)
@@ -1293,8 +1297,8 @@ Procedure ShowDebugWindowInfo(*System.System_Structure, *Window_Settings.Window_
     If IsWindow(#Game_Window_Debug) And *Window_Settings\Window_Debug_Edit_Gadget
       ClearGadgetItems(*Window_Settings\Window_Debug_Edit_Gadget)
       For c = 1 To #Max_Debug_Vars
-        If Debug_Var(c-1) <> ""
-          AddGadgetItem(*Window_Settings\Window_Debug_Edit_Gadget, c-1, Debug_Var(c-1))
+        If *Debug_Settings\Debug_Var[c-1] <> ""
+          AddGadgetItem(*Window_Settings\Window_Debug_Edit_Gadget, c-1, *Debug_Settings\Debug_Var[c-1])
         EndIf
       Next c
     EndIf
@@ -1659,7 +1663,7 @@ Procedure KeyPressed(*System.System_Structure, k.i)
 EndProcedure
 
 Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
-                          *Menu_Settings.Menu_Settings_Structure, Array Menu_Control.Menu_Control_Structure(1), *Graphics.Graphics_Structure)
+                          *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure)
   Protected c.i
   If Not *Screen_Settings\Full_Screen_Inactive
     ; Disable keyboard when classic full screen inactive
@@ -1699,11 +1703,11 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
       ; only process menu controls when the menu is active
       *Menu_Settings\Menu_Action = #Menu_Action_None
       For c = 0 To #Max_Menu_Controls - 1
-        If Menu_Control(c)\Menu_Control_Hardware_Type = #Control_Hardware_Keyboard
+        If *Menu_Settings\Menu_Control[c]\Menu_Control_Hardware_Type = #Control_Hardware_Keyboard
           ; only check keyboard controls since this is the keyboard handler
-          If KeyPressed(*System, Menu_Control(c)\Menu_Control_ID)
-            Debug "ProcessKeyboard: menu control " + Menu_Control(c)\Menu_Control_ID + " pressed"
-            *Menu_Settings\Menu_Action = Menu_Control(c)\Menu_Control_Action
+          If KeyPressed(*System, *Menu_Settings\Menu_Control[c]\Menu_Control_ID)
+            Debug "ProcessKeyboard: menu control " + *Menu_Settings\Menu_Control[c]\Menu_Control_ID + " pressed"
+            *Menu_Settings\Menu_Action = *Menu_Settings\Menu_Control[c]\Menu_Control_Action
           EndIf
         EndIf
         If *Menu_Settings\Menu_Action <> #Menu_Action_None : Break : EndIf 
@@ -2073,7 +2077,7 @@ Procedure SetInitialiseError(*System.System_Structure, Message.s)
 EndProcedure
 
 Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure,
-                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, Array Menu_Control.Menu_Control_Structure(1))
+                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure)
   ; Initialises the environment
   Protected Result.i, c.i
   
@@ -2173,10 +2177,10 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
     Fatal_Error(*System)       
   EndIf
   For c = 0 To *Menu_Settings\Menu_Controls_Count - 1
-    Read.i Menu_Control(c)\Menu_Control_Type
-    Read.i Menu_Control(c)\Menu_Control_Action
-    Read.i Menu_Control(c)\Menu_Control_Hardware_Type
-    Read.i Menu_Control(c)\Menu_Control_ID
+    Read.i *Menu_Settings\Menu_Control[c]\Menu_Control_Type
+    Read.i *Menu_Settings\Menu_Control[c]\Menu_Control_Action
+    Read.i *Menu_Settings\Menu_Control[c]\Menu_Control_Hardware_Type
+    Read.i *Menu_Settings\Menu_Control[c]\Menu_Control_ID
   Next
   
   LoadVectorResources(*System, *Graphics)
@@ -2210,7 +2214,82 @@ Procedure Shutdown(*System.System_Structure, *Window_Settings.Window_Settings_St
   EndIf 
   SaveConfig(*System, *Window_Settings, *Screen_Settings) ; only need to save screen/window variables
   CompilerIf #PB_Compiler_OS = #PB_OS_Windows : CloseHandle_(*System\MutexID) : CompilerEndIf
-EndProcedure  
+EndProcedure
+
+;- Set defaults
+CompilerSelect #PB_Compiler_OS
+  CompilerCase #PB_OS_Windows
+    System\Minimum_Colour_Depth = 32
+  CompilerCase #PB_OS_Linux
+    System\Minimum_Colour_Depth = 24
+  CompilerCase #PB_OS_MacOS
+    System\Minimum_Colour_Depth = 32
+CompilerEndSelect  
+System\Fatal_Error_Message = "none"
+System\Game_Title = "Universal Game Engine"
+System\Game_Config_File = "settings.cfg"
+System\Sprite_List_Data_Source = #Data_Source_Internal_Memory
+System\Game_Resource_Location = "Data"
+System\Debug_Window = 1
+System\Current_Directory = GetCurrentDirectory()
+System\Render_Engine3D = #Render_Engine3D_Builtin
+System\Show_Debug_Info = 0 ; onscreen debug info
+System\Allow_Switch_to_Window = 1
+Window_Settings\Allow_Window_Resize = 1
+Window_Settings\Reset_Window = 0
+Screen_Settings\Num_Monitors = 0
+Screen_Settings\Total_Desktop_Width = 0
+Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
+Screen_Settings\Border_Enable = 1
+Screen_Settings\Border = 0 ; turn the border on by default
+Screen_Settings\Classic_Screen_Background_Colour = #Black
+Screen_Settings\Border_Width = 316
+Screen_Settings\Border_Height = 284
+Screen_Settings\Screen_Res_Width = 256
+Screen_Settings\Screen_Res_Height = 224
+Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
+Screen_Settings\Background_Colour = #Blue
+Screen_Settings\Full_Screen = 0
+Screen_Settings\Full_Screen_Type = #Full_Screen_Windowed
+
+Repeat ; used for restarting the game
+  If Restart : Debug "System: restarting..." : EndIf
+  Restart = 0 ; game has started so don't restart again
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics)
+    Debug "System: starting main loop"
+    FPS_Data\Game_Start_Time = ElapsedMilliseconds()
+    Repeat
+      ; main game loop
+      ProcessSystem(@FPS_Data) ; must be first in the main loop
+      Debug_Settings\Debug_Var[0] = "FPS: " + FPS_Data\FPS
+      ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, @Graphics)
+      ProcessMouse(@System, @Screen_Settings)
+      ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
+      DoClearScreen(@System, @Screen_Settings)
+      Draw3DWorld(@System)
+      DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
+      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
+      GrabScreen(@Screen_Settings)
+      Draw2DGraphics(@System, @Screen_Settings)
+      DrawBorder(@Screen_Settings)
+      ShowZoomed2DScreen(@Screen_Settings)
+      AddScreenFilter(@Screen_Settings)
+      DoPostProcessing(@System) ; eg screen capture
+      DrawMouse(@System, @Screen_Settings, @Graphics)
+      ShowFullResGraphics(@Screen_Settings) ; eg system messages or console (not captured by screen capture)
+      ShowDebugWindowInfo(@System, @Window_Settings, @FPS_Data, @Debug_Settings)
+      DoFlipBuffer(@Screen_Settings)
+      CheckFullScreen(@System, @Window_Settings, @Screen_Settings)  ; check for switching back to main window system (alt+tab), must be after FlipBuffers      
+    Until System\Quit Or Restart
+    Debug "System: shutting down..."
+    Shutdown(@System, @Window_Settings, @Screen_Settings)
+  Else
+    MessageRequester ("Unable to start " + System\Game_Title, System\Initialise_Error_Message, #PB_MessageRequester_Error)
+  EndIf
+Until Not Restart
+
+Debug "System: game ended"
+End 0
 
 ;- Data section
 DataSection
@@ -2378,12 +2457,33 @@ DataSection
   Data.a %11101010, %01001110, %01010101, %00000000, %00000000, %00000000, %00000000, %00000000 ;™ (non C64)
   Data.a %11111110, %11000110, %10101010, %10010010, %10101010, %11000110, %11111110, %00000000 ;unknown  
   
+  CompilerIf #PB_Compiler_IsMainFile
+    
+  Data_Vector_Resources:
+  ; Format: Shape type, Background Transparent (T/F), Colour, Background colour, X, Y, Width, Height, Radius, Round_X, Round_Y, Continue
+  Data.i 0 ; Number of records
+  
+  Data_Custom_Sprite_Resources:
+  ; Provides a list of sprite resources to be loaded
+  ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file
+  Data.i 0 ; Number of records
+
+  Data_Sprite_Instances:
+  ; Format: Sprite_Resource, X, Y, Width, Height, Velocity_X, Velocity_Y, Intensity, Colour, Layer, Visible, Controlled_By
+  ; Layer 0 is background, higher numbers are on top
+  ; Intensity and Colour of -1 means don't use a colour
+  ; You have to set an intensity if you want to set a colour
+  Data.i 0 ; Number of records
+  
+  CompilerEndIf
+  
+  
+  
 EndDataSection
 
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 804
-; FirstLine = 777
+; FirstLine = 360
 ; Folding = -----------
 ; EnableXP
 ; DPIAware
