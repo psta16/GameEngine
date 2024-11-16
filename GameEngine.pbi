@@ -163,6 +163,20 @@ Enumeration Control_Button
   #Control_Button_Home
 EndEnumeration
 
+Enumeration Players
+  #Player1
+  #Player2
+  #Player3
+  #Player4
+EndEnumeration
+
+Enumeration Constraint_Type
+  #Constraint_Type_Top
+  #Constraint_Type_Bottom
+  #Constraint_Type_Left
+  #Constraint_Type_Right
+EndEnumeration
+
 ;- Globals
 Global Restart.i = 0 ; restarts the game engine
 Global Delta_Adjust.d = 0
@@ -179,6 +193,7 @@ Global Delta_Adjust.d = 0
 #Mouse_Sprite = 0
 #Max_Vector_Graphics_Resources = 32
 #Max_System_Font_Instances = 32
+#Max_Player_Constraints = 32
 
 ; Menu
 #Max_Menu_Controls = 12
@@ -188,6 +203,7 @@ Global Delta_Adjust.d = 0
 #Max_Controls = 32
 #Max_Control_Sets = 16
 #Max_Object_Controls = 16
+#Max_Players = 4
 
 ;- Structures
 
@@ -274,6 +290,8 @@ Structure System_Structure
   System_Font_Instance_Count.i                ; number of system font instances
   Controls_Count.i                            ; number of control sets
   Object_Controls_Count.i
+  Player_Count.i ; number of active players in the game
+  Player_Constraints_Count.i
 EndStructure
 
 Structure Debug_Structure
@@ -399,7 +417,7 @@ Structure Sprite_Instance_Structure
   Colour.i    ; only works for transparent sprites
   Layer.i     ; used to sort the sprite instance array for drawing order, 0 is background
   Visible.i
-  Controlled_By.i
+  Collision_Class.i
 EndStructure
 
 Structure System_Font_Instance_Structure
@@ -452,8 +470,10 @@ EndStructure
 
 Structure Object_Controls
   Sprite_Instance.i
+  Player.i
   Control_Set_Control.i
   Game_Control.i
+  Move_Speed.d
 EndStructure  
 
 Structure Controls_Structure
@@ -488,6 +508,19 @@ Structure Player_Structure
   Control_Set.i
 EndStructure
 
+Structure Players_Structure
+  Player.Player_Structure[#Max_Players]
+EndStructure
+
+Structure Player_Constraint_Structure
+  Sprite_Instance.i
+  Constraint_Type.i
+  Value.i
+EndStructure
+
+Structure Player_Constraints_Structure
+  Player_Constraint.Player_Constraint_Structure[#Max_Player_Constraints]
+EndStructure
 
 ;- Defines
 
@@ -502,6 +535,8 @@ Define Screen_Settings.Screen_Settings_Structure
 Define FPS_Data.FPS_Data_Structure
 Define Graphics.Graphics_Structure
 Define Controls.Controls_Structure
+Define Players.Players_Structure
+Define Player_Constraints.Player_Constraints_Structure
   
 ;***********************************************
 ; Menu
@@ -712,6 +747,24 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
   EndIf
 EndProcedure
 
+Procedure LoadPlayerConstraints(*System.System_Structure, *Player_Constraints.Player_Constraints_Structure)
+  ; Incvisible walls that stop the player moving
+  Protected c.i
+  Debug "LoadPlayerConstraints: loading player constraints"
+  Restore Data_Player_Constraints
+  Read *System\Player_Constraints_Count
+  If *System\Player_Constraints_Count > #Max_Player_Constraints
+    *System\Fatal_Error_Message = "#Max_Player_Constraints too small to load all player constraints"
+    Fatal_Error(*System)
+  EndIf
+  For c = 0 To *System\Player_Constraints_Count - 1
+    Read.i *Player_Constraints\Player_Constraint[c]\Sprite_Instance
+    Read.i *Player_Constraints\Player_Constraint[c]\Constraint_Type
+    Read.i *Player_Constraints\Player_Constraint[c]\Value
+  Next c
+  Debug "LoadPlayerConstraints: " + *System\Player_Constraints_Count + " player constraint(s) loaded"
+EndProcedure
+
 Procedure LoadControls(*System.System_Structure, *Controls.Controls_Structure)
   Protected c.i
   Debug "LoadControls: loading controls"
@@ -760,8 +813,10 @@ Procedure LoadObjectControls(*System.System_Structure, *Controls.Controls_Struct
   EndIf
   For c = 0 To *System\Object_Controls_Count - 1
     Read.i *Controls\Object_Control[c]\Sprite_Instance
+    Read.i *Controls\Object_Control[c]\Player
     Read.i *Controls\Object_Control[c]\Control_Set_Control
     Read.i *Controls\Object_Control[c]\Game_Control
+    Read.d *Controls\Object_Control[c]\Move_Speed
   Next c
   Debug "LoadObjectControls: " + *System\Object_Controls_Count + " object control(s) loaded"
 EndProcedure
@@ -950,7 +1005,7 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
     Read.i *Graphics\Sprite_Instance[c]\Colour
     Read.i *Graphics\Sprite_Instance[c]\Layer
     Read.i *Graphics\Sprite_Instance[c]\Visible
-    Read.i *Graphics\Sprite_Instance[c]\Controlled_By
+    Read.i *Graphics\Sprite_Instance[c]\Collision_Class
     If *Graphics\Sprite_Instance[c]\Colour > -1 And *Graphics\Sprite_Instance[c]\Intensity = -1
       ; automatically make intensity 255 if there is a colour set and intensity is -1
       *Graphics\Sprite_Instance[c]\Intensity = 255
@@ -2013,24 +2068,53 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
   EndIf
 EndProcedure
 
-Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure)
-  Protected c.i
-  If *Controls\Control_Set[0]\Control_Type = #Control_Type_Keyboard
-    For c = 0 To *System\Object_Controls_Count-1
-      ; Check whether the control set button is down
-      Select *Controls\Object_Control[c]\Control_Set_Control
-        Case #Control_Button_Up
-          If KeyboardPushed(*Controls\Control_Set[0]\Up)
-            *Graphics\Sprite_Instance[*Controls\Object_Control[c]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[c]\Sprite_Instance]\Y - 1 * Delta_Adjust
-          EndIf
-        Case #Control_Button_Down
-          If KeyboardPushed(*Controls\Control_Set[0]\Down)
-            *Graphics\Sprite_Instance[*Controls\Object_Control[c]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[c]\Sprite_Instance]\Y + 1 * Delta_Adjust
-          EndIf
-          
-      EndSelect
-    Next c
-  EndIf
+Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Players.Players_Structure)
+  Protected c.i, d.i
+  For c = 0 To *System\Player_Count-1
+    If *Controls\Control_Set[*Players\Player[c]\Control_Set]\Control_Type = #Control_Type_Keyboard
+      For d = 0 To *System\Object_Controls_Count-1
+        ; Check whether the control set button is down
+        Select *Controls\Object_Control[d]\Control_Set_Control
+          Case #Control_Button_Up
+            If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Up)
+              If *Controls\Object_Control[d]\Player = c
+                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y - *Controls\Object_Control[d]\Move_Speed   * Delta_Adjust
+              EndIf
+            EndIf
+          Case #Control_Button_Down
+            If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Down)
+              If *Controls\Object_Control[d]\Player = c
+                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y + *Controls\Object_Control[d]\Move_Speed   * Delta_Adjust
+              EndIf
+            EndIf
+        EndSelect
+      Next d
+    EndIf
+  Next c
+EndProcedure
+
+Procedure ProcessPlayerConstraints(*System.System_Structure, *Graphics.Graphics_Structure, *Player_Constraints.Player_Constraints_Structure)
+  Protected c.i, d.i
+  For c = 0 To *System\Player_Constraints_Count-1
+    Select *Player_Constraints\Player_Constraint[c]\Constraint_Type
+      Case #Constraint_Type_Top
+        If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y > *Player_Constraints\Player_Constraint[c]\Value
+          *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y = *Player_Constraints\Player_Constraint[c]\Value
+        EndIf
+      Case #Constraint_Type_Bottom
+        If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y < *Player_Constraints\Player_Constraint[c]\Value
+          *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y = *Player_Constraints\Player_Constraint[c]\Value
+        EndIf
+      Case #Constraint_Type_Left
+        If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X > *Player_Constraints\Player_Constraint[c]\Value
+          *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X = *Player_Constraints\Player_Constraint[c]\Value
+        EndIf
+      Case #Constraint_Type_Right
+        If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X < *Player_Constraints\Player_Constraint[c]\Value
+          *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X = *Player_Constraints\Player_Constraint[c]\Value
+        EndIf
+    EndSelect
+  Next c
 EndProcedure
 
 Procedure ProcessMouse(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
@@ -2293,7 +2377,7 @@ Procedure SetInitialiseError(*System.System_Structure, Message.s)
 EndProcedure
 
 Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure,
-                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure)
+                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Player_Constraints.Player_Constraints_Structure)
   ; Initialises the environment
   Protected Result.i, c.i
   
@@ -2405,6 +2489,7 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   LoadSystemFontInstances(*System, *Graphics)
   LoadControls(*System, *Controls)
   LoadObjectControls(*System, *Controls)
+  LoadPlayerConstraints(*System, *Player_Constraints)
   LoadSystemFont(*System)
   
   ;If Not InitialiseFonts(*System)
@@ -2475,10 +2560,12 @@ Screen_Settings\Background_Colour = #Blue
 Screen_Settings\Full_Screen = 0
 Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
 
+;- Main loop
+
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
-  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls)
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Player_Constraints)
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
     Repeat
@@ -2488,7 +2575,8 @@ Repeat ; used for restarting the game
       ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, @Graphics)
       ProcessMouse(@System, @Screen_Settings)
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
-      ProcessControls(@System, @Graphics, @Controls)
+      ProcessControls(@System, @Graphics, @Controls, @Players)
+      ProcessPlayerConstraints(@System, @Graphics, @Player_Constraints)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -2706,14 +2794,17 @@ DataSection
   Data.i 0
   Data_Object_Controls:
   Data.i 0
+  Data_Player_Constraints:
+  Data.i 0
+  
   CompilerEndIf
   
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2188
-; FirstLine = 2181
-; Folding = ------------
+; CursorPosition = 2112
+; FirstLine = 2077
+; Folding = -------------
 ; EnableXP
 ; DPIAware
 ; Executable = ..\..\GameEngine.exe
