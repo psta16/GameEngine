@@ -164,7 +164,8 @@ Enumeration Control_Button
 EndEnumeration
 
 ;- Globals
-Global Restart.i=0 ; restarts the game engine
+Global Restart.i = 0 ; restarts the game engine
+Global Delta_Adjust.d = 0
 
 ;- Constants
 ; System
@@ -450,6 +451,7 @@ Structure Control_Set_Structure
 EndStructure
 
 Structure Object_Controls
+  Sprite_Instance.i
   Control_Set_Control.i
   Game_Control.i
 EndStructure  
@@ -757,6 +759,7 @@ Procedure LoadObjectControls(*System.System_Structure, *Controls.Controls_Struct
     Fatal_Error(*System)
   EndIf
   For c = 0 To *System\Object_Controls_Count - 1
+    Read.i *Controls\Object_Control[c]\Sprite_Instance
     Read.i *Controls\Object_Control[c]\Control_Set_Control
     Read.i *Controls\Object_Control[c]\Game_Control
   Next c
@@ -2010,7 +2013,24 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
   EndIf
 EndProcedure
 
-Procedure ProcessControls()
+Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure)
+  Protected c.i
+  If *Controls\Control_Set[0]\Control_Type = #Control_Type_Keyboard
+    For c = 0 To *System\Object_Controls_Count-1
+      ; Check whether the control set button is down
+      Select *Controls\Object_Control[c]\Control_Set_Control
+        Case #Control_Button_Up
+          If KeyboardPushed(*Controls\Control_Set[0]\Up)
+            *Graphics\Sprite_Instance[*Controls\Object_Control[c]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[c]\Sprite_Instance]\Y - 1 * Delta_Adjust
+          EndIf
+        Case #Control_Button_Down
+          If KeyboardPushed(*Controls\Control_Set[0]\Down)
+            *Graphics\Sprite_Instance[*Controls\Object_Control[c]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[c]\Sprite_Instance]\Y + 1 * Delta_Adjust
+          EndIf
+          
+      EndSelect
+    Next c
+  EndIf
 EndProcedure
 
 Procedure ProcessMouse(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
@@ -2165,6 +2185,10 @@ Procedure ProcessSystem(*FPS_Data.FPS_Data_Structure)
   *FPS_Data\Game_Run_Time = ElapsedMilliseconds() - *FPS_Data\Game_Start_Time
   *FPS_Data\Frame = *FPS_Data\Frame + 1  
   ProcessFPS(*FPS_Data)
+  If *FPS_Data\FPS = 0
+    *FPS_Data\FPS = 60
+  EndIf
+  Delta_Adjust = 60.0 / *FPS_Data\FPS * 4.0 ; adjust speed of moving objects based on FPS
 EndProcedure
 
 Procedure SaveConfig(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, Level.i=1)
@@ -2464,7 +2488,7 @@ Repeat ; used for restarting the game
       ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, @Graphics)
       ProcessMouse(@System, @Screen_Settings)
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
-      ProcessControls()
+      ProcessControls(@System, @Graphics, @Controls)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -2687,8 +2711,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 746
-; FirstLine = 701
+; CursorPosition = 2188
+; FirstLine = 2181
 ; Folding = ------------
 ; EnableXP
 ; DPIAware
