@@ -411,10 +411,14 @@ EndStructure
 
 Structure Sprite_Instance_Structure
   Sprite_Resource.i
+  Start_X.d
+  Start_Y.d
   X.d
   Y.d
   Width.i
   Height.i
+  Start_Velocity_X.d
+  Start_Velocity_Y.d
   Velocity_X.d
   Velocity_Y.d
   Intensity.i ; only works for transparent sprites
@@ -1014,18 +1018,22 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
   Read *System\Sprite_Instance_Count
   For c = 0 To *System\Sprite_Instance_Count - 1
     Read.i *Graphics\Sprite_Instance[c]\Sprite_Resource
-    Read.i *Graphics\Sprite_Instance[c]\X
-    Read.i *Graphics\Sprite_Instance[c]\Y
     Read.i *Graphics\Sprite_Instance[c]\Width
     Read.i *Graphics\Sprite_Instance[c]\Height    
-    Read.i *Graphics\Sprite_Instance[c]\Velocity_X
-    Read.i *Graphics\Sprite_Instance[c]\Velocity_Y
     Read.i *Graphics\Sprite_Instance[c]\Intensity
     Read.i *Graphics\Sprite_Instance[c]\Use_Colour
     Read.i *Graphics\Sprite_Instance[c]\Colour
     Read.i *Graphics\Sprite_Instance[c]\Layer
     Read.i *Graphics\Sprite_Instance[c]\Visible
     Read.i *Graphics\Sprite_Instance[c]\Collision_Class
+    Read.d *Graphics\Sprite_Instance[c]\X
+    Read.d *Graphics\Sprite_Instance[c]\Y
+    Read.d *Graphics\Sprite_Instance[c]\Velocity_X
+    Read.d *Graphics\Sprite_Instance[c]\Velocity_Y
+    *Graphics\Sprite_Instance[c]\Start_X = *Graphics\Sprite_Instance[c]\X
+    *Graphics\Sprite_Instance[c]\Start_Y = *Graphics\Sprite_Instance[c]\Y
+    *Graphics\Sprite_Instance[c]\Start_Velocity_X = *Graphics\Sprite_Instance[c]\Velocity_X
+    *Graphics\Sprite_Instance[c]\Start_Velocity_Y = *Graphics\Sprite_Instance[c]\Velocity_Y
   Next c
   Debug "LoadSpriteInstances: " + *System\Sprite_Instance_Count + " sprite instance(s) loaded"
   For c = 0 To *System\Sprite_Instance_Count-1
@@ -2091,13 +2099,13 @@ Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure
           Case #Control_Button_Up
             If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Up)
               If *Controls\Object_Control[d]\Player = c
-                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y - *Controls\Object_Control[d]\Move_Speed   * Delta_Adjust
+                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y - *Controls\Object_Control[d]\Move_Speed * Delta_Adjust
               EndIf
             EndIf
           Case #Control_Button_Down
             If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Down)
               If *Controls\Object_Control[d]\Player = c
-                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y + *Controls\Object_Control[d]\Move_Speed   * Delta_Adjust
+                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y + *Controls\Object_Control[d]\Move_Speed * Delta_Adjust
               EndIf
             EndIf
         EndSelect
@@ -2107,7 +2115,7 @@ Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure
 EndProcedure
 
 Procedure ProcessPlayerConstraints(*System.System_Structure, *Graphics.Graphics_Structure, *Player_Constraints.Player_Constraints_Structure)
-  Protected c.i, d.i
+  Protected c.i
   For c = 0 To *System\Player_Constraints_Count-1
     Select *Player_Constraints\Player_Constraint[c]\Constraint_Type
       Case #Constraint_Type_Top
@@ -2127,6 +2135,14 @@ Procedure ProcessPlayerConstraints(*System.System_Structure, *Graphics.Graphics_
           *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X = *Player_Constraints\Player_Constraint[c]\Value
         EndIf
     EndSelect
+  Next c
+EndProcedure
+
+Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_Structure)
+  Protected c.i
+  For c = 0 To *System\Sprite_Instance_Count-1
+    *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust
+    *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust
   Next c
 EndProcedure
 
@@ -2589,6 +2605,7 @@ Repeat ; used for restarting the game
       ProcessMouse(@System, @Screen_Settings)
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
       ProcessControls(@System, @Graphics, @Controls, @Players)
+      ProcessSpritePositions(@System, @Graphics)
       ProcessPlayerConstraints(@System, @Graphics, @Player_Constraints)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
@@ -2815,8 +2832,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1382
-; FirstLine = 1360
+; CursorPosition = 2148
+; FirstLine = 2114
 ; Folding = -------------
 ; EnableXP
 ; DPIAware
