@@ -80,14 +80,6 @@ Enumeration Data_Source
   #Data_Source_Database
 EndEnumeration
 
-Enumeration Simulated_Resolution_Stretch_Type
-  ; Used for simulating a low resolution game
-  #Simulated_Resolution_Stretch_Smallest ; recommended
-  #Simulated_Resolution_Stretch_H
-  #Simulated_Resolution_Stretch_V
-  #Simulated_Resolution_Stretch_Both
-EndEnumeration
-
 Enumeration Fonts
   #Font_Fixedsys_Neo_Plus
 EndEnumeration
@@ -106,7 +98,7 @@ Enumeration Control_Type
   #Control_Type_Keyboard
   #Control_Type_Joystick
   #Control_Type_Mouse
-EndEnumeration  
+EndEnumeration
 
 ; Layer 2 - Menus and controls
 
@@ -140,6 +132,37 @@ Enumeration Menu_Background
   #Data_Menu_Background_Image
 EndEnumeration
 
+Enumeration Object_Control
+  #Object_Control_Move_Up
+  #Object_Control_Move_Down
+  #Object_Control_Fire
+  #Object_Control_Jump
+EndEnumeration
+
+Enumeration Control_Button
+  #Control_Button_Up
+  #Control_Button_Down
+  #Control_Button_Left
+  #Control_Button_Right
+  #Control_Button_A_Button
+  #Control_Button_B_Button
+  #Control_Button_X_Button
+  #Control_Button_Y_Button
+  #Control_Button_Left_Shoulder
+  #Control_Button_Right_Shoulder
+  #Control_Button_Left_Triger_Axis
+  #Control_Button_Right_Trigger_Axis
+  #Control_Button_Left_Stick_X
+  #Control_Button_Left_Stick_Y
+  #Control_Button_Right_Stick_X
+  #Control_Button_Right_Stick_Y
+  #Control_Button_Left_Stick_Click
+  #Control_Button_Right_Stick_Click
+  #Control_Button_Start
+  #Control_Button_Select_Button
+  #Control_Button_Home
+EndEnumeration
+
 ;- Globals
 Global Restart.i=0 ; restarts the game engine
 
@@ -161,6 +184,9 @@ Global Restart.i=0 ; restarts the game engine
 
 ; Game
 #Max_Sprite_Instances = 2048 ; all sprites used by the game
+#Max_Controls = 32
+#Max_Control_Sets = 16
+#Max_Object_Controls = 16
 
 ;- Structures
 
@@ -244,7 +270,9 @@ Structure System_Structure
   Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
   Sprite_Vector_Resource_Count.i ; number of vector resources
   Variable.Variable_Structure[#Max_Variables] ; variables used for displaying values on screen etc
-  System_Font_Instance_Count.i ; number of system font instances
+  System_Font_Instance_Count.i                ; number of system font instances
+  Controls_Count.i                            ; number of control sets
+  Object_Controls_Count.i
 EndStructure
 
 Structure Debug_Structure
@@ -396,18 +424,19 @@ EndStructure
 
 Structure Control_Set_Structure
   ; Control sets can be saved for easy retrival
-  Control_Type.i ; Enumeration Control_Type
+  Name.s
+  Control_Type.i ; Enumeration Control_Type eg #Control_Type_Keyboard
   Up.i
   Down.i
   Left.i
   Right.i
-  A.i
-  B.i
-  X.i
-  Y.i
+  A_Button.i
+  B_Button.i
+  X_Button.i
+  Y_Button.i
   Left_Shoulder.i
   Right_Shoulder.i
-  Left_Triger_Axis.i
+  Left_Trigger_Axis.i
   Right_Trigger_Axis.i
   Left_Stick_X.i
   Left_Stick_Y.i
@@ -418,6 +447,16 @@ Structure Control_Set_Structure
   Start.i
   Select_Button.i
   Home.i
+EndStructure
+
+Structure Object_Controls
+  Control_Set_Control.i
+  Game_Control.i
+EndStructure  
+
+Structure Controls_Structure
+  Control_Set.Control_Set_Structure[#Max_Control_Sets]
+  Object_Control.Object_Controls[#Max_Object_Controls]
 EndStructure
 
 ; Menu
@@ -444,7 +483,7 @@ EndStructure
 
 Structure Player_Structure
   Player_Name.s
-  Control_Set.Control_Set_Structure
+  Control_Set.i
 EndStructure
 
 
@@ -460,6 +499,7 @@ Define Window_Settings.Window_Settings_Structure
 Define Screen_Settings.Screen_Settings_Structure
 Define FPS_Data.FPS_Data_Structure
 Define Graphics.Graphics_Structure
+Define Controls.Controls_Structure
   
 ;***********************************************
 ; Menu
@@ -670,10 +710,63 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
   EndIf
 EndProcedure
 
+Procedure LoadControls(*System.System_Structure, *Controls.Controls_Structure)
+  Protected c.i
+  Debug "LoadControls: loading controls"
+  Restore Data_Control_Sets
+  Read *System\Controls_Count
+  If *System\Controls_Count > #Max_Controls
+    *System\Fatal_Error_Message = "#Max_Controls too small to load all controls"
+    Fatal_Error(*System)
+  EndIf
+  For c = 0 To *System\Controls_Count - 1
+    Read.s *Controls\Control_Set[c]\Name
+    Read.i *Controls\Control_Set[c]\Control_Type
+    Read.i *Controls\Control_Set[c]\Up
+    Read.i *Controls\Control_Set[c]\Down
+    Read.i *Controls\Control_Set[c]\Left
+    Read.i *Controls\Control_Set[c]\Right
+    Read.i *Controls\Control_Set[c]\A_Button
+    Read.i *Controls\Control_Set[c]\B_Button
+    Read.i *Controls\Control_Set[c]\X_Button
+    Read.i *Controls\Control_Set[c]\Y_Button
+    Read.i *Controls\Control_Set[c]\Left_Shoulder
+    Read.i *Controls\Control_Set[c]\Right_Shoulder
+    Read.i *Controls\Control_Set[c]\Left_Trigger_Axis
+    Read.i *Controls\Control_Set[c]\Right_Trigger_Axis
+    Read.i *Controls\Control_Set[c]\Left_Stick_X
+    Read.i *Controls\Control_Set[c]\Left_Stick_Y
+    Read.i *Controls\Control_Set[c]\Right_Stick_X
+    Read.i *Controls\Control_Set[c]\Right_Stick_Y    
+    Read.i *Controls\Control_Set[c]\Left_Stick_Click
+    Read.i *Controls\Control_Set[c]\Right_Stick_Click
+    Read.i *Controls\Control_Set[c]\Start
+    Read.i *Controls\Control_Set[c]\Select_Button
+    Read.i *Controls\Control_Set[c]\Home
+  Next c
+  Debug "LoadControls: " + *System\Controls_Count + " control(s) loaded"
+EndProcedure
+
+Procedure LoadObjectControls(*System.System_Structure, *Controls.Controls_Structure)
+  Protected c.i
+  Debug "LoadObjectControls: loading object controls"
+  Restore Data_Object_Controls
+  Read *System\Object_Controls_Count
+  If *System\Object_Controls_Count > #Max_Object_Controls
+    *System\Fatal_Error_Message = "#Max_Object_Controls too small to load all object controls"
+    Fatal_Error(*System)
+  EndIf
+  For c = 0 To *System\Object_Controls_Count - 1
+    Read.i *Controls\Object_Control[c]\Control_Set_Control
+    Read.i *Controls\Object_Control[c]\Game_Control
+  Next c
+  Debug "LoadObjectControls: " + *System\Object_Controls_Count + " object control(s) loaded"
+EndProcedure
+
 Procedure LoadVectorResources(*System.System_Structure, *Graphics.Graphics_Structure)
   Protected c.i
   Debug "LoadVectorResources: loading vector resources"
-  Restore Data_Vector_Resources ; start by loading the internal sprites in the game engine (other sprites are loaded from the game file)
+  Restore Data_Vector_Resources
   Read *System\Sprite_Vector_Resource_Count
   If *System\Sprite_Vector_Resource_Count > #Max_Vector_Graphics_Resources
     *System\Fatal_Error_Message = "#Max_Sprite_Resources too small to load all vector resources"
@@ -2176,7 +2269,7 @@ Procedure SetInitialiseError(*System.System_Structure, Message.s)
 EndProcedure
 
 Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure,
-                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure)
+                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure)
   ; Initialises the environment
   Protected Result.i, c.i
   
@@ -2286,6 +2379,8 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   LoadSpriteResources(*System, *Screen_Settings, *Graphics)
   LoadSpriteInstances(*System, *Graphics)
   LoadSystemFontInstances(*System, *Graphics)
+  LoadControls(*System, *Controls)
+  LoadObjectControls(*System, *Controls)
   LoadSystemFont(*System)
   
   ;If Not InitialiseFonts(*System)
@@ -2359,7 +2454,7 @@ Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
-  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics)
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls)
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
     Repeat
@@ -2583,14 +2678,17 @@ DataSection
   ; Used for displaying the system font
   ; Format: String, Variable, X, Y, Char_Width, Char_Height, Intensity, Colour, Layer, Visible
   Data.i 0 ; Number of records
-  
+  Data_Control_Sets:
+  Data.i 0
+  Data_Object_Controls:
+  Data.i 0
   CompilerEndIf
   
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2343
-; FirstLine = 2312
+; CursorPosition = 746
+; FirstLine = 701
 ; Folding = ------------
 ; EnableXP
 ; DPIAware
