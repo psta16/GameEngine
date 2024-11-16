@@ -1023,6 +1023,11 @@ Procedure SetScreen(*System.System_Structure, *Window_Settings.Window_Settings_S
       *Window_Settings\Window_Y = 0
       *Window_Settings\Window_Maximised = 0 ; need to demaximise window so it can get new coordinates
     EndIf
+    If *Window_Settings\Window_Debug_X > *Screen_Settings\Total_Desktop_Width And Not *Screen_Settings\Full_Screen
+      Debug "SetScreen: debug window is not visible"
+      *Window_Settings\Window_Debug_X = 0
+      *Window_Settings\Window_Debug_Y = 0
+    EndIf    
     If *Screen_Settings\Set_Zoom
       Old_Width = *Window_Settings\Window_W
       Old_Height = *Window_Settings\Window_H
@@ -1131,6 +1136,15 @@ Procedure SwitchFullScreen(*System.System_Structure, *Window_Settings.Window_Set
     x = (*Screen_Settings\Screen_Actual_Width / 2) / DesktopResolutionX()
     y = (*Screen_Settings\Screen_Actual_Height / 2) / DesktopResolutionY()
   EndIf
+  CompilerIf #PB_Compiler_OS = #PB_OS_Linux
+  If *Screen_Settings\Full_Screen_Type = #Full_Screen_Windowed
+    If *Screen_Settings\Full_Screen
+      gtk_window_fullscreen_(WindowID(#Game_Window_Main))
+    Else
+      gtk_window_unfullscreen_(WindowID(#Game_Window_Main))
+    EndIf
+  EndIf
+  CompilerEndIf
   MouseLocate(x, y)
   LoadSpriteResources(*System, *Screen_Settings, *Graphics) ; need to reload sprites anytime SetScreen is called
   ;InitialiseFonts(*System)
@@ -2302,6 +2316,9 @@ Procedure Shutdown(*System.System_Structure, *Window_Settings.Window_Settings_St
 EndProcedure
 
 ;- Set defaults
+
+CompilerIf #PB_Compiler_IsMainFile
+  
 CompilerSelect #PB_Compiler_OS
   CompilerCase #PB_OS_Windows
     System\Minimum_Colour_Depth = 32
@@ -2335,7 +2352,7 @@ Screen_Settings\Screen_Res_Height = 224
 Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
 Screen_Settings\Background_Colour = #Blue
 Screen_Settings\Full_Screen = 0
-Screen_Settings\Full_Screen_Type = #Full_Screen_Windowed
+Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
 
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
@@ -2376,6 +2393,8 @@ Until Not Restart
 
 Debug "System: game ended"
 End 0
+
+CompilerEndIf
 
 ;- Data section
 DataSection
@@ -2567,12 +2586,11 @@ DataSection
   
 EndDataSection
 
-
-; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2494
-; FirstLine = 2440
+; IDE Options = PureBasic 6.11 LTS (Linux - x64)
+; CursorPosition = 1144
+; FirstLine = 1124
 ; Folding = ------------
 ; EnableXP
 ; DPIAware
-; Executable = ..\..\GameEngine.exe
+; Executable = ../../GameEngine.exe
 ; EnableUnicode
