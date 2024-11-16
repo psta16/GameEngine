@@ -198,6 +198,7 @@ Global Delta_Adjust.d = 0
 #Max_Vector_Graphics_Resources = 32
 #Max_System_Font_Instances = 32
 #Max_Player_Constraints = 32
+#Debug_Window_Update_Rate = 100 ; every 100ms
 
 ; Menu
 #Max_Menu_Controls = 12
@@ -1556,7 +1557,7 @@ Procedure ShowDebugWindowInfo(*System.System_Structure, *Window_Settings.Window_
       SetGadgetColor(*Window_Settings\Window_Debug_Edit_Gadget, #PB_Gadget_BackColor, *Window_Settings\Debug_Window_Back_Colour)
     EndIf
   EndIf
-  If Current_Time - *System\Last_Debug_Window_Update > 200 ; 5 updates a second
+  If Current_Time - *System\Last_Debug_Window_Update > #Debug_Window_Update_Rate
     *System\Last_Debug_Window_Update = Current_Time
     If IsWindow(#Game_Window_Debug) And *Window_Settings\Window_Debug_Edit_Gadget
       ClearGadgetItems(*Window_Settings\Window_Debug_Edit_Gadget)
@@ -2832,8 +2833,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2148
-; FirstLine = 2114
+; CursorPosition = 200
+; FirstLine = 156
 ; Folding = -------------
 ; EnableXP
 ; DPIAware
