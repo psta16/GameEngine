@@ -177,6 +177,10 @@ Enumeration Constraint_Type
   #Constraint_Type_Right
 EndEnumeration
 
+; Layer 3 - Game
+
+
+
 ;- Globals
 Global Restart.i = 0 ; restarts the game engine
 Global Delta_Adjust.d = 0
@@ -384,7 +388,7 @@ Structure Sprite_Resource_Structure
   Mode.i ; #PB_Sprite_PixelCollision and #PB_Sprite_AlphaBlending
   Transparent.i ; set if the sprite uses transparency
   Data_Source.i ; See Data_Source enumeration
-  Memory_Location.i ; use one of these
+  Memory_Location.i
   File_Location.s
   Database_Location.i
   Vector_Drawn.i ; used to select whether it will be drawn using vectors
@@ -833,16 +837,21 @@ Procedure LoadVectorResources(*System.System_Structure, *Graphics.Graphics_Struc
   For c = 0 To *System\Sprite_Vector_Resource_Count - 1
     Read.i *Graphics\Vector_Graphics_Resource[c]\Shape_Type
     Read.i *Graphics\Vector_Graphics_Resource[c]\Background_Transparent
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Colour
     Read.i *Graphics\Vector_Graphics_Resource[c]\Background_Colour
     Read.i *Graphics\Vector_Graphics_Resource[c]\X
     Read.i *Graphics\Vector_Graphics_Resource[c]\Y
     Read.i *Graphics\Vector_Graphics_Resource[c]\Width
     Read.i *Graphics\Vector_Graphics_Resource[c]\Height
+    Read.i *Graphics\Vector_Graphics_Resource[c]\Radius
     Read.i *Graphics\Vector_Graphics_Resource[c]\Round_X
     Read.i *Graphics\Vector_Graphics_Resource[c]\Round_Y
     Read.i *Graphics\Vector_Graphics_Resource[c]\Cont
   Next
   Debug "LoadVectorResources: " + *System\Sprite_Vector_Resource_Count + " vector resource(s) loaded"
+  For c = 0 To *System\Sprite_Vector_Resource_Count - 1
+    Debug "Vector #"+c+" shape: " + *Graphics\Vector_Graphics_Resource[c]\Shape_Type
+  Next c
 EndProcedure
 
 Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
@@ -886,7 +895,7 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
   StopDrawing()
   a = 0 ; used to read internal then external sprite resources
   i = 0 ; used to load sprite resources
-  j = 0 ; used to load sprites
+  j = 0 ; used to create/load sprites
   *System\Sprite_Resource_Count = 0
   Repeat ; loop to read both internal and external data
     Debug "LoadSpriteResources: loading sprite resource list"
@@ -949,8 +958,13 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
                 Case #Shape_None
                   StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
                   DrawingMode(#PB_2DDrawing_Default)
-                  ;DrawingMode(#PB_2DDrawing_Outlined)
                   Box(0, 0, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Background_Colour)
+                  StopDrawing()
+                Case #Shape_Circle
+                  Debug "Drawing circle"
+                  StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
+                  DrawingMode(#PB_2DDrawing_Default)
+                  Circle(*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Colour)
                   StopDrawing()
               EndSelect
             Else
@@ -986,6 +1000,10 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
     a = a + 1
   Until a = 2
   Debug "LoadSprites: " + *System\Sprite_Resource_Count + " sprite resource(s) loaded"
+  For c = 0 To i-1
+    Debug "Sprite #"+c+" width:"+ *Graphics\Sprite_Resource[c]\Width + " height:" + *Graphics\Sprite_Resource[c]\Height + " shape:"+*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[c]\Memory_Location]\Shape_Type +
+    " memory:"+*Graphics\Sprite_Resource[c]\Memory_Location      
+  Next c
 EndProcedure
 
 Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Structure)
@@ -2802,8 +2820,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2112
-; FirstLine = 2077
+; CursorPosition = 967
+; FirstLine = 931
 ; Folding = -------------
 ; EnableXP
 ; DPIAware
