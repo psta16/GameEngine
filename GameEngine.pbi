@@ -269,6 +269,7 @@ Structure Window_Settings_Structure
   Debug_Window_Front_Colour.i
   Debug_Window_Back_Colour.i
   Window_Moved.i        ; triggers whenever the window in normal mode moves
+  Background_Colour.i
 EndStructure
 
 Structure Screen_Settings_Structure
@@ -1049,7 +1050,7 @@ Procedure SetScreen(*System.System_Structure, *Window_Settings.Window_Settings_S
     If OpenWindow(#Game_Window_Main, *Window_Settings\Window_X, *Window_Settings\Window_Y, *Window_Settings\Window_W / DesktopResolutionX(), *Window_Settings\Window_H / DesktopResolutionY(), *System\Game_Title, Window_Flags)  
       Debug "SetScreen: Window_X: " + *Window_Settings\Window_X + " Window_Y: " + *Window_Settings\Window_Y
       Debug "SetScreen: Window_W: " + *Window_Settings\Window_W + " Window_H: " + *Window_Settings\Window_H
-      SetWindowColor(#Game_Window_Main, #Black) 
+      SetWindowColor(#Game_Window_Main, *Window_Settings\Background_Colour) 
       *Window_Settings\Window_Open = 1
       WindowBounds(#Game_Window_Main, *Screen_Settings\Screen_Res_Width / DesktopResolutionX(), *Screen_Settings\Screen_Res_Height / DesktopResolutionY(), #PB_Default, #PB_Default)
       ; Sets the limit of how small a window can be resized
@@ -2339,6 +2340,7 @@ System\Show_Debug_Info = 0 ; onscreen debug info
 System\Allow_Switch_to_Window = 1
 Window_Settings\Allow_Window_Resize = 1
 Window_Settings\Reset_Window = 0
+Window_Settings\Background_Colour = #Black
 Screen_Settings\Num_Monitors = 0
 Screen_Settings\Total_Desktop_Width = 0
 Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
@@ -2586,11 +2588,11 @@ DataSection
   
 EndDataSection
 
-; IDE Options = PureBasic 6.11 LTS (Linux - x64)
-; CursorPosition = 1144
-; FirstLine = 1124
+; IDE Options = PureBasic 6.11 LTS (Windows - x64)
+; CursorPosition = 2343
+; FirstLine = 2312
 ; Folding = ------------
 ; EnableXP
 ; DPIAware
-; Executable = ../../GameEngine.exe
+; Executable = ..\..\GameEngine.exe
 ; EnableUnicode
