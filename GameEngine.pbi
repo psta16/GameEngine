@@ -418,6 +418,7 @@ Structure Sprite_Instance_Structure
   Velocity_X.d
   Velocity_Y.d
   Intensity.i ; only works for transparent sprites
+  Use_Colour.i ; 1 to use the colour field
   Colour.i    ; only works for transparent sprites
   Layer.i     ; used to sort the sprite instance array for drawing order, 0 is background
   Visible.i
@@ -957,13 +958,13 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
               Select *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Shape_Type
                 Case #Shape_None
                   StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
-                  DrawingMode(#PB_2DDrawing_Default)
+                  DrawingMode(#PB_2DDrawing_AllChannels)
                   Box(0, 0, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Background_Colour)
                   StopDrawing()
                 Case #Shape_Circle
-                  Debug "Drawing circle"
                   StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
-                  DrawingMode(#PB_2DDrawing_Default)
+                  DrawingMode(#PB_2DDrawing_AllChannels)
+                  Box(0, 0, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, RGBA(0, 0, 0, 0))
                   Circle(*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Colour)
                   StopDrawing()
               EndSelect
@@ -1002,7 +1003,7 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
   Debug "LoadSprites: " + *System\Sprite_Resource_Count + " sprite resource(s) loaded"
   For c = 0 To i-1
     Debug "Sprite #"+c+" width:"+ *Graphics\Sprite_Resource[c]\Width + " height:" + *Graphics\Sprite_Resource[c]\Height + " shape:"+*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[c]\Memory_Location]\Shape_Type +
-    " memory:"+*Graphics\Sprite_Resource[c]\Memory_Location      
+    " memory:"+*Graphics\Sprite_Resource[c]\Memory_Location
   Next c
 EndProcedure
 
@@ -1020,16 +1021,17 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
     Read.i *Graphics\Sprite_Instance[c]\Velocity_X
     Read.i *Graphics\Sprite_Instance[c]\Velocity_Y
     Read.i *Graphics\Sprite_Instance[c]\Intensity
+    Read.i *Graphics\Sprite_Instance[c]\Use_Colour
     Read.i *Graphics\Sprite_Instance[c]\Colour
     Read.i *Graphics\Sprite_Instance[c]\Layer
     Read.i *Graphics\Sprite_Instance[c]\Visible
     Read.i *Graphics\Sprite_Instance[c]\Collision_Class
-    If *Graphics\Sprite_Instance[c]\Colour > -1 And *Graphics\Sprite_Instance[c]\Intensity = -1
-      ; automatically make intensity 255 if there is a colour set and intensity is -1
-      *Graphics\Sprite_Instance[c]\Intensity = 255
-    EndIf
   Next c
   Debug "LoadSpriteInstances: " + *System\Sprite_Instance_Count + " sprite instance(s) loaded"
+  For c = 0 To *System\Sprite_Instance_Count-1
+    Debug "SpriteInstance #"+c+" intensity:"+ *Graphics\Sprite_Instance[c]\Intensity + " colour:" + *Graphics\Sprite_Instance[c]\Colour
+  Next c
+  
 EndProcedure
 
 Procedure LoadSystemFontInstances(*System.System_Structure, *Graphics.Graphics_Structure)
@@ -1372,21 +1374,14 @@ Procedure Draw3DWorld(*System.System_Structure)
 EndProcedure
 
 Procedure DisplaySpriteInstance(*Graphics.Graphics_Structure, i.i)
-  ; Sprite instances are all the copies of sprites displayed in a level
-  ;Debug "Zooming sprite to: " + *Graphics\Sprite_Instance[i]\Width + " x " + *Graphics\Sprite_Instance[i]\Height
   ZoomSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\Width, *Graphics\Sprite_Instance[i]\Height)
-  ;DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y)
-  
   If *Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\Transparent
-    If *Graphics\Sprite_Instance[i]\Intensity > -1 And *Graphics\Sprite_Instance[i]\Colour = -1
+    If *Graphics\Sprite_Instance[i]\Use_Colour = #False
       ; set intensity but not colour
       DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity)
-    ElseIf *Graphics\Sprite_Instance[i]\Intensity > -1 And *Graphics\Sprite_Instance[i]\Colour > -1
+    Else
       ; set intensity and colour
       DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity, *Graphics\Sprite_Instance[i]\Colour)
-    ElseIf *Graphics\Sprite_Instance[i]\Intensity = -1 And *Graphics\Sprite_Instance[i]\Colour = -1
-      ; ignore both intensity and colour
-      DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y)
     EndIf
   Else
     DisplaySprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y)
@@ -2820,8 +2815,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 967
-; FirstLine = 931
+; CursorPosition = 1382
+; FirstLine = 1360
 ; Folding = -------------
 ; EnableXP
 ; DPIAware
