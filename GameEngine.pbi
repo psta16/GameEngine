@@ -187,6 +187,7 @@ EndEnumeration
 Enumeration GameAction
   #Game_Action_None
   #Game_Action_Player_Point
+  #Game_Action_Restart_Level
 EndEnumeration
 
 ;- Globals
@@ -205,7 +206,6 @@ Global Delta_Adjust.d = 0
 #Mouse_Sprite = 0
 #Max_Vector_Graphics_Resources = 32
 #Max_System_Font_Instances = 32
-#Max_Player_Constraints = 32
 #Debug_Window_Update_Rate = 100 ; every 100ms
 
 ; Menu
@@ -217,6 +217,7 @@ Global Delta_Adjust.d = 0
 #Max_Control_Sets = 16
 #Max_Object_Controls = 16
 #Max_Players = 4
+#Max_Sprite_Constraints = 32
 
 ;- Structures
 
@@ -304,7 +305,7 @@ Structure System_Structure
   Controls_Count.i                            ; number of control sets
   Object_Controls_Count.i
   Player_Count.i ; number of active players in the game
-  Player_Constraints_Count.i
+  Sprite_Constraints_Count.i
 EndStructure
 
 Structure Debug_Structure
@@ -455,7 +456,6 @@ Structure System_Font_Instance_Structure
   Visible.i
 EndStructure
 
-
 Structure Graphics_Structure
   Vector_Graphics_Resource.Vector_Graphics_Structure[#Max_Vector_Graphics_Resources] ; used for reading vector data and drawing onto a sprite
   Sprite_Resource.Sprite_Resource_Structure[#Max_Sprite_Resources] ; hold all sprite resources (the actual sprite image data)
@@ -534,17 +534,19 @@ Structure Players_Structure
   Player.Player_Structure[#Max_Players]
 EndStructure
 
-Structure Player_Constraint_Structure
+Structure Sprite_Constraint_Structure
   Sprite_Instance.i
   Constraint_Type.i
   Value.i
   Sprite_Action.i
-  Game_Action.i
+  Game_Action1.i
+  Game_Action2.i
+  Game_Action3.i
   Player.i
 EndStructure
 
-Structure Player_Constraints_Structure
-  Player_Constraint.Player_Constraint_Structure[#Max_Player_Constraints]
+Structure Sprite_Constraints_Structure
+  Sprite_Constraint.Sprite_Constraint_Structure[#Max_Sprite_Constraints]
 EndStructure
 
 ;- Defines
@@ -561,7 +563,7 @@ Define FPS_Data.FPS_Data_Structure
 Define Graphics.Graphics_Structure
 Define Controls.Controls_Structure
 Define Players.Players_Structure
-Define Player_Constraints.Player_Constraints_Structure
+Define Sprite_Constraints.Sprite_Constraints_Structure
   
 ;***********************************************
 ; Menu
@@ -656,6 +658,70 @@ Procedure.s GetOSVersionString()
     Default : OS_Version.s = "Unknown Windows"
   EndSelect
   ProcedureReturn OS_Version
+EndProcedure
+
+;- Maths
+
+Procedure Min(v1.d, v2.d)
+  If v1 < v2
+    ProcedureReturn v1
+  Else
+    ProcedureReturn v2
+  EndIf
+EndProcedure
+
+Procedure Max(v1.d, v2.d)
+  If v1 > v2
+    ProcedureReturn v1
+  Else
+    ProcedureReturn v2
+  EndIf
+EndProcedure
+
+;- Geometry
+
+Procedure LineOrientation(x1.d, y1.d, x2.d, y2.d, x3.d, y3.d)
+  Protected value.d
+  value = (y2 - y1) * (x3 - x2) - (x2 - x1) * (y3 - y2)
+  If value = 0
+    ProcedureReturn 0 ; Collinear
+  ElseIf value > 0
+    ProcedureReturn 1 ; Clockwise
+  Else
+    ProcedureReturn 2 ; Counterclockwise
+  EndIf
+EndProcedure
+
+Procedure IsOnLineSegment(px.d, py.d, qx.d, qy.d, rx.d, ry.d)
+  If qx >= Min(px, rx) And qx <= Max(px, rx) And qy >= Min(py, ry) And qy <= Max(py, ry)
+    ProcedureReturn #True
+  EndIf
+  ProcedureReturn #False
+EndProcedure  
+
+Procedure.i LinesIntersect(x1.d, y1.d, x2.d, y2.d, x3.d, y3.d, x4.d, y4.d)
+  ; checks if two lines intersect, used for collision detection
+  Protected o1, o2, o3, o4
+  o1 = LineOrientation(x1, y1, x2, y2, x3, y3)
+  o2 = LineOrientation(x1, y1, x2, y2, x4, y4)
+  o3 = LineOrientation(x3, y3, x4, y4, x1, y1)
+  o4 = LineOrientation(x3, y3, x4, y4, x2, y2)
+  If o1 <> o2 And o3 <> o4
+    ProcedureReturn #True ; Lines intersect
+  EndIf
+  If o1 = 0 And IsOnLineSegment(x1, y1, x3, y3, x2, y2)
+    ProcedureReturn #True
+  EndIf
+  If o2 = 0 And IsOnLineSegment(x1, y1, x4, y4, x2, y2)
+    ProcedureReturn #True
+  EndIf
+  If o3 = 0 And IsOnLineSegment(x3, y3, x1, y1, x4, y4)
+    ProcedureReturn #True
+  EndIf
+  If o4 = 0 And IsOnLineSegment(x3, y3, x2, y2, x4, y4)
+    ProcedureReturn #True
+  EndIf
+  ProcedureReturn #False
 EndProcedure
 
 ;- Graphics
@@ -772,25 +838,27 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
   EndIf
 EndProcedure
 
-Procedure LoadSpriteConstraints(*System.System_Structure, *Player_Constraints.Player_Constraints_Structure)
+Procedure LoadSpriteConstraints(*System.System_Structure, *Sprite_Constraints.Sprite_Constraints_Structure)
   ; Incvisible walls that stop the player moving
   Protected c.i
   Debug "LoadSpriteConstraints: loading player constraints"
   Restore Data_Sprite_Constraints
-  Read *System\Player_Constraints_Count
-  If *System\Player_Constraints_Count > #Max_Player_Constraints
+  Read *System\Sprite_Constraints_Count
+  If *System\Sprite_Constraints_Count > #Max_Sprite_Constraints
     *System\Fatal_Error_Message = "#Max_Player_Constraints too small to load all player constraints"
     Fatal_Error(*System)
   EndIf
-  For c = 0 To *System\Player_Constraints_Count - 1
-    Read.i *Player_Constraints\Player_Constraint[c]\Sprite_Instance
-    Read.i *Player_Constraints\Player_Constraint[c]\Constraint_Type
-    Read.i *Player_Constraints\Player_Constraint[c]\Value
-    Read.i *Player_Constraints\Player_Constraint[c]\Sprite_Action
-    Read.i *Player_Constraints\Player_Constraint[c]\Game_Action
-    Read.i *Player_Constraints\Player_Constraint[c]\Player
+  For c = 0 To *System\Sprite_Constraints_Count - 1
+    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance
+    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Constraint_Type
+    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Value
+    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
+    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Game_Action1
+    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Game_Action2
+    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Game_Action3
+    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Player
   Next c
-  Debug "LoadSpriteConstraints: " + *System\Player_Constraints_Count + " sprite constraint(s) loaded"
+  Debug "LoadSpriteConstraints: " + *System\Sprite_Constraints_Count + " sprite constraint(s) loaded"
 EndProcedure
 
 Procedure LoadControls(*System.System_Structure, *Controls.Controls_Structure)
@@ -2135,53 +2203,61 @@ Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure
   Next c
 EndProcedure
 
-Procedure ProcessPlayerConstraints(*System.System_Structure, *Graphics.Graphics_Structure, *Player_Constraints.Player_Constraints_Structure)
+Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_Structure, *Sprite_Constraints.Sprite_Constraints_Structure)
   Protected c.i
-  For c = 0 To *System\Player_Constraints_Count-1
-    Select *Player_Constraints\Player_Constraint[c]\Constraint_Type
+  For c = 0 To *System\Sprite_Constraints_Count-1
+    Select *Sprite_Constraints\Sprite_Constraint[c]\Constraint_Type
       Case #Constraint_Type_Top
-        If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y > *Player_Constraints\Player_Constraint[c]\Value
-          Select *Player_Constraints\Player_Constraint[c]\Sprite_Action
+        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y > *Sprite_Constraints\Sprite_Constraint[c]\Value
+          Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
             Case #Constraint_Action_Stop
-              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y = *Player_Constraints\Player_Constraint[c]\Value
+              *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y = *Sprite_Constraints\Sprite_Constraint[c]\Value
             Case #Constraint_Action_Invisible
-              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Visible = #False
+              *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
           EndSelect
         EndIf
       Case #Constraint_Type_Bottom
-        If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y < *Player_Constraints\Player_Constraint[c]\Value
-          Select *Player_Constraints\Player_Constraint[c]\Sprite_Action
+        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y < *Sprite_Constraints\Sprite_Constraint[c]\Value
+          Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
             Case #Constraint_Action_Stop
-              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y = *Player_Constraints\Player_Constraint[c]\Value
+              *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y = *Sprite_Constraints\Sprite_Constraint[c]\Value
             Case #Constraint_Action_Invisible
-              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Visible = #False
+              *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
           EndSelect
         EndIf
       Case #Constraint_Type_Left
-        If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X > *Player_Constraints\Player_Constraint[c]\Value
-          Select *Player_Constraints\Player_Constraint[c]\Sprite_Action
+        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X > *Sprite_Constraints\Sprite_Constraint[c]\Value
+          Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
             Case #Constraint_Action_Stop
-              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X = *Player_Constraints\Player_Constraint[c]\Value
+              *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X = *Sprite_Constraints\Sprite_Constraint[c]\Value
             Case #Constraint_Action_Invisible
-              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Visible = #False
+              *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
           EndSelect
-          Select *Player_Constraints\Player_Constraint[c]\Game_Action
+          Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action1
             Case #Game_Action_Player_Point
-              Debug "Point player " + *Player_Constraints\Player_Constraint[c]\Player
+              Debug "Point player " + *Sprite_Constraints\Sprite_Constraint[c]\Player
+          EndSelect
+          Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action2
+            Case #Game_Action_Restart_Level
+              Debug "Level restarting"
           EndSelect
         EndIf
       Case #Constraint_Type_Right
-        If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X < *Player_Constraints\Player_Constraint[c]\Value
-          Select *Player_Constraints\Player_Constraint[c]\Sprite_Action
+        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X < *Sprite_Constraints\Sprite_Constraint[c]\Value
+          Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
             Case #Constraint_Action_Stop
-              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X = *Player_Constraints\Player_Constraint[c]\Value
+              *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X = *Sprite_Constraints\Sprite_Constraint[c]\Value
             Case #Constraint_Action_Invisible
-              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Visible = #False
+              *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
           EndSelect
-          Select *Player_Constraints\Player_Constraint[c]\Game_Action
+          Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action1
             Case #Game_Action_Player_Point
-              Debug "Point player " + *Player_Constraints\Player_Constraint[c]\Player
+              Debug "Point player " + *Sprite_Constraints\Sprite_Constraint[c]\Player
           EndSelect
+          Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action2
+            Case #Game_Action_Restart_Level
+              Debug "Level restarting"
+          EndSelect          
         EndIf
     EndSelect
   Next c
@@ -2202,41 +2278,95 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
       For d = 0 To *System\Sprite_Instance_Count-1
         If c <> d And *Graphics\Sprite_Instance[c]\Collision_Class = *Graphics\Sprite_Instance[d]\Collision_Class
           ; Right wall
-          If *Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width < *Graphics\Sprite_Instance[d]\X And
-            *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width > *Graphics\Sprite_Instance[d]\X And
-            *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y - *Graphics\Sprite_Instance[d]\Height And
-            *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
-            Debug "Collision with wall on the right"
+          If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y,
+                            *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y,
+                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y, *Graphics\Sprite_Instance[d]\X,
+                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
+             LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
+                            *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
+                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y, *Graphics\Sprite_Instance[d]\X,
+                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)             
+            Debug "Collision with right wall"
             *Graphics\Sprite_Instance[c]\Velocity_X = -*Graphics\Sprite_Instance[c]\Velocity_X ; reverse the velocity
-            *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X ; bounce the object
+            *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
           EndIf
+          ;If *Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width < *Graphics\Sprite_Instance[d]\X And
+          ;  *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width > *Graphics\Sprite_Instance[d]\X And
+          ;  *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y - *Graphics\Sprite_Instance[d]\Height And
+          ;  *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
+          ;  Debug "Collision with wall on the right"
+          ;  *Graphics\Sprite_Instance[c]\Velocity_X = -*Graphics\Sprite_Instance[c]\Velocity_X ; reverse the velocity
+          ;  *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
+          ;EndIf
           ; Top wall
-          If *Graphics\Sprite_Instance[c]\Old_Y > *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height And
-            *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height And
-            *Graphics\Sprite_Instance[c]\X >= *Graphics\Sprite_Instance[d]\X And
-            *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width
-            Debug "Collision with wall on the top"
+          If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y,
+                            *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y,
+                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height,
+                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
+             LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y,
+                            *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y,
+                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height,
+                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)
+            Debug "Collision with top wall"
             *Graphics\Sprite_Instance[c]\Velocity_Y = Abs(*Graphics\Sprite_Instance[c]\Velocity_Y) ; reverse the velocity
-            *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y ; bounce the object
-          EndIf          
-          ; Left wall
-          If *Graphics\Sprite_Instance[c]\Old_X > *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width And
-            *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width And
-            *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y And
-            *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
-            Debug "Collision with wall on the left"
-            *Graphics\Sprite_Instance[c]\Velocity_X = Abs(*Graphics\Sprite_Instance[c]\Velocity_X) ; reverse the velocity
-            *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X ; bounce the object
+            *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
           EndIf
+          ;If *Graphics\Sprite_Instance[c]\Old_Y > *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height And
+          ;  *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height And
+          ;  *Graphics\Sprite_Instance[c]\X >= *Graphics\Sprite_Instance[d]\X And
+          ;  *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width
+          ;  Debug "Collision with wall on the top"
+          ;  *Graphics\Sprite_Instance[c]\Velocity_Y = Abs(*Graphics\Sprite_Instance[c]\Velocity_Y) ; reverse the velocity
+          ;  *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
+          ;EndIf          
+          ; Left wall
+          If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y,
+                            *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y,
+                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width, *Graphics\Sprite_Instance[d]\Y,
+                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
+             LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
+                            *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
+                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width, *Graphics\Sprite_Instance[d]\Y,
+                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)
+            Debug "Collision with left wall"
+            *Graphics\Sprite_Instance[c]\Velocity_X = Abs(*Graphics\Sprite_Instance[c]\Velocity_X) ; reverse the velocity
+            *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
+          EndIf
+          ;If *Graphics\Sprite_Instance[c]\Old_X > *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width And
+          ;  *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width And
+          ;  *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y And
+          ;  *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
+          ;  Debug "Collision with wall on the left"
+          ;  *Graphics\Sprite_Instance[c]\Velocity_X = Abs(*Graphics\Sprite_Instance[c]\Velocity_X) ; reverse the velocity
+          ;  *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
+          ;EndIf
           ; Bottom wall
-          If *Graphics\Sprite_Instance[c]\Old_Y < *Graphics\Sprite_Instance[d]\Y And
-            *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height > *Graphics\Sprite_Instance[d]\Y And
-            *Graphics\Sprite_Instance[c]\X >= *Graphics\Sprite_Instance[d]\X And
-            *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width
-            Debug "Collision with wall on the bottom"
+          If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
+                            *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
+                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y,
+                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                            *Graphics\Sprite_Instance[d]\Y) Or
+             LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
+                            *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
+                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y,
+                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                            *Graphics\Sprite_Instance[d]\Y)
+            Debug "Collision with left wall"
             *Graphics\Sprite_Instance[c]\Velocity_Y = -*Graphics\Sprite_Instance[c]\Velocity_Y ; reverse the velocity
-            *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y ; bounce the object
-          EndIf            
+            *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
+          EndIf          
+          ;If *Graphics\Sprite_Instance[c]\Old_Y < *Graphics\Sprite_Instance[d]\Y And
+          ;  *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height > *Graphics\Sprite_Instance[d]\Y And
+          ;  *Graphics\Sprite_Instance[c]\X >= *Graphics\Sprite_Instance[d]\X And
+          ;  *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width
+          ;  Debug "Collision with wall on the bottom"
+          ;  *Graphics\Sprite_Instance[c]\Velocity_Y = -*Graphics\Sprite_Instance[c]\Velocity_Y ; reverse the velocity
+          ;  *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
+          ;EndIf            
         EndIf  
       Next d
     EndIf
@@ -2503,7 +2633,7 @@ Procedure SetInitialiseError(*System.System_Structure, Message.s)
 EndProcedure
 
 Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure,
-                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Player_Constraints.Player_Constraints_Structure)
+                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Sprite_Constraints.Sprite_Constraints_Structure)
   ; Initialises the environment
   Protected Result.i, c.i
   
@@ -2615,7 +2745,7 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   LoadSystemFontInstances(*System, *Graphics)
   LoadControls(*System, *Controls)
   LoadObjectControls(*System, *Controls)
-  LoadSpriteConstraints(*System, *Player_Constraints)
+  LoadSpriteConstraints(*System, *Sprite_Constraints)
   LoadSystemFont(*System)
   
   ;If Not InitialiseFonts(*System)
@@ -2691,7 +2821,7 @@ Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
-  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Player_Constraints)
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints)
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
     Repeat
@@ -2703,7 +2833,7 @@ Repeat ; used for restarting the game
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessSpritePositions(@System, @Graphics)
-      ProcessPlayerConstraints(@System, @Graphics, @Player_Constraints)
+      ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -2929,9 +3059,9 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 790
-; FirstLine = 753
-; Folding = -------------
+; CursorPosition = 2361
+; FirstLine = 2247
+; Folding = --------------
 ; EnableXP
 ; DPIAware
 ; Executable = ..\..\GameEngine.exe
