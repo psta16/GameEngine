@@ -381,20 +381,6 @@ Structure FPS_Data_Structure
   FPS_Limit.i ; frequency of screen, FPS does not go higher than this
 EndStructure
 
-Structure Sprite_Resource_Structure
-  ; Source collection of sprites
-  ID.i
-  Width.i
-  Height.i
-  Mode.i ; #PB_Sprite_PixelCollision and #PB_Sprite_AlphaBlending
-  Transparent.i ; set if the sprite uses transparency
-  Data_Source.i ; See Data_Source enumeration
-  Memory_Location.i
-  File_Location.s
-  Database_Location.i
-  Vector_Drawn.i ; used to select whether it will be drawn using vectors
-EndStructure
-
 Structure Vector_Graphics_Structure
   Shape_Type.i
   Background_Transparent.i
@@ -410,12 +396,28 @@ Structure Vector_Graphics_Structure
   Cont.i ; indicates this is the last shape
 EndStructure
 
+Structure Sprite_Resource_Structure
+  ; Source collection of sprites
+  ID.i
+  Width.i
+  Height.i
+  Mode.i ; #PB_Sprite_PixelCollision and #PB_Sprite_AlphaBlending
+  Transparent.i ; set if the sprite uses transparency
+  Data_Source.i ; See Data_Source enumeration
+  Memory_Location.i
+  File_Location.s
+  Database_Location.i
+  Vector_Drawn.i ; used to select whether it will be drawn using vectors
+EndStructure
+
 Structure Sprite_Instance_Structure
   Sprite_Resource.i
   Start_X.d
   Start_Y.d
   X.d
   Y.d
+  Old_X.d
+  Old_Y.d
   Width.i
   Height.i
   Start_Velocity_X.d
@@ -428,6 +430,8 @@ Structure Sprite_Instance_Structure
   Layer.i     ; used to sort the sprite instance array for drawing order, 0 is background
   Visible.i
   Collision_Class.i
+  Pixel_Collisions.i ; true or false whether collisions is pixel based (false means box based)
+  Is_Static.i
 EndStructure
 
 Structure System_Font_Instance_Structure
@@ -1019,6 +1023,7 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
   Read *System\Sprite_Instance_Count
   For c = 0 To *System\Sprite_Instance_Count - 1
     Read.i *Graphics\Sprite_Instance[c]\Sprite_Resource
+    Read.i *Graphics\Sprite_Instance[c]\Is_Static
     Read.i *Graphics\Sprite_Instance[c]\Width
     Read.i *Graphics\Sprite_Instance[c]\Height    
     Read.i *Graphics\Sprite_Instance[c]\Intensity
@@ -1026,6 +1031,7 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
     Read.i *Graphics\Sprite_Instance[c]\Colour
     Read.i *Graphics\Sprite_Instance[c]\Layer
     Read.i *Graphics\Sprite_Instance[c]\Visible
+    Read.i *Graphics\Sprite_Instance[c]\Pixel_Collisions
     Read.i *Graphics\Sprite_Instance[c]\Collision_Class
     Read.d *Graphics\Sprite_Instance[c]\X
     Read.d *Graphics\Sprite_Instance[c]\Y
@@ -2140,10 +2146,58 @@ Procedure ProcessPlayerConstraints(*System.System_Structure, *Graphics.Graphics_
 EndProcedure
 
 Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_Structure)
-  Protected c.i
+  Protected c.i, d.i
   For c = 0 To *System\Sprite_Instance_Count-1
+    *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\X
+    *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Y
     *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust
     *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust
+  Next c
+  ; Process collisions
+  ; NB static sprites don't need to be checked for collisions
+  For c = 0 To *System\Sprite_Instance_Count-1
+    If Not *Graphics\Sprite_Instance[c]\Is_Static ; only check the non-static sprites for collisions
+      For d = 0 To *System\Sprite_Instance_Count-1
+        If c <> d And *Graphics\Sprite_Instance[c]\Collision_Class = *Graphics\Sprite_Instance[d]\Collision_Class
+          ; Right wall
+          If *Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width < *Graphics\Sprite_Instance[d]\X And
+            *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width > *Graphics\Sprite_Instance[d]\X And
+            *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y And
+            *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
+            Debug "Collision with wall on the right"
+            *Graphics\Sprite_Instance[c]\Velocity_X = -*Graphics\Sprite_Instance[c]\Velocity_X ; reverse the velocity
+            *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X ; bounce the object
+          EndIf
+          ; Top wall
+          If *Graphics\Sprite_Instance[c]\Old_Y > *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height And
+            *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height And
+            *Graphics\Sprite_Instance[c]\X >= *Graphics\Sprite_Instance[d]\X And
+            *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width
+            Debug "Collision with wall on the top"
+            *Graphics\Sprite_Instance[c]\Velocity_Y = Abs(*Graphics\Sprite_Instance[c]\Velocity_Y) ; reverse the velocity
+            *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y ; bounce the object
+          EndIf          
+          ; Left wall
+          If *Graphics\Sprite_Instance[c]\Old_X > *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width And
+            *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width And
+            *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y And
+            *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
+            Debug "Collision with wall on the left"
+            *Graphics\Sprite_Instance[c]\Velocity_X = Abs(*Graphics\Sprite_Instance[c]\Velocity_X) ; reverse the velocity
+            *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X ; bounce the object
+          EndIf
+          ; Bottom wall
+          If *Graphics\Sprite_Instance[c]\Old_Y < *Graphics\Sprite_Instance[d]\Y And
+            *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height > *Graphics\Sprite_Instance[d]\Y And
+            *Graphics\Sprite_Instance[c]\X >= *Graphics\Sprite_Instance[d]\X And
+            *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width
+            Debug "Collision with wall on the bottom"
+            *Graphics\Sprite_Instance[c]\Velocity_Y = -*Graphics\Sprite_Instance[c]\Velocity_Y ; reverse the velocity
+            *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y ; bounce the object
+          EndIf            
+        EndIf  
+      Next d
+    EndIf
   Next c
 EndProcedure
 
@@ -2833,8 +2887,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 200
-; FirstLine = 156
+; CursorPosition = 2189
+; FirstLine = 2140
 ; Folding = -------------
 ; EnableXP
 ; DPIAware
