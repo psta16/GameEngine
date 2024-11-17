@@ -177,9 +177,17 @@ Enumeration Constraint_Type
   #Constraint_Type_Right
 EndEnumeration
 
+Enumeration Constraint_Action
+  #Constraint_Action_Stop
+  #Constraint_Action_Invisible
+EndEnumeration
+
 ; Layer 3 - Game
 
-
+Enumeration GameAction
+  #Game_Action_None
+  #Game_Action_Player_Point
+EndEnumeration
 
 ;- Globals
 Global Restart.i = 0 ; restarts the game engine
@@ -530,6 +538,9 @@ Structure Player_Constraint_Structure
   Sprite_Instance.i
   Constraint_Type.i
   Value.i
+  Sprite_Action.i
+  Game_Action.i
+  Player.i
 EndStructure
 
 Structure Player_Constraints_Structure
@@ -761,11 +772,11 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
   EndIf
 EndProcedure
 
-Procedure LoadPlayerConstraints(*System.System_Structure, *Player_Constraints.Player_Constraints_Structure)
+Procedure LoadSpriteConstraints(*System.System_Structure, *Player_Constraints.Player_Constraints_Structure)
   ; Incvisible walls that stop the player moving
   Protected c.i
-  Debug "LoadPlayerConstraints: loading player constraints"
-  Restore Data_Player_Constraints
+  Debug "LoadSpriteConstraints: loading player constraints"
+  Restore Data_Sprite_Constraints
   Read *System\Player_Constraints_Count
   If *System\Player_Constraints_Count > #Max_Player_Constraints
     *System\Fatal_Error_Message = "#Max_Player_Constraints too small to load all player constraints"
@@ -775,8 +786,11 @@ Procedure LoadPlayerConstraints(*System.System_Structure, *Player_Constraints.Pl
     Read.i *Player_Constraints\Player_Constraint[c]\Sprite_Instance
     Read.i *Player_Constraints\Player_Constraint[c]\Constraint_Type
     Read.i *Player_Constraints\Player_Constraint[c]\Value
+    Read.i *Player_Constraints\Player_Constraint[c]\Sprite_Action
+    Read.i *Player_Constraints\Player_Constraint[c]\Game_Action
+    Read.i *Player_Constraints\Player_Constraint[c]\Player
   Next c
-  Debug "LoadPlayerConstraints: " + *System\Player_Constraints_Count + " player constraint(s) loaded"
+  Debug "LoadSpriteConstraints: " + *System\Player_Constraints_Count + " sprite constraint(s) loaded"
 EndProcedure
 
 Procedure LoadControls(*System.System_Structure, *Controls.Controls_Structure)
@@ -2127,19 +2141,47 @@ Procedure ProcessPlayerConstraints(*System.System_Structure, *Graphics.Graphics_
     Select *Player_Constraints\Player_Constraint[c]\Constraint_Type
       Case #Constraint_Type_Top
         If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y > *Player_Constraints\Player_Constraint[c]\Value
-          *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y = *Player_Constraints\Player_Constraint[c]\Value
+          Select *Player_Constraints\Player_Constraint[c]\Sprite_Action
+            Case #Constraint_Action_Stop
+              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y = *Player_Constraints\Player_Constraint[c]\Value
+            Case #Constraint_Action_Invisible
+              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Visible = #False
+          EndSelect
         EndIf
       Case #Constraint_Type_Bottom
         If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y < *Player_Constraints\Player_Constraint[c]\Value
-          *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y = *Player_Constraints\Player_Constraint[c]\Value
+          Select *Player_Constraints\Player_Constraint[c]\Sprite_Action
+            Case #Constraint_Action_Stop
+              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Y = *Player_Constraints\Player_Constraint[c]\Value
+            Case #Constraint_Action_Invisible
+              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Visible = #False
+          EndSelect
         EndIf
       Case #Constraint_Type_Left
         If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X > *Player_Constraints\Player_Constraint[c]\Value
-          *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X = *Player_Constraints\Player_Constraint[c]\Value
+          Select *Player_Constraints\Player_Constraint[c]\Sprite_Action
+            Case #Constraint_Action_Stop
+              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X = *Player_Constraints\Player_Constraint[c]\Value
+            Case #Constraint_Action_Invisible
+              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Visible = #False
+          EndSelect
+          Select *Player_Constraints\Player_Constraint[c]\Game_Action
+            Case #Game_Action_Player_Point
+              Debug "Point player " + *Player_Constraints\Player_Constraint[c]\Player
+          EndSelect
         EndIf
       Case #Constraint_Type_Right
         If *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X < *Player_Constraints\Player_Constraint[c]\Value
-          *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X = *Player_Constraints\Player_Constraint[c]\Value
+          Select *Player_Constraints\Player_Constraint[c]\Sprite_Action
+            Case #Constraint_Action_Stop
+              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\X = *Player_Constraints\Player_Constraint[c]\Value
+            Case #Constraint_Action_Invisible
+              *Graphics\Sprite_Instance[*Player_Constraints\Player_Constraint[c]\Sprite_Instance]\Visible = #False
+          EndSelect
+          Select *Player_Constraints\Player_Constraint[c]\Game_Action
+            Case #Game_Action_Player_Point
+              Debug "Point player " + *Player_Constraints\Player_Constraint[c]\Player
+          EndSelect
         EndIf
     EndSelect
   Next c
@@ -2162,8 +2204,8 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
           ; Right wall
           If *Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width < *Graphics\Sprite_Instance[d]\X And
             *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width > *Graphics\Sprite_Instance[d]\X And
-            *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y And
-            *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
+            *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y - *Graphics\Sprite_Instance[d]\Height And
+            *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
             Debug "Collision with wall on the right"
             *Graphics\Sprite_Instance[c]\Velocity_X = -*Graphics\Sprite_Instance[c]\Velocity_X ; reverse the velocity
             *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X ; bounce the object
@@ -2181,7 +2223,7 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
           If *Graphics\Sprite_Instance[c]\Old_X > *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width And
             *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width And
             *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y And
-            *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
+            *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
             Debug "Collision with wall on the left"
             *Graphics\Sprite_Instance[c]\Velocity_X = Abs(*Graphics\Sprite_Instance[c]\Velocity_X) ; reverse the velocity
             *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X ; bounce the object
@@ -2573,7 +2615,7 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   LoadSystemFontInstances(*System, *Graphics)
   LoadControls(*System, *Controls)
   LoadObjectControls(*System, *Controls)
-  LoadPlayerConstraints(*System, *Player_Constraints)
+  LoadSpriteConstraints(*System, *Player_Constraints)
   LoadSystemFont(*System)
   
   ;If Not InitialiseFonts(*System)
@@ -2879,7 +2921,7 @@ DataSection
   Data.i 0
   Data_Object_Controls:
   Data.i 0
-  Data_Player_Constraints:
+  Data_Sprite_Constraints:
   Data.i 0
   
   CompilerEndIf
@@ -2887,8 +2929,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2189
-; FirstLine = 2140
+; CursorPosition = 790
+; FirstLine = 753
 ; Folding = -------------
 ; EnableXP
 ; DPIAware
