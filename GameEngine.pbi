@@ -2357,7 +2357,7 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
                               *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y,
                               *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
                               *Graphics\Sprite_Instance[d]\Y)
-               *Graphics\Sprite_  Instance[c]\Velocity_Y = -*Graphics\Sprite_Instance[c]\Velocity_Y ; reverse the velocity
+              *Graphics\Sprite_Instance[c]\Velocity_Y = -*Graphics\Sprite_Instance[c]\Velocity_Y ; reverse the velocity
               *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
             EndIf   
           EndIf 
@@ -3053,8 +3053,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2315
-; FirstLine = 2255
+; CursorPosition = 2359
+; FirstLine = 2289
 ; Folding = --------------
 ; EnableXP
 ; DPIAware
