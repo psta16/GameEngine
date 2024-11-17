@@ -2324,7 +2324,7 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
                               *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y,
                               *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height,
                               *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
+                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)
               *Graphics\Sprite_Instance[c]\Velocity_Y = Abs(*Graphics\Sprite_Instance[c]\Velocity_Y) ; reverse the velocity
               *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
             EndIf
@@ -2345,7 +2345,7 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
               *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
             EndIf
           EndIf 
-          If Sign(*Graphics\Sprite_Instance[c]\Velocity_X) = 1
+          If Sign(*Graphics\Sprite_Instance[c]\Velocity_Y) = 1
             ; Bottom wall
             If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
                               *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
@@ -3053,8 +3053,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2359
-; FirstLine = 2289
+; CursorPosition = 2347
+; FirstLine = 2298
 ; Folding = --------------
 ; EnableXP
 ; DPIAware
