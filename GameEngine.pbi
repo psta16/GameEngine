@@ -724,6 +724,21 @@ Procedure.i LinesIntersect(x1.d, y1.d, x2.d, y2.d, x3.d, y3.d, x4.d, y4.d)
   ProcedureReturn #False
 EndProcedure
 
+;- Game
+
+Procedure RestartLevel(*System.System_Structure, *Graphics.Graphics_Structure)
+  Protected c.i
+  ; Set all sprites back to original positions
+  For c = 0 To *System\Sprite_Instance_Count-1
+    *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\Start_X
+    *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Start_Y
+    *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\Start_X
+    *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Start_X
+    *Graphics\Sprite_Instance[c]\Velocity_X = *Graphics\Sprite_Instance[c]\Start_Velocity_X
+    *Graphics\Sprite_Instance[c]\Velocity_Y = *Graphics\Sprite_Instance[c]\Start_Velocity_Y
+  Next c
+EndProcedure
+
 ;- Graphics
 
 Procedure InitDesktop(*Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure)
@@ -1121,8 +1136,11 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
     Read.d *Graphics\Sprite_Instance[c]\Velocity_Y
     *Graphics\Sprite_Instance[c]\Start_X = *Graphics\Sprite_Instance[c]\X
     *Graphics\Sprite_Instance[c]\Start_Y = *Graphics\Sprite_Instance[c]\Y
+    *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\X
+    *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Y
     *Graphics\Sprite_Instance[c]\Start_Velocity_X = *Graphics\Sprite_Instance[c]\Velocity_X
     *Graphics\Sprite_Instance[c]\Start_Velocity_Y = *Graphics\Sprite_Instance[c]\Velocity_Y
+    
   Next c
   Debug "LoadSpriteInstances: " + *System\Sprite_Instance_Count + " sprite instance(s) loaded"
   For c = 0 To *System\Sprite_Instance_Count-1
@@ -2189,12 +2207,14 @@ Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure
             If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Up)
               If *Controls\Object_Control[d]\Player = c
                 *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y - *Controls\Object_Control[d]\Move_Speed * Delta_Adjust
+                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Old_Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y
               EndIf
             EndIf
           Case #Control_Button_Down
             If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Down)
               If *Controls\Object_Control[d]\Player = c
                 *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y + *Controls\Object_Control[d]\Move_Speed * Delta_Adjust
+                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Old_Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y
               EndIf
             EndIf
         EndSelect
@@ -2240,6 +2260,7 @@ Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_
           Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action2
             Case #Game_Action_Restart_Level
               Debug "Level restarting"
+              RestartLevel(*System, *Graphics)
           EndSelect
         EndIf
       Case #Constraint_Type_Right
@@ -2257,6 +2278,7 @@ Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_
           Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action2
             Case #Game_Action_Restart_Level
               Debug "Level restarting"
+              RestartLevel(*System, *Graphics)
           EndSelect          
         EndIf
     EndSelect
@@ -2277,96 +2299,68 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
     If Not *Graphics\Sprite_Instance[c]\Is_Static ; only check the non-static sprites for collisions
       For d = 0 To *System\Sprite_Instance_Count-1
         If c <> d And *Graphics\Sprite_Instance[c]\Collision_Class = *Graphics\Sprite_Instance[d]\Collision_Class
-          ; Right wall
-          If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y,
-                            *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y,
-                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y, *Graphics\Sprite_Instance[d]\X,
-                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
-             LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
-                            *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
-                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y, *Graphics\Sprite_Instance[d]\X,
-                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)             
-            Debug "Collision with right wall"
-            *Graphics\Sprite_Instance[c]\Velocity_X = -*Graphics\Sprite_Instance[c]\Velocity_X ; reverse the velocity
-            *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
+          If Sign(*Graphics\Sprite_Instance[c]\Velocity_X) = 1
+            ; Right wall
+            If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y,
+                              *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y,
+                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y, *Graphics\Sprite_Instance[d]\X,
+                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
+              LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
+                              *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
+                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y, *Graphics\Sprite_Instance[d]\X,
+                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)             
+              *Graphics\Sprite_Instance[c]\Velocity_X = -*Graphics\Sprite_Instance[c]\Velocity_X ; reverse the velocity
+              *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
+            EndIf
+          EndIf 
+          If Sign(*Graphics\Sprite_Instance[c]\Velocity_Y) = -1
+            ; Top wall
+            If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y,
+                              *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y,
+                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height,
+                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
+              LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y,
+                              *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y,
+                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height,
+                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
+              *Graphics\Sprite_Instance[c]\Velocity_Y = Abs(*Graphics\Sprite_Instance[c]\Velocity_Y) ; reverse the velocity
+              *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
+            EndIf
           EndIf
-          ;If *Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width < *Graphics\Sprite_Instance[d]\X And
-          ;  *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width > *Graphics\Sprite_Instance[d]\X And
-          ;  *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y - *Graphics\Sprite_Instance[d]\Height And
-          ;  *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
-          ;  Debug "Collision with wall on the right"
-          ;  *Graphics\Sprite_Instance[c]\Velocity_X = -*Graphics\Sprite_Instance[c]\Velocity_X ; reverse the velocity
-          ;  *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
-          ;EndIf
-          ; Top wall
-          If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y,
-                            *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y,
-                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height,
-                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
-             LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y,
-                            *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y,
-                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height,
-                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)
-            Debug "Collision with top wall"
-            *Graphics\Sprite_Instance[c]\Velocity_Y = Abs(*Graphics\Sprite_Instance[c]\Velocity_Y) ; reverse the velocity
-            *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
-          EndIf
-          ;If *Graphics\Sprite_Instance[c]\Old_Y > *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height And
-          ;  *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height And
-          ;  *Graphics\Sprite_Instance[c]\X >= *Graphics\Sprite_Instance[d]\X And
-          ;  *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width
-          ;  Debug "Collision with wall on the top"
-          ;  *Graphics\Sprite_Instance[c]\Velocity_Y = Abs(*Graphics\Sprite_Instance[c]\Velocity_Y) ; reverse the velocity
-          ;  *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
-          ;EndIf          
-          ; Left wall
-          If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y,
-                            *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y,
-                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width, *Graphics\Sprite_Instance[d]\Y,
-                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
-             LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
-                            *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
-                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width, *Graphics\Sprite_Instance[d]\Y,
-                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                            *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)
-            Debug "Collision with left wall"
-            *Graphics\Sprite_Instance[c]\Velocity_X = Abs(*Graphics\Sprite_Instance[c]\Velocity_X) ; reverse the velocity
-            *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
-          EndIf
-          ;If *Graphics\Sprite_Instance[c]\Old_X > *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width And
-          ;  *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width And
-          ;  *Graphics\Sprite_Instance[c]\Y >= *Graphics\Sprite_Instance[d]\Y And
-          ;  *Graphics\Sprite_Instance[c]\Y < *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height
-          ;  Debug "Collision with wall on the left"
-          ;  *Graphics\Sprite_Instance[c]\Velocity_X = Abs(*Graphics\Sprite_Instance[c]\Velocity_X) ; reverse the velocity
-          ;  *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
-          ;EndIf
-          ; Bottom wall
-          If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
-                            *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
-                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y,
-                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                            *Graphics\Sprite_Instance[d]\Y) Or
-             LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
-                            *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
-                            *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y,
-                            *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                            *Graphics\Sprite_Instance[d]\Y)
-            Debug "Collision with left wall"
-            *Graphics\Sprite_Instance[c]\Velocity_Y = -*Graphics\Sprite_Instance[c]\Velocity_Y ; reverse the velocity
-            *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
-          EndIf          
-          ;If *Graphics\Sprite_Instance[c]\Old_Y < *Graphics\Sprite_Instance[d]\Y And
-          ;  *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height > *Graphics\Sprite_Instance[d]\Y And
-          ;  *Graphics\Sprite_Instance[c]\X >= *Graphics\Sprite_Instance[d]\X And
-          ;  *Graphics\Sprite_Instance[c]\X < *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width
-          ;  Debug "Collision with wall on the bottom"
-          ;  *Graphics\Sprite_Instance[c]\Velocity_Y = -*Graphics\Sprite_Instance[c]\Velocity_Y ; reverse the velocity
-          ;  *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
-          ;EndIf            
+          If Sign(*Graphics\Sprite_Instance[c]\Velocity_X) = -1
+            ; Left wall
+            If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y,
+                              *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y,
+                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width, *Graphics\Sprite_Instance[d]\Y,
+                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
+              LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
+                              *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
+                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width, *Graphics\Sprite_Instance[d]\Y,
+                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)
+              *Graphics\Sprite_Instance[c]\Velocity_X = Abs(*Graphics\Sprite_Instance[c]\Velocity_X) ; reverse the velocity
+              *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
+            EndIf
+          EndIf 
+          If Sign(*Graphics\Sprite_Instance[c]\Velocity_X) = 1
+            ; Bottom wall
+            If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
+                              *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
+                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y,
+                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                              *Graphics\Sprite_Instance[d]\Y) Or
+               LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
+                              *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
+                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y,
+                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
+                              *Graphics\Sprite_Instance[d]\Y)
+               *Graphics\Sprite_  Instance[c]\Velocity_Y = -*Graphics\Sprite_Instance[c]\Velocity_Y ; reverse the velocity
+              *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
+            EndIf   
+          EndIf 
         EndIf  
       Next d
     EndIf
@@ -3059,8 +3053,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2361
-; FirstLine = 2247
+; CursorPosition = 2315
+; FirstLine = 2255
 ; Folding = --------------
 ; EnableXP
 ; DPIAware
