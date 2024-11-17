@@ -176,12 +176,13 @@ End 0
 #Colour_Dark_Grey = -10197916
 #Colour_Yellow = -16711681
 #Colour_White = -1
+#Colour_Aqua = -327824
 #Wall_Thickness = 6
 #Paddle_Thickness = 6
 #Paddle_Distance = 6
 #Paddle_Length = 30
-#Goal_Sides = 40
-#Paddle_Colour = #Colour_Dark_Grey
+#Goal_Sides = 0
+#Paddle_Colour = #Colour_Aqua
 #Score_Size = 16
 #Wall_Colour = #Colour_Light_Grey
 #Ball_Diameter = 7
@@ -208,8 +209,8 @@ DataSection
   ; Provides a list of sprite resources to be loaded
   ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file
   Data.i 3; Number of records
-  Data.i 10, 10, #PB_Sprite_AlphaBlending, #False, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Box
-  Data.i #Paddle_Thickness, #Paddle_Length, #PB_Sprite_AlphaBlending, #False, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Paddle
+  Data.i 10, 10, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Box
+  Data.i #Paddle_Thickness, #Paddle_Length, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Paddle
   Data.i #Ball_Diameter, #Ball_Diameter, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Ball ; #Sprite_Ball
   ;Data.i 256, 224, #PB_Sprite_AlphaBlending, #False, #True, #Data_Source_Internal_Memory, #Vector_Grid ; #Sprite_Grid
 
@@ -220,15 +221,15 @@ DataSection
   ; Collision_Class means only sprites with the same class can collied with it
   Data.i 9 ; Number of records
   ;Data.i #Sprite_Grid, #True, 256, 224, 255, #False, 0, 0, #True, #False, 0:Data.d 0, 0, 0, 0 ; top wall 1
-  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, 0, 0, 0 ; top wall 1
-  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, 0, 1:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall 2
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, #Wall_Thickness, 0, 0 ; goal side top left 3
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0; goal side bottom left 4
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0; goal side top right 5
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0            ; goal side bottom right 6
-  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
-  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
-  Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #False, 1:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y ; ball
+  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #False, 0:Data.d 0, 0, 0, 0 ; top wall 1
+  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, 0, 0:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall 2
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 0:Data.d 0, #Wall_Thickness, 0, 0 ; goal side top left 3
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 0:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0; goal side bottom left 4
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 0:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0; goal side top right 5
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 0:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0            ; goal side bottom right 6
+  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 0:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
+  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 0:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
+  Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #False, 0:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y ; ball
   
   Data_System_Font_Instances:
   ; Used for displaying the system font
@@ -282,8 +283,8 @@ EndDataSection
 
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 66
-; FirstLine = 54
+; CursorPosition = 183
+; FirstLine = 147
 ; Folding = -
 ; EnableXP
 ; DPIAware

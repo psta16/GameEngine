@@ -1052,7 +1052,6 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
     ; Now that the resource list has been stored, load the sprites.
     ; This is necessary so that sprites can be stored in the DataSection
     If Count > 0
-      Restore Data_Sprites
       For c = 0 To Count - 1
         Select *Graphics\Sprite_Resource[j]\Data_Source
           Case #Data_Source_None
@@ -3053,8 +3052,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2347
-; FirstLine = 2298
+; CursorPosition = 1054
+; FirstLine = 1032
 ; Folding = --------------
 ; EnableXP
 ; DPIAware
