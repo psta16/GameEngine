@@ -91,6 +91,7 @@ Enumeration Shapes ; used for vector graphics
   #Shape_Line
   #Shape_Circle
   #Shape_Polygon
+  #Shape_Grid
   #Shape_Fill ; use this to fill an area
 EndEnumeration
 
@@ -182,13 +183,21 @@ Enumeration Constraint_Action
   #Constraint_Action_Invisible
 EndEnumeration
 
-; Layer 3 - Game
-
-Enumeration GameAction
+Enumeration Game_Action
   #Game_Action_None
   #Game_Action_Player_Point
   #Game_Action_Restart_Level
 EndEnumeration
+
+Enumeration Story_Actions
+  #Story_Action_Game_Start
+  #Story_Action_Pause
+  #Story_Action_Start_Sprite_Moving
+  #Story_Action_Game_Continue
+EndEnumeration
+
+; Layer 3 - Game
+
 
 ;- Globals
 Global Restart.i = 0 ; restarts the game engine
@@ -218,6 +227,7 @@ Global Delta_Adjust.d = 0
 #Max_Object_Controls = 16
 #Max_Players = 4
 #Max_Sprite_Constraints = 32
+#Max_Story_Actions = 32
 
 ;- Structures
 
@@ -306,6 +316,8 @@ Structure System_Structure
   Object_Controls_Count.i
   Player_Count.i ; number of active players in the game
   Sprite_Constraints_Count.i
+  Story_Action_Count.i
+  Pause_Gameplay.i
 EndStructure
 
 Structure Debug_Structure
@@ -549,6 +561,19 @@ Structure Sprite_Constraints_Structure
   Sprite_Constraint.Sprite_Constraint_Structure[#Max_Sprite_Constraints]
 EndStructure
 
+Structure Story_Action_Structure
+  Action.i
+  Time_Length.i
+  Sprite_Instance.i
+  Velocity_X.d
+  Velocity_Y.d
+EndStructure
+
+Structure Story_Actions_Structure
+  Story_Position.i
+  Story_Action.Story_Action_Structure[#Max_Story_Actions]
+EndStructure
+
 ;- Defines
 
 ;***************************************************
@@ -564,6 +589,7 @@ Define Graphics.Graphics_Structure
 Define Controls.Controls_Structure
 Define Players.Players_Structure
 Define Sprite_Constraints.Sprite_Constraints_Structure
+Define Story_Actions.Story_Actions_Structure
   
 ;***********************************************
 ; Menu
@@ -739,6 +765,31 @@ Procedure RestartLevel(*System.System_Structure, *Graphics.Graphics_Structure)
   Next c
 EndProcedure
 
+Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
+  Static Current_Time.q
+  If *System\Story_Action_Count > 0
+    Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
+      Case #Story_Action_Game_Start
+        Debug "ProcessStory: game start"
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+      Case #Story_Action_Pause
+        Debug "ProcessStory: pause"
+        If *System\Pause_Gameplay = 0 
+          Current_Time = ElapsedMilliseconds()
+          *System\Pause_Gameplay = 1
+        EndIf
+        If ElapsedMilliseconds() - Current_Time > *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Time_Length
+          *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+          *System\Pause_Gameplay = 0
+        EndIf
+      Case #Story_Action_Start_Sprite_Moving
+        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
+        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_Y
+      Case #Story_Action_Game_Continue
+    EndSelect
+  EndIf
+EndProcedure
+
 ;- Graphics
 
 Procedure InitDesktop(*Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure)
@@ -853,8 +904,22 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
   EndIf
 EndProcedure
 
+Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Actions_Structure)
+  Protected c.i
+  Debug "LoadStoryActions: loading story actions"
+  Restore Data_Story_Actions
+  Read *System\Story_Action_Count
+  If *System\Story_Action_Count > #Max_Story_Actions
+    *System\Fatal_Error_Message = "#Max_Story_Actions too small to load all story actions"
+    Fatal_Error(*System)
+  EndIf
+  For c = 0 To *System\Story_Action_Count - 1
+    Read.i *Story_Actions\Story_Action[c]\Action
+  Next c
+  Debug "LoadStoryActions: " + *System\Story_Action_Count + " story action(s) loaded"
+EndProcedure
+
 Procedure LoadSpriteConstraints(*System.System_Structure, *Sprite_Constraints.Sprite_Constraints_Structure)
-  ; Incvisible walls that stop the player moving
   Protected c.i
   Debug "LoadSpriteConstraints: loading player constraints"
   Restore Data_Sprite_Constraints
@@ -1043,6 +1108,9 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
               Read.s *Graphics\Sprite_Resource[i]\File_Location
             Case #Data_Source_Database   
               Read.i *Graphics\Sprite_Resource[i]\Database_Location
+            Default
+              *System\Fatal_Error_Message = "Invalid source specified for sprite: " + i
+              Fatal_Error(*System)               
           EndSelect
           i = i + 1
         Next
@@ -1072,6 +1140,15 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
                   Box(0, 0, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, RGBA(0, 0, 0, 0))
                   Circle(*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Colour)
                   StopDrawing()
+                Case #Shape_Grid
+                  Debug "Drawing grid"
+                  StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
+                  DrawingMode(#PB_2DDrawing_AllChannels)
+                  Box(0, 0, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, RGBA(255, 0, 0, 0))
+                  StopDrawing()
+                Default
+                  *System\Fatal_Error_Message = "Invalid vector shape specified for sprite " + j
+                  Fatal_Error(*System)                   
               EndSelect
             Else
               If Not *Graphics\Sprite_Resource[j]\ID
@@ -1097,7 +1174,7 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
             EndIf
           Case #Data_Source_Database
             *System\Fatal_Error_Message = "Loading sprites from a database not yet supported"
-            Fatal_Error(*System)              
+            Fatal_Error(*System)
         EndSelect
         j = j + 1
       Next
@@ -1107,8 +1184,7 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
   Until a = 2
   Debug "LoadSprites: " + *System\Sprite_Resource_Count + " sprite resource(s) loaded"
   For c = 0 To i-1
-    Debug "Sprite #"+c+" width:"+ *Graphics\Sprite_Resource[c]\Width + " height:" + *Graphics\Sprite_Resource[c]\Height + " shape:"+*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[c]\Memory_Location]\Shape_Type +
-    " memory:"+*Graphics\Sprite_Resource[c]\Memory_Location
+    Debug "Sprite #"+c+" width:"+ *Graphics\Sprite_Resource[c]\Width + " height:" + *Graphics\Sprite_Resource[c]\Height + " ID:" + *Graphics\Sprite_Resource[c]\ID
   Next c
 EndProcedure
 
@@ -2626,7 +2702,8 @@ Procedure SetInitialiseError(*System.System_Structure, Message.s)
 EndProcedure
 
 Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure,
-                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Sprite_Constraints.Sprite_Constraints_Structure)
+                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Sprite_Constraints.Sprite_Constraints_Structure,
+                     *Story_Actions.Story_Actions_Structure)
   ; Initialises the environment
   Protected Result.i, c.i
   
@@ -2739,6 +2816,7 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   LoadControls(*System, *Controls)
   LoadObjectControls(*System, *Controls)
   LoadSpriteConstraints(*System, *Sprite_Constraints)
+  LoadStoryActions(*System, *Story_Actions)
   LoadSystemFont(*System)
   
   ;If Not InitialiseFonts(*System)
@@ -2814,7 +2892,7 @@ Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
-  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints)
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions)
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
     Repeat
@@ -2825,6 +2903,7 @@ Repeat ; used for restarting the game
       ProcessMouse(@System, @Screen_Settings)
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
       ProcessControls(@System, @Graphics, @Controls, @Players)
+      ProcessStory(@System, @Graphics, @Story_Actions)
       ProcessSpritePositions(@System, @Graphics)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints)
       DoClearScreen(@System, @Screen_Settings)
@@ -3046,14 +3125,16 @@ DataSection
   Data.i 0
   Data_Sprite_Constraints:
   Data.i 0
+  Data_Story_Actions:
+  Data.i 0
   
   CompilerEndIf
   
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1054
-; FirstLine = 1032
+; CursorPosition = 770
+; FirstLine = 755
 ; Folding = --------------
 ; EnableXP
 ; DPIAware

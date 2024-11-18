@@ -18,7 +18,7 @@ CompilerEndIf
 ;- Enumerations
 
 Enumeration Vectors
-  ;#Vector_Grid
+  #Vector_Grid
   #Vector_Box
   #Vector_Ball
 EndEnumeration
@@ -123,7 +123,7 @@ System\Player_Count = 2
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
-  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints)
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions)
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
     Repeat
@@ -141,6 +141,7 @@ Repeat ; used for restarting the game
       ProcessMouse(@System, @Screen_Settings)
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
       ProcessControls(@System, @Graphics, @Controls, @Players)
+      ProcessStory(@System, @Graphics, @Story_Actions)
       ProcessSpritePositions(@System, @Graphics)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints)
       DoClearScreen(@System, @Screen_Settings)
@@ -191,8 +192,8 @@ End 0
 #Score_Top = 12
 #Ball_X = (256/2)-(#Ball_Diameter/2)-1
 #Ball_Y = (224/2)-(#Ball_Diameter/2)-1
-#Ball_Velocity_X = -0.5
-#Ball_Velocity_Y = -0.1
+#Ball_Velocity_X = 0
+#Ball_Velocity_Y = 0
 #Paddle_Start_Y1 = 224/2-#Paddle_Length/2
 #Paddle_Start_Y2 = 224/2-#Paddle_Length/2
 
@@ -200,36 +201,39 @@ DataSection
   
   Data_Vector_Resources:
   ; Format: Shape type, Background Transparent (T/F), Colour, Background colour, X, Y, Width, Height, Radius, Round_X, Round_Y, Continue
-  Data.i 2 ; Number of records
-  ;Data.i #Shape_Grid, #False, -5742030, -9422572, 32, 32, 256, 224, 0, 0, 0, 0  ; background grid
+  Data.i 3 ; Number of records
+  Data.i #Shape_Grid, #False, -5742030, -9422572, 32, 32, 256, 224, 0, 0, 0, 0  ; background grid
   Data.i #Shape_None, #False, 0, #Colour_White, 0, 0, 10, 10, 0, 0, 0, 0  ; standard box
   Data.i #Shape_Circle, #True, #Ball_Colour, 0, 0, 0, 0, 0, #Ball_Diameter/2, 0, 0, 0  ; ball
+  
   
   Data_Custom_Sprite_Resources:
   ; Provides a list of sprite resources to be loaded
   ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file
-  Data.i 3; Number of records
+  Data.i 4; Number of records
   Data.i 10, 10, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Box
   Data.i #Paddle_Thickness, #Paddle_Length, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Paddle
-  Data.i #Ball_Diameter, #Ball_Diameter, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Ball ; #Sprite_Ball
-  ;Data.i 256, 224, #PB_Sprite_AlphaBlending, #False, #True, #Data_Source_Internal_Memory, #Vector_Grid ; #Sprite_Grid
+  Data.i #Ball_Diameter, #Ball_Diameter, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Ball   ; #Sprite_Ball
+  Data.i 256, 224, #PB_Sprite_AlphaBlending, #False, #True, #Data_Source_Internal_Memory, #Vector_Grid ; #Sprite_Grid
+  
 
   Data_Sprite_Instances:
-  ; Format: I:Sprite_Resource, Is_Static, Width, Height, Intensity, Use_Colour, Colour, Layer, Visible, Pixel_Collisions, Collision_Class, X, Y, Velocity_X, Velocity_Y
+  ; Format: Sprite_Resource, Is_Static, Width, Height, Intensity, Use_Colour, Colour, Layer, Visible, Pixel_Collisions, Collision_Class, X, Y, Velocity_X, Velocity_Y
   ; Layer 0 is background, higher numbers are on top
   ; You have to set an intensity if you want to set a colour
   ; Collision_Class means only sprites with the same class can collied with it
-  Data.i 9 ; Number of records
-  ;Data.i #Sprite_Grid, #True, 256, 224, 255, #False, 0, 0, #True, #False, 0:Data.d 0, 0, 0, 0 ; top wall 1
-  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #False, 0:Data.d 0, 0, 0, 0 ; top wall 1
-  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, 0, 0:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall 2
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 0:Data.d 0, #Wall_Thickness, 0, 0 ; goal side top left 3
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 0:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0; goal side bottom left 4
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 0:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0; goal side top right 5
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 0:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0            ; goal side bottom right 6
-  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 0:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
-  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 0:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
-  Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #False, 0:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y ; ball
+  Data.i 10 ; Number of records
+  ;Data.i #Sprite_Grid, #True, 256, 224, 255, #False, 0, 0, #True, #False, 0:Data.d 0, 0, 0, 0 ; grid
+  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, 0, 0, 0 ; top wall
+  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, 0, 1:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, #Wall_Thickness, 0, 0 ; goal side top left
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0; goal side bottom left
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0; goal side top right
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom right
+  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
+  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
+  Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #False, 1:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y                  ; ball
+  
   
   Data_System_Font_Instances:
   ; Used for displaying the system font
@@ -275,16 +279,19 @@ DataSection
   Data.i #Sprite_Instance_Ball, #Constraint_Type_Right, 0, #Constraint_Action_Invisible, #Game_Action_Player_Point, #Game_Action_Restart_Level, #Game_Action_None, 2
   Data.i #Sprite_Instance_Ball, #Constraint_Type_Left, 255, #Constraint_Action_Invisible, #Game_Action_Player_Point, #Game_Action_Restart_Level, #Game_Action_None, 1
   
-  Data_Game_Mode:
-  ; Format: 
-  Data.i 0
+  Data_Story_Actions:
+  ; Format: Action, Time_length, Sprite_Instance, X_Velocity, Y_Velicity
+  Data.i 3
+  Data.i #Story_Action_Game_Start, 0, 0:Data.d 0, 0
+  Data.i #Story_Action_Pause, 1000, 0:Data.d 0, 0
+  Data.i #Story_Action_Start_Sprite_Moving, 0, #Sprite_Ball:Data.d 0.5, 0.5
+  
   
 EndDataSection
 
-
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 183
-; FirstLine = 147
+; CursorPosition = 125
+; FirstLine = 100
 ; Folding = -
 ; EnableXP
 ; DPIAware
