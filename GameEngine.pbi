@@ -192,7 +192,7 @@ EndEnumeration
 Enumeration Story_Actions
   #Story_Action_Game_Start
   #Story_Action_Pause
-  #Story_Action_Start_Sprite_Moving
+  #Story_Action_Sprite_Change_Velocity
   #Story_Action_Game_Continue
 EndEnumeration
 
@@ -565,8 +565,15 @@ Structure Story_Action_Structure
   Action.i
   Time_Length.i
   Sprite_Instance.i
+  Random_X.i ; true if allow random
+  Random_Y.i ; true if allow random
+  Random_Steps.i
   Velocity_X.d
   Velocity_Y.d
+  Random_Low_X.d
+  Random_High_X.d
+  Random_Low_Y.d
+  Random_High_Y.d
 EndStructure
 
 Structure Story_Actions_Structure
@@ -704,6 +711,13 @@ Procedure Max(v1.d, v2.d)
   EndIf
 EndProcedure
 
+Procedure.d MapRange(inputValue.d, inputMin.d, inputMax.d, outputMin.d, outputMax.d)
+    ; Map a number from range [inputMin, inputMax] to range [outputMin, outputMax]
+    Protected result.d
+    result = outputMin + ((inputValue - inputMin) / (inputMax - inputMin)) * (outputMax - outputMin)
+    ProcedureReturn result
+EndProcedure
+  
 ;- Geometry
 
 Procedure LineOrientation(x1.d, y1.d, x2.d, y2.d, x3.d, y3.d)
@@ -748,46 +762,6 @@ Procedure.i LinesIntersect(x1.d, y1.d, x2.d, y2.d, x3.d, y3.d, x4.d, y4.d)
     ProcedureReturn #True
   EndIf
   ProcedureReturn #False
-EndProcedure
-
-;- Game
-
-Procedure RestartLevel(*System.System_Structure, *Graphics.Graphics_Structure)
-  Protected c.i
-  ; Set all sprites back to original positions
-  For c = 0 To *System\Sprite_Instance_Count-1
-    *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\Start_X
-    *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Start_Y
-    *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\Start_X
-    *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Start_X
-    *Graphics\Sprite_Instance[c]\Velocity_X = *Graphics\Sprite_Instance[c]\Start_Velocity_X
-    *Graphics\Sprite_Instance[c]\Velocity_Y = *Graphics\Sprite_Instance[c]\Start_Velocity_Y
-  Next c
-EndProcedure
-
-Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
-  Static Current_Time.q
-  If *System\Story_Action_Count > 0
-    Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
-      Case #Story_Action_Game_Start
-        Debug "ProcessStory: game start"
-        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-      Case #Story_Action_Pause
-        Debug "ProcessStory: pause"
-        If *System\Pause_Gameplay = 0 
-          Current_Time = ElapsedMilliseconds()
-          *System\Pause_Gameplay = 1
-        EndIf
-        If ElapsedMilliseconds() - Current_Time > *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Time_Length
-          *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-          *System\Pause_Gameplay = 0
-        EndIf
-      Case #Story_Action_Start_Sprite_Moving
-        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
-        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_Y
-      Case #Story_Action_Game_Continue
-    EndSelect
-  EndIf
 EndProcedure
 
 ;- Graphics
@@ -905,6 +879,7 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
 EndProcedure
 
 Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Actions_Structure)
+  ; Format: Action, Time_length, Sprite_Instance, Random_X, Random_Y, Random_Steps, Velocity_X, Velocity_Y, Velocity_X_Low, Velocity_X_High, Velicity_Y_Low, Velocity_Y_High
   Protected c.i
   Debug "LoadStoryActions: loading story actions"
   Restore Data_Story_Actions
@@ -915,6 +890,17 @@ Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Action
   EndIf
   For c = 0 To *System\Story_Action_Count - 1
     Read.i *Story_Actions\Story_Action[c]\Action
+    Read.i *Story_Actions\Story_Action[c]\Time_Length
+    Read.i *Story_Actions\Story_Action[c]\Sprite_Instance
+    Read.i *Story_Actions\Story_Action[c]\Random_X
+    Read.i *Story_Actions\Story_Action[c]\Random_Y
+    Read.i *Story_Actions\Story_Action[c]\Random_Steps
+    Read.d *Story_Actions\Story_Action[c]\Velocity_X
+    Read.d *Story_Actions\Story_Action[c]\Velocity_Y
+    Read.d *Story_Actions\Story_Action[c]\Random_Low_X
+    Read.d *Story_Actions\Story_Action[c]\Random_High_X
+    Read.d *Story_Actions\Story_Action[c]\Random_Low_Y
+    Read.d *Story_Actions\Story_Action[c]\Random_High_Y
   Next c
   Debug "LoadStoryActions: " + *System\Story_Action_Count + " story action(s) loaded"
 EndProcedure
@@ -1141,7 +1127,6 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
                   Circle(*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Colour)
                   StopDrawing()
                 Case #Shape_Grid
-                  Debug "Drawing grid"
                   StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
                   DrawingMode(#PB_2DDrawing_AllChannels)
                   Box(0, 0, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, RGBA(255, 0, 0, 0))
@@ -2093,6 +2078,58 @@ Procedure CheckFullScreen(*System.System_Structure, *Window_Settings.Window_Sett
   EndIf
 EndProcedure
 
+Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
+  Static Current_Time.q
+  Protected Velocity_X.d, Velocity_Y.d
+  If *System\Story_Action_Count > 0
+    Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
+      Case #Story_Action_Game_Start
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+        Debug "Start"
+      Case #Story_Action_Pause
+        If *System\Pause_Gameplay = 0 
+          Current_Time = ElapsedMilliseconds()
+          *System\Pause_Gameplay = 1
+        EndIf
+        If ElapsedMilliseconds() - Current_Time > *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Time_Length
+          *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+          *System\Pause_Gameplay = 0
+        EndIf
+        Debug "Pause"
+      Case #Story_Action_Sprite_Change_Velocity
+        Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
+        Velocity_Y = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_Y
+        If *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_X
+          Velocity_X = MapRange(Random(*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Steps), 0, 100, *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Low_X, *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_High_X)
+        EndIf
+        If *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Y
+          Velocity_Y = MapRange(Random(*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Steps), 0, 100, *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Low_Y, *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_High_Y)
+          Debug "New velocity Y: " + Velocity_Y
+        EndIf
+        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = Velocity_X
+        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = Velocity_Y
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+        Debug "Change velocity"
+      Case #Story_Action_Game_Continue
+        Debug "Continue"
+    EndSelect
+  EndIf
+EndProcedure
+
+Procedure RestartLevel(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
+  Protected c.i
+  ; Set all sprites back to original positions
+  For c = 0 To *System\Sprite_Instance_Count-1
+    *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\Start_X
+    *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Start_Y
+    *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\Start_X
+    *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Start_X
+    *Graphics\Sprite_Instance[c]\Velocity_X = *Graphics\Sprite_Instance[c]\Start_Velocity_X
+    *Graphics\Sprite_Instance[c]\Velocity_Y = *Graphics\Sprite_Instance[c]\Start_Velocity_Y
+  Next c
+  *Story_Actions\Story_Position = 0
+EndProcedure
+
 ;- Input
 
 Procedure KeyPressed(*System.System_Structure, k.i)
@@ -2298,7 +2335,7 @@ Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure
   Next c
 EndProcedure
 
-Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_Structure, *Sprite_Constraints.Sprite_Constraints_Structure)
+Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_Structure, *Sprite_Constraints.Sprite_Constraints_Structure, *Story_Actions.Story_Actions_Structure)
   Protected c.i
   For c = 0 To *System\Sprite_Constraints_Count-1
     Select *Sprite_Constraints\Sprite_Constraint[c]\Constraint_Type
@@ -2335,7 +2372,7 @@ Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_
           Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action2
             Case #Game_Action_Restart_Level
               Debug "Level restarting"
-              RestartLevel(*System, *Graphics)
+              RestartLevel(*System, *Graphics, *Story_Actions)
           EndSelect
         EndIf
       Case #Constraint_Type_Right
@@ -2349,11 +2386,12 @@ Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_
           Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action1
             Case #Game_Action_Player_Point
               Debug "Point player " + *Sprite_Constraints\Sprite_Constraint[c]\Player
+              
           EndSelect
           Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action2
             Case #Game_Action_Restart_Level
               Debug "Level restarting"
-              RestartLevel(*System, *Graphics)
+              RestartLevel(*System, *Graphics, *Story_Actions)
           EndSelect          
         EndIf
     EndSelect
@@ -2886,6 +2924,7 @@ Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
 Screen_Settings\Background_Colour = #Blue
 Screen_Settings\Full_Screen = 0
 Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
+Story_Actions\Story_Position = 0
 
 ;- Main loop
 
@@ -2905,7 +2944,7 @@ Repeat ; used for restarting the game
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessStory(@System, @Graphics, @Story_Actions)
       ProcessSpritePositions(@System, @Graphics)
-      ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints)
+      ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -3133,8 +3172,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 770
-; FirstLine = 755
+; CursorPosition = 2109
+; FirstLine = 2068
 ; Folding = --------------
 ; EnableXP
 ; DPIAware

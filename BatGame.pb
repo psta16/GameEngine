@@ -18,7 +18,6 @@ CompilerEndIf
 ;- Enumerations
 
 Enumeration Vectors
-  #Vector_Grid
   #Vector_Box
   #Vector_Ball
 EndEnumeration
@@ -28,7 +27,6 @@ Enumeration Sprites
   #Sprite_Box = 1
   #Sprite_Paddle
   #Sprite_Ball
-  #Sprite_Grid
 EndEnumeration
 
 Enumeration Sprite_Instances
@@ -119,6 +117,7 @@ Players\Player[0]\Control_Set = #Control_Set_Keyboard_2Ply_1
 Players\Player[1]\Player_Name = "Player 2"
 Players\Player[1]\Control_Set = #Control_Set_Keyboard_2Ply_2
 System\Player_Count = 2
+Story_Actions\Story_Position = 0
 
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
@@ -143,7 +142,7 @@ Repeat ; used for restarting the game
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessStory(@System, @Graphics, @Story_Actions)
       ProcessSpritePositions(@System, @Graphics)
-      ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints)
+      ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -182,7 +181,7 @@ End 0
 #Paddle_Thickness = 6
 #Paddle_Distance = 6
 #Paddle_Length = 30
-#Goal_Sides = 0
+#Goal_Sides = 40
 #Paddle_Colour = #Colour_Aqua
 #Score_Size = 16
 #Wall_Colour = #Colour_Light_Grey
@@ -201,8 +200,8 @@ DataSection
   
   Data_Vector_Resources:
   ; Format: Shape type, Background Transparent (T/F), Colour, Background colour, X, Y, Width, Height, Radius, Round_X, Round_Y, Continue
-  Data.i 3 ; Number of records
-  Data.i #Shape_Grid, #False, -5742030, -9422572, 32, 32, 256, 224, 0, 0, 0, 0  ; background grid
+  Data.i 2 ; Number of records
+  ;Data.i #Shape_Grid, #False, -5742030, -9422572, 32, 32, 256, 224, 0, 0, 0, 0  ; background grid
   Data.i #Shape_None, #False, 0, #Colour_White, 0, 0, 10, 10, 0, 0, 0, 0  ; standard box
   Data.i #Shape_Circle, #True, #Ball_Colour, 0, 0, 0, 0, 0, #Ball_Diameter/2, 0, 0, 0  ; ball
   
@@ -210,11 +209,11 @@ DataSection
   Data_Custom_Sprite_Resources:
   ; Provides a list of sprite resources to be loaded
   ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file
-  Data.i 4; Number of records
+  Data.i 3; Number of records
   Data.i 10, 10, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Box
   Data.i #Paddle_Thickness, #Paddle_Length, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Paddle
   Data.i #Ball_Diameter, #Ball_Diameter, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Ball   ; #Sprite_Ball
-  Data.i 256, 224, #PB_Sprite_AlphaBlending, #False, #True, #Data_Source_Internal_Memory, #Vector_Grid ; #Sprite_Grid
+  ;Data.i 256, 224, #PB_Sprite_AlphaBlending, #False, #True, #Data_Source_Internal_Memory, #Vector_Grid ; #Sprite_Grid
   
 
   Data_Sprite_Instances:
@@ -222,7 +221,7 @@ DataSection
   ; Layer 0 is background, higher numbers are on top
   ; You have to set an intensity if you want to set a colour
   ; Collision_Class means only sprites with the same class can collied with it
-  Data.i 10 ; Number of records
+  Data.i 9 ; Number of records
   ;Data.i #Sprite_Grid, #True, 256, 224, 255, #False, 0, 0, #True, #False, 0:Data.d 0, 0, 0, 0 ; grid
   Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, 0, 0, 0 ; top wall
   Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, 0, 1:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall
@@ -280,18 +279,21 @@ DataSection
   Data.i #Sprite_Instance_Ball, #Constraint_Type_Left, 255, #Constraint_Action_Invisible, #Game_Action_Player_Point, #Game_Action_Restart_Level, #Game_Action_None, 1
   
   Data_Story_Actions:
-  ; Format: Action, Time_length, Sprite_Instance, X_Velocity, Y_Velicity
-  Data.i 3
-  Data.i #Story_Action_Game_Start, 0, 0:Data.d 0, 0
-  Data.i #Story_Action_Pause, 1000, 0:Data.d 0, 0
-  Data.i #Story_Action_Start_Sprite_Moving, 0, #Sprite_Ball:Data.d 0.5, 0.5
+  ; Format: Action, Time_length, Sprite_Instance, Random_X(T/F), Random_Y(T/F), Random_Steps, Velocity_X, Velocity_Y, Random_X_Low, Random_X_High, Random_Y_Low, Random_Y_High
+  ; Note: you can create random values lower than 1 by using random steps. For example low=-0.5 high=0.5 steps = 100
+  Data.i 4
+  Data.i #Story_Action_Game_Start, 0, 0, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0
+  Data.i #Story_Action_Pause, 1000, 0, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0
+  Data.i #Story_Action_Sprite_Change_Velocity, 0, #Sprite_Instance_Ball, #False, #True, 100:Data.d 0.5, 0, -0.5, 0.5, -0.5, 0.5
+  Data.i #Story_Action_Game_Continue, 0, 0, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0
   
+ 
   
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 125
-; FirstLine = 100
+; CursorPosition = 292
+; FirstLine = 178
 ; Folding = -
 ; EnableXP
 ; DPIAware
