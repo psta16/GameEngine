@@ -52,6 +52,11 @@ Enumeration Sprite_Class
   #Sprite_Class_In_Play ; objects in play (ie excludes the score)
 EndEnumeration
 
+Enumeration Variables
+  #Player_1_Score
+  #Player_2_Score
+EndEnumeration
+
 ;- Constants
 
 ;- Structures
@@ -288,13 +293,16 @@ DataSection
   Data.i #Story_Action_Sprite_Change_Velocity, 0, #Sprite_Instance_Ball, #False, #True, 100:Data.d 0.5, 0, -0.5, 0.5, -0.5, 0.5
   Data.i #Story_Action_Game_Continue, 0, 0, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0
   
- 
+  Data_Variables:
+  ;Format: Type, default value
+  Data.i #Variable_Type_Integer, 0
+  Data.i #Variable_Type_Integer, 0
   
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 97
-; FirstLine = 64
+; CursorPosition = 299
+; FirstLine = 232
 ; Folding = -
 ; EnableXP
 ; DPIAware

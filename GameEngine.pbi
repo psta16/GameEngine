@@ -44,16 +44,16 @@ CompilerEndIf
 ; Layer 1 - System and universal controls
 
 Enumeration Variable_Type
-    #Byte
-    #Ascii
-    #Char
-    #Word
-    #Unicode
-    #Long
-    #Integer
-    #Float
-    #Double
-    #String
+    #Variable_Type_Byte
+    #Variable_Type_Ascii
+    #Variable_Type_Char
+    #Variable_Type_Word
+    #Variable_Type_Unicode
+    #Variable_Type_Long
+    #Variable_Type_Integer
+    #Variable_Type_Float
+    #Variable_Type_Double
+    #Variable_Type_String
 EndEnumeration
 
 Enumeration Render_Engine3D
@@ -235,7 +235,6 @@ Global Delta_Adjust.d = 0
 
 Structure Variable_Structure
   Var_Type.i
-  Name.s
   StructureUnion
     Byte.b
     Ascii.a
@@ -311,6 +310,7 @@ Structure System_Structure
   Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
   Sprite_Vector_Resource_Count.i ; number of vector resources
   Variable.Variable_Structure[#Max_Variables] ; variables used for displaying values on screen etc
+  Variable_Count.i
   System_Font_Instance_Count.i                ; number of system font instances
   Controls_Count.i                            ; number of control sets
   Object_Controls_Count.i
@@ -876,6 +876,44 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
     Return_Val = (127 * Cos(Radian(Angle)) + 128) - 1
     ProcedureReturn Return_Val
   EndIf
+EndProcedure
+
+Procedure LoadVariables(*System.System_Structure)
+  ; Format: Action, Time_length, Sprite_Instance, Random_X, Random_Y, Random_Steps, Velocity_X, Velocity_Y, Velocity_X_Low, Velocity_X_High, Velicity_Y_Low, Velocity_Y_High
+  Protected c.i
+  Debug "LoadVariables: loading story actions"
+  Restore Data_Story_Actions
+  Read *System\Variable_Count
+  If *System\Variable_Count > #Max_Story_Actions
+    *System\Fatal_Error_Message = "#Max_Variabless too small to load all variables"
+    Fatal_Error(*System)
+  EndIf
+  For c = 0 To *System\Variable_Count - 1
+    Read.i *System\Variable[c]\Var_Type
+    Select *System\Variable[c]\Var_Type
+      Case #Variable_Type_Ascii
+        Read.a *System\Variable[c]\Ascii
+      Case #Variable_Type_Byte
+        Read.b *System\Variable[c]\Byte
+      Case #Variable_Type_Char
+        Read.c *System\Variable[c]\Char
+      Case #Variable_Type_Double
+        Read.d *System\Variable[c]\Double
+      Case #Variable_Type_Float
+        Read.f *System\Variable[c]\Float
+      Case #Variable_Type_Integer
+        Read.i *System\Variable[c]\Integer
+      Case #Variable_Type_Long
+        Read.l *System\Variable[c]\Long
+      Case #Variable_Type_String
+        Read.s *System\Variable[c]\String
+      Case #Variable_Type_Unicode
+        Read.u *System\Variable[c]\Unicode
+      Case #Variable_Type_Word
+        Read.w *System\Variable[c]\Word
+    EndSelect
+  Next c
+  Debug "LoadVariables: " + *System\Variable_Count + " variable(s) loaded"
 EndProcedure
 
 Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Actions_Structure)
@@ -3012,9 +3050,6 @@ DataSection
   Data.i 1 ; Number of records
   Data.i 12, 19, #PB_Sprite_AlphaBlending, #True, #False, #Data_Source_Internal_Memory, 0 ; Mouse sprite
   
-  Data_Sprites:
-
-  Data_Sprite_Mouse:
   Data.l $FF000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000
   Data.l $FF000000,$FF000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000
   Data.l $FF000000,$FFFFFFFF,$FF000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000
@@ -3035,7 +3070,7 @@ DataSection
   Data.l $00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$FF000000,$FFFFFFFF,$FFFFFFFF,$FF000000,$00000000,$00000000
   Data.l $00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$00000000,$FF000000,$FF000000,$00000000,$00000000,$00000000
   
-  Data_Sprite_System_Font: ; C64 8x8 style
+  Data_Sprite_System_Font:
   Data.a %00110000, %01111000, %11001100, %11111100, %11001100, %11001100, %11001100, %00000000 ;A
   Data.a %11111000, %11001100, %11111000, %11001100, %11001100, %11001100, %11111000, %00000000 ;B
   Data.a %01111000, %11001100, %11000000, %11000000, %11000000, %11001100, %01111000, %00000000 ;C
@@ -3171,9 +3206,9 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1517
-; FirstLine = 1501
-; Folding = --------------
+; CursorPosition = 3072
+; FirstLine = 3012
+; Folding = ---------------
 ; EnableXP
 ; DPIAware
 ; Executable = ..\..\GameEngine.exe
