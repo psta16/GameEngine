@@ -1515,7 +1515,7 @@ Procedure SaveScreen(*System.System_Structure)
   f = *System\Current_Directory + "screen-capture-" + d + n + ".png"
   *System\Last_Screen_Capture_File = d
   If SaveSprite(s, f, #PB_ImagePlugin_PNG)
-    Debug "SaveScreen: saved screen-capture-" + d + n + ".png"
+    Debug "SaveScreen: saved screen-capture-" + f
   Else
     Debug "SaveScreen: failed"
   EndIf
@@ -2085,7 +2085,7 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
     Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
       Case #Story_Action_Game_Start
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-        Debug "Start"
+        ;Debug "Start"
       Case #Story_Action_Pause
         If *System\Pause_Gameplay = 0 
           Current_Time = ElapsedMilliseconds()
@@ -2095,7 +2095,7 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
           *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
           *System\Pause_Gameplay = 0
         EndIf
-        Debug "Pause"
+        ;Debug "Pause"
       Case #Story_Action_Sprite_Change_Velocity
         Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
         Velocity_Y = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_Y
@@ -2104,14 +2104,13 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
         EndIf
         If *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Y
           Velocity_Y = MapRange(Random(*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Steps), 0, 100, *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Low_Y, *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_High_Y)
-          Debug "New velocity Y: " + Velocity_Y
         EndIf
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = Velocity_X
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = Velocity_Y
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-        Debug "Change velocity"
+        ;Debug "Change velocity"
       Case #Story_Action_Game_Continue
-        Debug "Continue"
+        ;Debug "Continue"
     EndSelect
   EndIf
 EndProcedure
@@ -3172,8 +3171,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2109
-; FirstLine = 2068
+; CursorPosition = 1517
+; FirstLine = 1501
 ; Folding = --------------
 ; EnableXP
 ; DPIAware

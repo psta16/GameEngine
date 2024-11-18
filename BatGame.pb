@@ -95,6 +95,7 @@ System\Current_Directory = GetCurrentDirectory()
 System\Render_Engine3D = #Render_Engine3D_Builtin
 System\Show_Debug_Info = 0 ; onscreen debug info
 System\Allow_Switch_to_Window = 1
+System\Allow_Screen_Capture = 1
 Window_Settings\Allow_Window_Resize = 1
 Window_Settings\Reset_Window = 0
 Window_Settings\Background_Colour = #Gray
@@ -292,8 +293,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 292
-; FirstLine = 178
+; CursorPosition = 97
+; FirstLine = 64
 ; Folding = -
 ; EnableXP
 ; DPIAware
