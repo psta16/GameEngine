@@ -89,6 +89,7 @@ Enumeration Shapes ; used for vector graphics
   #Shape_Box
   #Shape_Round_Box
   #Shape_Line
+  #Shape_Dashed_Line
   #Shape_Circle
   #Shape_Polygon
   #Shape_Grid
@@ -766,6 +767,62 @@ EndProcedure
 
 ;- Graphics
 
+Procedure DrawDashedLine(x1.i, y1.i, x2.i, y2.i, col1.i, col2.i, Dash_Length.i, Offset.i = 0)
+  ; Dash_Length must be 1 or greater
+  ; Offset can be 0 to (2 * Dash_Length) - 1
+  Protected Steep.i, DeltaX.i, DeltaY.i, YStep.i, XStep.i, Error.i
+  Protected x.i, y.i, cc.i, cs.i, c.i
+  Protected Max_Offset.i
+  If Abs(y2 - y1) > Abs(x2 - x1);
+    steep =#True 
+    Swap x1, y1
+    Swap x2, y2
+  EndIf    
+  If x1 > x2 
+    Swap x1, x2
+    Swap y1, y2
+  EndIf 
+  DeltaX = x2 - x1
+  DeltaY = Abs(y2 - y1)
+  Error = DeltaX / 2
+  y = y1
+  If y1 < y2  
+    YStep = 1
+  Else
+    YStep = -1 
+  EndIf
+  If Dash_Length < 1 : Dash_Length = 1 : EndIf
+  Max_Offset = Dash_Length * 2 - 1
+  If Offset > Max_Offset : Offset = Max_Offset: EndIf
+  If Offset < 0 : Offset = 0 : EndIf
+  cc = Offset ; colour counter
+  If cc > Dash_Length - 1 : cs = 1 : Else : cs = 0 : EndIf
+  For x = x1 To x2
+    If cs = 0 : c = col1 : Else : c = col2 : EndIf
+    If Steep 
+      ;Plot(y, x, c)
+      Plot(y, x, c)
+    Else 
+      ;Plot(x, y, c)
+      Plot(x, y, c)
+    EndIf
+    Error = Error - DeltaY
+    If Error < 0 
+      y = y + YStep
+      Error = Error + DeltaX
+    EndIf
+    cc = cc + 1
+    If cc = Dash_Length
+      cs = 1 - cs
+    EndIf
+    If cc = Dash_Length * 2
+      cc = 0
+      cs = 1 - cs
+    EndIf
+  Next
+  ProcedureReturn cc ; return the offset so drawing can continue
+EndProcedure
+
 Procedure InitDesktop(*Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure)
   ; used to check which monitors are connected and how to display the game by default
   Protected c.i, t.i
@@ -1057,6 +1114,7 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
   Protected x.i, y.i, col.l
   Protected Scratch.i ; this is used as a variable for reading data to be discarded
   Protected Found.i, Zoom.i
+  Protected Background_Colour.i
   ; Create pixel sprite
   *Screen_Settings\Pixel_Sprite = CreateSprite(#PB_Any, 1, 1, #PB_Sprite_AlphaBlending)
   StartDrawing(SpriteOutput(*Screen_Settings\Pixel_Sprite))
@@ -1152,6 +1210,11 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
             *Graphics\Sprite_Resource[j]\ID = CreateSprite(#PB_Any, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, *Graphics\Sprite_Resource[j]\Mode)
             TransparentSpriteColor(*Graphics\Sprite_Resource[j]\ID, #Magenta)
             If *Graphics\Sprite_Resource[j]\Vector_Drawn
+              If *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Background_Transparent
+                Background_Colour = 0
+              Else
+                Background_Colour = *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Background_Colour
+              EndIf
               Select *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Shape_Type
                 Case #Shape_None
                   StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
@@ -1163,6 +1226,17 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
                   DrawingMode(#PB_2DDrawing_AllChannels)
                   Box(0, 0, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, RGBA(0, 0, 0, 0))
                   Circle(*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Radius, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Colour)
+                  StopDrawing()
+                Case #Shape_Dashed_Line
+                  StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
+                  DrawingMode(#PB_2DDrawing_AllChannels)
+                  ;Debug "Drawing dashed line: " + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\X + ", " + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Y +
+                  ;      " to " + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\X + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Width +
+                  ;      ", " + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Y + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Height
+                  DrawDashedLine(*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\X, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Y,
+                                 *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\X + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Width-1,
+                                 *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Y + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Height-1,
+                                 *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Colour, Background_Colour, 1)
                   StopDrawing()
                 Case #Shape_Grid
                   StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
@@ -1867,7 +1941,7 @@ Procedure DrawLine(*Screen_Settings.Screen_Settings_Structure, x1.i, y1.i, x2.i,
   ProcedureReturn cc ; return the offset so drawing can continue  
 EndProcedure
 
-Procedure DrawDashedLine(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, x1.i, y1.i, x2.i, y2.i, col1.i, col2.i, Dash_Length.i, Offset.i = 0)
+Procedure DrawDashedLineSprite(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, x1.i, y1.i, x2.i, y2.i, col1.i, col2.i, Dash_Length.i, Offset.i = 0)
   ; Dash_Length must be 1 or greater
   ; Offset can be 0 to (2 * Dash_Length) - 1
   Protected Steep.i, DeltaX.i, DeltaY.i, YStep.i, XStep.i, Error.i
@@ -3206,8 +3280,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 3072
-; FirstLine = 3012
+; CursorPosition = 1238
+; FirstLine = 1196
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware

@@ -20,6 +20,7 @@ CompilerEndIf
 Enumeration Vectors
   #Vector_Box
   #Vector_Ball
+  #Vector_Dashed_Line
 EndEnumeration
 
 Enumeration Sprites
@@ -27,6 +28,7 @@ Enumeration Sprites
   #Sprite_Box = 1
   #Sprite_Paddle
   #Sprite_Ball
+  #Sprite_Dashed_Line
 EndEnumeration
 
 Enumeration Sprite_Instances
@@ -36,6 +38,7 @@ Enumeration Sprite_Instances
   #Sprite_Instance_Field4
   #Sprite_Instance_Field5
   #Sprite_Instance_Field6
+  #Sprite_Instance_Centre_Line
   #Sprite_Instance_Paddle1 ; player paddles
   #Sprite_Instance_Paddle2
   #Sprite_Instance_Ball
@@ -183,11 +186,13 @@ End 0
 #Colour_Yellow = -16711681
 #Colour_White = -1
 #Colour_Aqua = -327824
+#Colour_Blue_Slightly_Lighter = 16732184
+#Colour_Transparent = 0
 #Wall_Thickness = 6
 #Paddle_Thickness = 6
 #Paddle_Distance = 6
 #Paddle_Length = 30
-#Goal_Sides = 40
+#Goal_Sides = 0
 #Paddle_Colour = #Colour_Aqua
 #Score_Size = 16
 #Wall_Colour = #Colour_Light_Grey
@@ -206,19 +211,23 @@ DataSection
   
   Data_Vector_Resources:
   ; Format: Shape type, Background Transparent (T/F), Colour, Background colour, X, Y, Width, Height, Radius, Round_X, Round_Y, Continue
-  Data.i 2 ; Number of records
+  Data.i 3 ; Number of records
   ;Data.i #Shape_Grid, #False, -5742030, -9422572, 32, 32, 256, 224, 0, 0, 0, 0  ; background grid
   Data.i #Shape_None, #False, 0, #Colour_White, 0, 0, 10, 10, 0, 0, 0, 0  ; standard box
   Data.i #Shape_Circle, #True, #Ball_Colour, 0, 0, 0, 0, 0, #Ball_Diameter/2, 0, 0, 0  ; ball
+  Data.i #Shape_Dashed_Line, #True, #Colour_White, 0, 0, 0, 1, 56, 0, 0, 0, 0    ; dashed line
+  ;Data.i #Shape_None, #False, 0, #Colour_Light_Grey, 0, 0, 1, 224, 0, 0, 0, 0 ; dashed line
+  
   
   
   Data_Custom_Sprite_Resources:
   ; Provides a list of sprite resources to be loaded
   ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file
-  Data.i 3; Number of records
+  Data.i 4; Number of records
   Data.i 10, 10, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Box
   Data.i #Paddle_Thickness, #Paddle_Length, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Paddle
   Data.i #Ball_Diameter, #Ball_Diameter, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Ball   ; #Sprite_Ball
+  Data.i 1, 56, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Dashed_Line
   ;Data.i 256, 224, #PB_Sprite_AlphaBlending, #False, #True, #Data_Source_Internal_Memory, #Vector_Grid ; #Sprite_Grid
   
 
@@ -227,7 +236,7 @@ DataSection
   ; Layer 0 is background, higher numbers are on top
   ; You have to set an intensity if you want to set a colour
   ; Collision_Class means only sprites with the same class can collied with it
-  Data.i 9 ; Number of records
+  Data.i 10 ; Number of records
   ;Data.i #Sprite_Grid, #True, 256, 224, 255, #False, 0, 0, #True, #False, 0:Data.d 0, 0, 0, 0 ; grid
   Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, 0, 0, 0 ; top wall
   Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, 0, 1:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall
@@ -235,9 +244,11 @@ DataSection
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0; goal side bottom left
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0; goal side top right
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom right
+  Data.i #Sprite_Dashed_Line, #True, 5, 224-(#Wall_Thickness*2), 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #False, 0: Data.d 125, #Wall_Thickness, 0, 0
   Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
   Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
   Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #False, 1:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y                  ; ball
+  
   
   
   Data_System_Font_Instances:
@@ -301,8 +312,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 299
-; FirstLine = 232
+; CursorPosition = 229
+; FirstLine = 195
 ; Folding = -
 ; EnableXP
 ; DPIAware
