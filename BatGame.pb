@@ -191,12 +191,11 @@ End 0
 
 ;- Custom data
 
-#Colour_Black = -16777216
-#Colour_Light_Grey = -3618616
-#Colour_Dark_Grey = -10197916
+#Colour_Black = #Black
+#Colour_Light_Grey = 14474460
+#Colour_Dark_Grey = 9868950
 #Colour_Yellow = -16711681
 #Colour_White = -1
-#Colour_Aqua = -327824
 #Colour_Blue_Slightly_Lighter = 16732184
 #Colour_Transparent = 0
 #Wall_Thickness = 6
@@ -204,8 +203,8 @@ End 0
 #Paddle_Distance = 6
 #Paddle_Length = 30
 #Paddle_Speed = 400 ; pixels per second
-#Goal_Sides = 40
-#Paddle_Colour = #Colour_Aqua
+#Goal_Sides = 0
+#Paddle_Colour = #Colour_Light_Grey
 #Score_Size = 16
 #Wall_Colour = #Colour_Light_Grey
 #Ball_Diameter = 7
@@ -242,22 +241,23 @@ DataSection
   Data.i 1, 56, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Dashed_Line
 
   Data_Sprite_Instances:
-  ; Format: Sprite_Resource, Is_Static, Width, Height, Intensity, Use_Colour, Colour, Layer, Visible, Pixel_Collisions, Collision_Class, X, Y, Velocity_X, Velocity_Y
+  ; Format: Sprite_Resource, Is_Static, Width, Height, Intensity, Use_Colour, Colour, Layer, Visible, Pixel_Collisions, Collision_Class, No Reset, X, Y, Velocity_X, Velocity_Y
   ; Layer 0 is background, higher numbers are on top
   ; You have to set an intensity if you want to set a colour
   ; Collision_Class means only sprites with the same class can collied with it
+  ; No reset means the sprite doesn't reset it's position when the level resets
   Data.i 10 ; Number of records
   ;Data.i #Sprite_Grid, #True, 256, 224, 255, #False, 0, 0, #True, #False, 0:Data.d 0, 0, 0, 0 ; grid
-  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, 0, 0, 0 ; top wall
-  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, 0, 1:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, #Wall_Thickness, 0, 0 ; goal side top left
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0; goal side bottom left
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0; goal side top right
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom right
-  Data.i #Sprite_Dashed_Line, #True, 1, 224-(#Wall_Thickness*2), 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #False, 0: Data.d 127, #Wall_Thickness, 0, 0
-  Data.i #Sprite_Paddle, #False, #Wall_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
-  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
-  Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #False, 1:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y                  ; ball
+  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #False, 1, #False:Data.d 0, 0, 0, 0 ; top wall
+  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, 0, 1, #False:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1, #False:Data.d 0, #Wall_Thickness, 0, 0 ; goal side top left
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1, #False:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0; goal side bottom left
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1, #False:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0; goal side top right
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1, #False:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom right
+  Data.i #Sprite_Dashed_Line, #True, 1, 224-(#Wall_Thickness*2), 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #False, 0, #False: Data.d 127, #Wall_Thickness, 0, 0
+  Data.i #Sprite_Paddle, #False, #Wall_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1, #True:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
+  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1, #True:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
+  Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #False, 1, #False:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y                  ; ball
   
   Data_System_Font_Instances:
   ; Used for displaying the system font
@@ -319,8 +319,10 @@ DataSection
   
 EndDataSection
 
-; IDE Options = PureBasic 6.03 LTS (Windows - x86)
-; CursorPosition = 15
+; IDE Options = PureBasic 6.11 LTS (Windows - x64)
+; CursorPosition = 208
+; FirstLine = 177
 ; Folding = -
 ; EnableXP
 ; DPIAware
+; SubSystem = DirectX9

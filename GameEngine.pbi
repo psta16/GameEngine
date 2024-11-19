@@ -454,6 +454,7 @@ Structure Sprite_Instance_Structure
   Collision_Class.i
   Pixel_Collisions.i ; true or false whether collisions is pixel based (false means box based)
   Is_Static.i
+  No_Reset.i ; if true the sprite doesn't reset position when the level restarts
 EndStructure
 
 Structure System_Font_Instance_Structure
@@ -1302,6 +1303,7 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
     Read.i *Graphics\Sprite_Instance[c]\Visible
     Read.i *Graphics\Sprite_Instance[c]\Pixel_Collisions
     Read.i *Graphics\Sprite_Instance[c]\Collision_Class
+    Read.i *Graphics\Sprite_Instance[c]\No_Reset
     Read.d *Graphics\Sprite_Instance[c]\X
     Read.d *Graphics\Sprite_Instance[c]\Y
     Read.d *Graphics\Sprite_Instance[c]\Velocity_X
@@ -2233,12 +2235,14 @@ Procedure RestartLevel(*System.System_Structure, *Graphics.Graphics_Structure, *
   Protected c.i
   ; Set all sprites back to original positions
   For c = 0 To *System\Sprite_Instance_Count-1
-    *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\Start_X
-    *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Start_Y
-    *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\Start_X
-    *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Start_X
-    *Graphics\Sprite_Instance[c]\Velocity_X = *Graphics\Sprite_Instance[c]\Start_Velocity_X
-    *Graphics\Sprite_Instance[c]\Velocity_Y = *Graphics\Sprite_Instance[c]\Start_Velocity_Y
+    If Not *Graphics\Sprite_Instance[c]\No_Reset
+      *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\Start_X
+      *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Start_Y
+      *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\Start_X
+      *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Start_X
+      *Graphics\Sprite_Instance[c]\Velocity_X = *Graphics\Sprite_Instance[c]\Start_Velocity_X
+      *Graphics\Sprite_Instance[c]\Velocity_Y = *Graphics\Sprite_Instance[c]\Start_Velocity_Y
+    EndIf
   Next c
   *Story_Actions\Story_Position = 0
 EndProcedure
@@ -3281,8 +3285,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2910
-; FirstLine = 2857
+; CursorPosition = 2243
+; FirstLine = 2206
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware
