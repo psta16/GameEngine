@@ -202,7 +202,7 @@ EndEnumeration
 
 ;- Globals
 Global Restart.i = 0 ; restarts the game engine
-Global Delta_Adjust.d = 0
+Global Delta_Time.d = 0
 
 ;- Constants
 ; System
@@ -1520,15 +1520,16 @@ Procedure SetScreen(*System.System_Structure, *Window_Settings.Window_Settings_S
         *Window_Settings\Window_H = WindowHeight(#Game_Window_Main)
         *Window_Settings\Reset_Window = 0
       EndIf
-      If *System\Debug_Window
-        Debug "SetScreen: opening debug window"
-        OpenWindow(#Game_Window_Debug, *Window_Settings\Window_Debug_X, *Window_Settings\Window_Debug_Y, *Window_Settings\Window_Debug_W, *Window_Settings\Window_Debug_H, "Debug", #PB_Window_SystemMenu | #PB_Window_MinimizeGadget | #PB_Window_SizeGadget)
-        WindowBounds(#Game_Window_Debug, 200, 300, #PB_Default, #PB_Default)
-        StickyWindow(#Game_Window_Debug, #True) 
-      EndIf
     Else
       Debug "SetScreen: could not initialise window"
       ProcedureReturn 0
+    EndIf
+    If *System\Debug_Window
+      Debug "SetScreen: opening debug window"
+      OpenWindow(#Game_Window_Debug, *Window_Settings\Window_Debug_X, *Window_Settings\Window_Debug_Y, *Window_Settings\Window_Debug_W, *Window_Settings\Window_Debug_H, "Debug", #PB_Window_SystemMenu | #PB_Window_MinimizeGadget | #PB_Window_SizeGadget)
+      WindowBounds(#Game_Window_Debug, 200, 300, #PB_Default, #PB_Default)
+      StickyWindow(#Game_Window_Debug, #True) 
+      *Window_Settings\Window_Debug_Edit_Gadget = 0
     EndIf
   EndIf
   If Not (*Screen_Settings\Full_Screen And *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic)
@@ -1826,9 +1827,10 @@ Procedure ShowDebugWindowInfo(*System.System_Structure, *Window_Settings.Window_
   Protected Text_Height = 20
   Protected c.i
   Protected Displat_Text.s
-  If *Debug_Settings\Debug_Var[0] <> "" And Not *Window_Settings\Window_Debug_Edit_Gadget
+  If *Debug_Settings\Debug_Var[0] <> "" And IsWindow(#Game_Window_Debug) And Not *Window_Settings\Window_Debug_Edit_Gadget
     ; there is at least one variable
     Debug "ShowDebugWindowInfo: creating debug window edit gadget"
+    UseGadgetList(WindowID(#Game_Window_Debug))
     *Window_Settings\Window_Debug_Edit_Gadget = EditorGadget(#PB_Any, 10,  Text_Y, *Window_Settings\Window_Debug_W-20, *Window_Settings\Window_Debug_H-20, #PB_Editor_ReadOnly)
     If *Window_Settings\Debug_Window_Front_Colour Or *Window_Settings\Debug_Window_Back_Colour
       SetGadgetColor(*Window_Settings\Window_Debug_Edit_Gadget, #PB_Gadget_FrontColor, *Window_Settings\Debug_Window_Front_Colour)
@@ -2429,14 +2431,14 @@ Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure
           Case #Control_Button_Up
             If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Up)
               If *Controls\Object_Control[d]\Player = c
-                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y - *Controls\Object_Control[d]\Move_Speed * Delta_Adjust
+                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y - *Controls\Object_Control[d]\Move_Speed * Delta_Time
                 *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Old_Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y
               EndIf
             EndIf
           Case #Control_Button_Down
             If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Down)
               If *Controls\Object_Control[d]\Player = c
-                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y + *Controls\Object_Control[d]\Move_Speed * Delta_Adjust
+                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y + *Controls\Object_Control[d]\Move_Speed * Delta_Time
                 *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Old_Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y
               EndIf
             EndIf
@@ -2514,8 +2516,8 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
   For c = 0 To *System\Sprite_Instance_Count-1
     *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\X
     *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Y
-    *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust
-    *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust
+    *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Time
+    *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Time
   Next c
   ; Process collisions
   ; NB static sprites don't need to be checked for collisions
@@ -2534,7 +2536,7 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
                               *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y, *Graphics\Sprite_Instance[d]\X,
                               *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)             
               *Graphics\Sprite_Instance[c]\Velocity_X = -*Graphics\Sprite_Instance[c]\Velocity_X ; reverse the velocity
-              *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
+              *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Time ; bounce the object
             EndIf
           EndIf 
           If Sign(*Graphics\Sprite_Instance[c]\Velocity_Y) = -1
@@ -2550,7 +2552,7 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
                               *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
                               *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)
               *Graphics\Sprite_Instance[c]\Velocity_Y = Abs(*Graphics\Sprite_Instance[c]\Velocity_Y) ; reverse the velocity
-              *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
+              *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Time ; bounce the object
             EndIf
           EndIf
           If Sign(*Graphics\Sprite_Instance[c]\Velocity_X) = -1
@@ -2566,7 +2568,7 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
                               *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
                               *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)
               *Graphics\Sprite_Instance[c]\Velocity_X = Abs(*Graphics\Sprite_Instance[c]\Velocity_X) ; reverse the velocity
-              *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Adjust ; bounce the object
+              *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Time ; bounce the object
             EndIf
           EndIf 
           If Sign(*Graphics\Sprite_Instance[c]\Velocity_Y) = 1
@@ -2582,7 +2584,7 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
                               *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
                               *Graphics\Sprite_Instance[d]\Y)
               *Graphics\Sprite_Instance[c]\Velocity_Y = -*Graphics\Sprite_Instance[c]\Velocity_Y ; reverse the velocity
-              *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Adjust ; bounce the object
+              *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Time ; bounce the object
             EndIf   
           EndIf 
         EndIf  
@@ -2743,10 +2745,11 @@ Procedure ProcessSystem(*FPS_Data.FPS_Data_Structure)
   *FPS_Data\Game_Run_Time = ElapsedMilliseconds() - *FPS_Data\Game_Start_Time
   *FPS_Data\Frame = *FPS_Data\Frame + 1  
   ProcessFPS(*FPS_Data)
-  If *FPS_Data\FPS = 0
-    *FPS_Data\FPS = 60
-  EndIf
-  Delta_Adjust = 60.0 / *FPS_Data\FPS * 4.0 ; adjust speed of moving objects based on FPS
+  ;If *FPS_Data\FPS = 0
+  ;  *FPS_Data\FPS = 1 ; prevent divide by zero
+  ;EndIf
+  ;Delta_Time = 60.0 / *FPS_Data\FPS * 4.0 ; adjust speed of moving objects based on FPS
+  Delta_Time = *FPS_Data\Last_Frame_Time / 1000 ; adjust speed of moving objects based on FPS
 EndProcedure
 
 Procedure SaveConfig(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, Level.i=1)
@@ -2905,8 +2908,6 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
     Debug "Initialise: could not initialise sprite environment"
     SetInitialiseError(*System, "Could not initialise sprite environment (usually this is a DirectX problem)")
     ProcedureReturn 0    
-  Else
-    SpriteQuality(#PB_Sprite_NoFiltering)
   EndIf
   
   If Not LoadConfig(*System, *Window_Settings, *Screen_Settings)
@@ -3034,7 +3035,7 @@ Screen_Settings\Screen_Res_Height = 224
 Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
 Screen_Settings\Background_Colour = #Blue
 Screen_Settings\Full_Screen = 0
-Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
+Screen_Settings\Full_Screen_Type = #Full_Screen_Windowed
 Story_Actions\Story_Position = 0
 
 ;- Main loop
@@ -3280,8 +3281,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1238
-; FirstLine = 1196
+; CursorPosition = 2910
+; FirstLine = 2857
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware

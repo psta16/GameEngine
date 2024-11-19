@@ -82,6 +82,16 @@ XIncludeFile "GameEngine.pbi"
 
 ;- Procedures
 
+Procedure InitialiseCustomCode()
+  
+EndProcedure
+
+Procedure ProcessCustomSpritePositions()
+  ; Do collision between ball and paddle
+  
+  
+EndProcedure
+
 ;- Main
 
 ;- Set defaults
@@ -132,6 +142,7 @@ Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
   If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions)
+    InitialiseCustomCode()
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
     Repeat
@@ -144,12 +155,12 @@ Repeat ; used for restarting the game
       Debug_Settings\Debug_Var[4] = "Ball Y: " + FormatNumber(Graphics\Sprite_Instance[#Sprite_Instance_Ball]\Y, 1)
       Debug_Settings\Debug_Var[5] = "Ball Velocity X: " + FormatNumber(Graphics\Sprite_Instance[#Sprite_Instance_Ball]\Velocity_X, 1)
       Debug_Settings\Debug_Var[6] = "Ball Velocity Y: " + FormatNumber(Graphics\Sprite_Instance[#Sprite_Instance_Ball]\Velocity_Y, 1)
-      
       ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, @Graphics)
       ProcessMouse(@System, @Screen_Settings)
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessStory(@System, @Graphics, @Story_Actions)
+      ProcessCustomSpritePositions()
       ProcessSpritePositions(@System, @Graphics)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
       DoClearScreen(@System, @Screen_Settings)
@@ -192,7 +203,8 @@ End 0
 #Paddle_Thickness = 6
 #Paddle_Distance = 6
 #Paddle_Length = 30
-#Goal_Sides = 0
+#Paddle_Speed = 400 ; pixels per second
+#Goal_Sides = 40
 #Paddle_Colour = #Colour_Aqua
 #Score_Size = 16
 #Wall_Colour = #Colour_Light_Grey
@@ -206,6 +218,8 @@ End 0
 #Ball_Velocity_Y = 0
 #Paddle_Start_Y1 = 224/2-#Paddle_Length/2
 #Paddle_Start_Y2 = 224/2-#Paddle_Length/2
+#Ball_Velocity_Y_Min = -200
+#Ball_Velocity_Y_Max = 200
 
 DataSection
   
@@ -216,8 +230,6 @@ DataSection
   Data.i #Shape_None, #False, 0, #Colour_White, 0, 0, 10, 10, 0, 0, 0, 0  ; standard box
   Data.i #Shape_Circle, #True, #Ball_Colour, 0, 0, 0, 0, 0, #Ball_Diameter/2, 0, 0, 0  ; ball
   Data.i #Shape_Dashed_Line, #True, #Colour_White, 0, 0, 0, 1, 56, 0, 0, 0, 0    ; dashed line
-  ;Data.i #Shape_None, #False, 0, #Colour_Light_Grey, 0, 0, 1, 224, 0, 0, 0, 0 ; dashed line
-  
   
   
   Data_Custom_Sprite_Resources:
@@ -228,8 +240,6 @@ DataSection
   Data.i #Paddle_Thickness, #Paddle_Length, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Paddle
   Data.i #Ball_Diameter, #Ball_Diameter, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Ball   ; #Sprite_Ball
   Data.i 1, 56, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Dashed_Line
-  ;Data.i 256, 224, #PB_Sprite_AlphaBlending, #False, #True, #Data_Source_Internal_Memory, #Vector_Grid ; #Sprite_Grid
-  
 
   Data_Sprite_Instances:
   ; Format: Sprite_Resource, Is_Static, Width, Height, Intensity, Use_Colour, Colour, Layer, Visible, Pixel_Collisions, Collision_Class, X, Y, Velocity_X, Velocity_Y
@@ -244,12 +254,10 @@ DataSection
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0; goal side bottom left
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0; goal side top right
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #False, 1:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom right
-  Data.i #Sprite_Dashed_Line, #True, 5, 224-(#Wall_Thickness*2), 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #False, 0: Data.d 125, #Wall_Thickness, 0, 0
-  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
+  Data.i #Sprite_Dashed_Line, #True, 1, 224-(#Wall_Thickness*2), 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #False, 0: Data.d 127, #Wall_Thickness, 0, 0
+  Data.i #Sprite_Paddle, #False, #Wall_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
   Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #False, 1:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
   Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #False, 1:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y                  ; ball
-  
-  
   
   Data_System_Font_Instances:
   ; Used for displaying the system font
@@ -273,16 +281,16 @@ DataSection
   
   Data_Object_Controls:
   ; These are control actions that affect a sprite
-  ; Format: Sprite_Instance, Player, Control, Control_Type, Move_Speed
+  ; Format: Sprite_Instance, Player, Control, Control_Type, Move_Speed (pixels per second)
   ; Control - a key or joystick button etc
   ; Control_Type - move up, jump, fire etc
   ; Use -1 if not used
   Data.i 6
-  Data.i #Sprite_Instance_Paddle1, #Player1, #Control_Button_Up, #Object_Control_Move_Up:Data.d 1.0
-  Data.i #Sprite_Instance_Paddle1, #Player1, #Control_Button_Down, #Object_Control_Move_Down:Data.d 1.0
+  Data.i #Sprite_Instance_Paddle1, #Player1, #Control_Button_Up, #Object_Control_Move_Up:Data.d #Paddle_Speed
+  Data.i #Sprite_Instance_Paddle1, #Player1, #Control_Button_Down, #Object_Control_Move_Down:Data.d #Paddle_Speed
   Data.i #Sprite_Instance_Paddle1, #Player1, #Control_Button_X_Button, #Object_Control_Fire:Data.d -1
-  Data.i #Sprite_Instance_Paddle2, #Player2, #Control_Button_Up, #Object_Control_Move_Up:Data.d 1.0
-  Data.i #Sprite_Instance_Paddle2, #Player2, #Control_Button_Down, #Object_Control_Move_Down:Data.d 1.0
+  Data.i #Sprite_Instance_Paddle2, #Player2, #Control_Button_Up, #Object_Control_Move_Up:Data.d #Paddle_Speed
+  Data.i #Sprite_Instance_Paddle2, #Player2, #Control_Button_Down, #Object_Control_Move_Down:Data.d #Paddle_Speed
   Data.i #Sprite_Instance_Paddle2, #Player2, #Control_Button_X_Button, #Object_Control_Fire:Data.d -1
   
   Data_Sprite_Constraints:
@@ -301,7 +309,7 @@ DataSection
   Data.i 4
   Data.i #Story_Action_Game_Start, 0, 0, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0
   Data.i #Story_Action_Pause, 1000, 0, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0
-  Data.i #Story_Action_Sprite_Change_Velocity, 0, #Sprite_Instance_Ball, #False, #True, 100:Data.d 0.5, 0, -0.5, 0.5, -0.5, 0.5
+  Data.i #Story_Action_Sprite_Change_Velocity, 0, #Sprite_Instance_Ball, #False, #True, 100:Data.d 200, 0, 0, 0, #Ball_Velocity_Y_Min, #Ball_Velocity_Y_Max
   Data.i #Story_Action_Game_Continue, 0, 0, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0
   
   Data_Variables:
@@ -311,9 +319,8 @@ DataSection
   
 EndDataSection
 
-; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 229
-; FirstLine = 195
+; IDE Options = PureBasic 6.03 LTS (Windows - x86)
+; CursorPosition = 15
 ; Folding = -
 ; EnableXP
 ; DPIAware
