@@ -1208,11 +1208,12 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
           Case #Data_Source_None
             ; Nothing to do, empty sprite            
           Case #Data_Source_Internal_Memory
+            Debug *Graphics\Sprite_Resource[j]\Height
             *Graphics\Sprite_Resource[j]\ID = CreateSprite(#PB_Any, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, *Graphics\Sprite_Resource[j]\Mode)
             TransparentSpriteColor(*Graphics\Sprite_Resource[j]\ID, #Magenta)
             If *Graphics\Sprite_Resource[j]\Vector_Drawn
               If *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Background_Transparent
-                Background_Colour = 0
+                Background_Colour = RGBA(0, 0, 0, 0)
               Else
                 Background_Colour = *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Background_Colour
               EndIf
@@ -1231,18 +1232,18 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
                 Case #Shape_Dashed_Line
                   StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
                   DrawingMode(#PB_2DDrawing_AllChannels)
-                  ;Debug "Drawing dashed line: " + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\X + ", " + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Y +
-                  ;      " to " + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\X + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Width +
-                  ;      ", " + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Y + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Height
                   DrawDashedLine(*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\X, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Y,
                                  *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\X + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Width-1,
                                  *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Y + *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Height-1,
                                  *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Colour, Background_Colour, 1)
                   StopDrawing()
-                Case #Shape_Grid
+                Case #Shape_Box
                   StartDrawing(SpriteOutput(*Graphics\Sprite_Resource[j]\ID))
                   DrawingMode(#PB_2DDrawing_AllChannels)
-                  Box(0, 0, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, RGBA(255, 0, 0, 0))
+                  Box(0, 0, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, Background_Colour)
+                  Box(*Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\X, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Y,
+                      *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Width, *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Height,
+                      *Graphics\Vector_Graphics_Resource[*Graphics\Sprite_Resource[j]\Memory_Location]\Colour)
                   StopDrawing()
                 Default
                   *System\Fatal_Error_Message = "Invalid vector shape specified for sprite " + j
@@ -3285,8 +3286,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2243
-; FirstLine = 2206
+; CursorPosition = 1243
+; FirstLine = 1194
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware
