@@ -179,26 +179,21 @@ Enumeration Constraint_Type
   #Constraint_Type_Right
 EndEnumeration
 
-Enumeration Constraint_Action
-  #Constraint_Action_Stop
-  #Constraint_Action_Invisible
-EndEnumeration
-
-Enumeration Game_Action
-  #Game_Action_None
-  #Game_Action_Player_Point
-  #Game_Action_Restart_Level
-EndEnumeration
-
-Enumeration Story_Actions
-  #Story_Action_Game_Start
-  #Story_Action_Pause
-  #Story_Action_Sprite_Change_Velocity
-  #Story_Action_Game_Continue
+Enumeration Sprite_Action
+  #Sprite_Action_Stop
+  #Sprite_Action_Invisible
 EndEnumeration
 
 ; Layer 3 - Game
 
+Enumeration Story_Actions
+  #Story_Action_Start = 0
+  #Story_Action_Pause
+  #Story_Action_Sprite_Change_Velocity
+  #Story_Action_Continue
+  #Story_Action_Player_Point
+  #Story_Action_Restart_Level
+EndEnumeration
 
 ;- Globals
 Global Restart.i = 0 ; restarts the game engine
@@ -450,7 +445,9 @@ Structure Sprite_Instance_Structure
   Use_Colour.i ; 1 to use the colour field
   Colour.i    ; only works for transparent sprites
   Layer.i     ; used to sort the sprite instance array for drawing order, 0 is background
+  Start_Visible.i
   Visible.i
+  Enabled.i ; enabled means it has constraints and collisions
   Collision_Class.i
   Pixel_Collisions.i ; true or false whether collisions is pixel based (false means box based)
   Is_Static.i
@@ -553,9 +550,7 @@ Structure Sprite_Constraint_Structure
   Constraint_Type.i
   Value.i
   Sprite_Action.i
-  Game_Action1.i
-  Game_Action2.i
-  Game_Action3.i
+  Story_Action.i
   Player.i
 EndStructure
 
@@ -567,6 +562,7 @@ Structure Story_Action_Structure
   Action.i
   Time_Length.i
   Sprite_Instance.i
+  Player.i
   Random_X.i ; true if allow random
   Random_Y.i ; true if allow random
   Random_Steps.i
@@ -988,6 +984,7 @@ Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Action
     Read.i *Story_Actions\Story_Action[c]\Action
     Read.i *Story_Actions\Story_Action[c]\Time_Length
     Read.i *Story_Actions\Story_Action[c]\Sprite_Instance
+    Read.i *Story_Actions\Story_Action[c]\Player
     Read.i *Story_Actions\Story_Action[c]\Random_X
     Read.i *Story_Actions\Story_Action[c]\Random_Y
     Read.i *Story_Actions\Story_Action[c]\Random_Steps
@@ -1015,9 +1012,7 @@ Procedure LoadSpriteConstraints(*System.System_Structure, *Sprite_Constraints.Sp
     Read.i *Sprite_Constraints\Sprite_Constraint[c]\Constraint_Type
     Read.i *Sprite_Constraints\Sprite_Constraint[c]\Value
     Read.i *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
-    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Game_Action1
-    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Game_Action2
-    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Game_Action3
+    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
     Read.i *Sprite_Constraints\Sprite_Constraint[c]\Player
   Next c
   Debug "LoadSpriteConstraints: " + *System\Sprite_Constraints_Count + " sprite constraint(s) loaded"
@@ -1208,7 +1203,6 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
           Case #Data_Source_None
             ; Nothing to do, empty sprite            
           Case #Data_Source_Internal_Memory
-            Debug *Graphics\Sprite_Resource[j]\Height
             *Graphics\Sprite_Resource[j]\ID = CreateSprite(#PB_Any, *Graphics\Sprite_Resource[j]\Width, *Graphics\Sprite_Resource[j]\Height, *Graphics\Sprite_Resource[j]\Mode)
             TransparentSpriteColor(*Graphics\Sprite_Resource[j]\ID, #Magenta)
             If *Graphics\Sprite_Resource[j]\Vector_Drawn
@@ -1302,6 +1296,7 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
     Read.i *Graphics\Sprite_Instance[c]\Colour
     Read.i *Graphics\Sprite_Instance[c]\Layer
     Read.i *Graphics\Sprite_Instance[c]\Visible
+    Read.i *Graphics\Sprite_Instance[c]\Enabled
     Read.i *Graphics\Sprite_Instance[c]\Pixel_Collisions
     Read.i *Graphics\Sprite_Instance[c]\Collision_Class
     Read.i *Graphics\Sprite_Instance[c]\No_Reset
@@ -1315,13 +1310,12 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
     *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Y
     *Graphics\Sprite_Instance[c]\Start_Velocity_X = *Graphics\Sprite_Instance[c]\Velocity_X
     *Graphics\Sprite_Instance[c]\Start_Velocity_Y = *Graphics\Sprite_Instance[c]\Velocity_Y
-    
+    *Graphics\Sprite_Instance[c]\Start_Visible = *Graphics\Sprite_Instance[c]\Visible
   Next c
   Debug "LoadSpriteInstances: " + *System\Sprite_Instance_Count + " sprite instance(s) loaded"
   For c = 0 To *System\Sprite_Instance_Count-1
     Debug "SpriteInstance #"+c+" intensity:"+ *Graphics\Sprite_Instance[c]\Intensity + " colour:" + *Graphics\Sprite_Instance[c]\Colour
   Next c
-  
 EndProcedure
 
 Procedure LoadSystemFontInstances(*System.System_Structure, *Graphics.Graphics_Structure)
@@ -2195,15 +2189,36 @@ Procedure CheckFullScreen(*System.System_Structure, *Window_Settings.Window_Sett
   EndIf
 EndProcedure
 
+Procedure RestartLevel(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
+  Protected c.i
+  ; Set all sprites back to original positions
+  Debug "Restarting level"
+  For c = 0 To *System\Sprite_Instance_Count-1
+    If Not *Graphics\Sprite_Instance[c]\No_Reset
+      *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\Start_X
+      *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Start_Y
+      *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\Start_X
+      *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Start_X
+      *Graphics\Sprite_Instance[c]\Velocity_X = *Graphics\Sprite_Instance[c]\Start_Velocity_X
+      *Graphics\Sprite_Instance[c]\Velocity_Y = *Graphics\Sprite_Instance[c]\Start_Velocity_Y
+      *Graphics\Sprite_Instance[c]\Visible = *Graphics\Sprite_Instance[c]\Start_Visible
+    EndIf
+  Next c
+  *Story_Actions\Story_Position = 0
+EndProcedure
+
 Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
   Static Current_Time.q
   Protected Velocity_X.d, Velocity_Y.d
   If *System\Story_Action_Count > 0
+    Debug "ProcessStory: processing story action: " + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
+    Debug "Story position: " + *Story_Actions\Story_Position
     Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
-      Case #Story_Action_Game_Start
+      Case #Story_Action_Start
+        Debug "ProcessStory: start"
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-        ;Debug "Start"
       Case #Story_Action_Pause
+        Debug "ProcessStory: pause"
         If *System\Pause_Gameplay = 0 
           Current_Time = ElapsedMilliseconds()
           *System\Pause_Gameplay = 1
@@ -2212,8 +2227,8 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
           *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
           *System\Pause_Gameplay = 0
         EndIf
-        ;Debug "Pause"
       Case #Story_Action_Sprite_Change_Velocity
+        Debug "ProcessStory: change velocity"
         Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
         Velocity_Y = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_Y
         If *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_X
@@ -2225,27 +2240,16 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = Velocity_X
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = Velocity_Y
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-        ;Debug "Change velocity"
-      Case #Story_Action_Game_Continue
-        ;Debug "Continue"
+      Case #Story_Action_Continue
+        Debug "ProcessStory: continue"
+      Case #Story_Action_Player_Point
+        Debug "ProcessStory: player point"
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+      Case #Story_Action_Restart_Level
+        Debug "ProcessStory: restart level"
+        RestartLevel(*System, *Graphics, *Story_Actions)
     EndSelect
   EndIf
-EndProcedure
-
-Procedure RestartLevel(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
-  Protected c.i
-  ; Set all sprites back to original positions
-  For c = 0 To *System\Sprite_Instance_Count-1
-    If Not *Graphics\Sprite_Instance[c]\No_Reset
-      *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\Start_X
-      *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Start_Y
-      *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\Start_X
-      *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Start_X
-      *Graphics\Sprite_Instance[c]\Velocity_X = *Graphics\Sprite_Instance[c]\Start_Velocity_X
-      *Graphics\Sprite_Instance[c]\Velocity_Y = *Graphics\Sprite_Instance[c]\Start_Velocity_Y
-    EndIf
-  Next c
-  *Story_Actions\Story_Position = 0
 EndProcedure
 
 ;- Input
@@ -2455,65 +2459,68 @@ EndProcedure
 
 Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_Structure, *Sprite_Constraints.Sprite_Constraints_Structure, *Story_Actions.Story_Actions_Structure)
   Protected c.i
+  Protected Constraint_Met.i = #False
   For c = 0 To *System\Sprite_Constraints_Count-1
     Select *Sprite_Constraints\Sprite_Constraint[c]\Constraint_Type
       Case #Constraint_Type_Top
-        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y > *Sprite_Constraints\Sprite_Constraint[c]\Value
+        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y > *Sprite_Constraints\Sprite_Constraint[c]\Value And *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible
           Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
-            Case #Constraint_Action_Stop
+            Case #Sprite_Action_Stop
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y = *Sprite_Constraints\Sprite_Constraint[c]\Value
-            Case #Constraint_Action_Invisible
+              Constraint_Met = #True
+              Break
+            Case #Sprite_Action_Invisible
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
+              Constraint_Met = #True
+              Break
           EndSelect
         EndIf
       Case #Constraint_Type_Bottom
-        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y < *Sprite_Constraints\Sprite_Constraint[c]\Value
+        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y < *Sprite_Constraints\Sprite_Constraint[c]\Value And *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible
           Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
-            Case #Constraint_Action_Stop
+            Case #Sprite_Action_Stop
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y = *Sprite_Constraints\Sprite_Constraint[c]\Value
-            Case #Constraint_Action_Invisible
+              Constraint_Met = #True
+              Break
+            Case #Sprite_Action_Invisible
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
+              Constraint_Met = #True
+              Break
           EndSelect
         EndIf
       Case #Constraint_Type_Left
-        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X > *Sprite_Constraints\Sprite_Constraint[c]\Value
+        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X > *Sprite_Constraints\Sprite_Constraint[c]\Value And *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible
           Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
-            Case #Constraint_Action_Stop
+            Case #Sprite_Action_Stop
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X = *Sprite_Constraints\Sprite_Constraint[c]\Value
-            Case #Constraint_Action_Invisible
+              Constraint_Met = #True
+              Break
+            Case #Sprite_Action_Invisible
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
-          EndSelect
-          Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action1
-            Case #Game_Action_Player_Point
-              Debug "Point player " + *Sprite_Constraints\Sprite_Constraint[c]\Player
-          EndSelect
-          Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action2
-            Case #Game_Action_Restart_Level
-              Debug "Level restarting"
-              RestartLevel(*System, *Graphics, *Story_Actions)
+              Constraint_Met = #True
+              Break
           EndSelect
         EndIf
       Case #Constraint_Type_Right
-        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X < *Sprite_Constraints\Sprite_Constraint[c]\Value
+        If *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X < *Sprite_Constraints\Sprite_Constraint[c]\Value And *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible
           Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
-            Case #Constraint_Action_Stop
+            Case #Sprite_Action_Stop
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X = *Sprite_Constraints\Sprite_Constraint[c]\Value
-            Case #Constraint_Action_Invisible
+              Constraint_Met = #True
+              Break
+            Case #Sprite_Action_Invisible
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
+              Constraint_Met = #True
+              Break
           EndSelect
-          Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action1
-            Case #Game_Action_Player_Point
-              Debug "Point player " + *Sprite_Constraints\Sprite_Constraint[c]\Player
-              
-          EndSelect
-          Select *Sprite_Constraints\Sprite_Constraint[c]\Game_Action2
-            Case #Game_Action_Restart_Level
-              Debug "Level restarting"
-              RestartLevel(*System, *Graphics, *Story_Actions)
-          EndSelect          
         EndIf
     EndSelect
   Next c
+  If Constraint_Met
+    If *Sprite_Constraints\Sprite_Constraint[c]\Story_Action > -1
+      *Story_Actions\Story_Position = *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
+    EndIf
+  EndIf
 EndProcedure
 
 Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_Structure)
@@ -3286,8 +3293,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1243
-; FirstLine = 1194
+; CursorPosition = 2520
+; FirstLine = 2453
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware
