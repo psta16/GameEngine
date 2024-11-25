@@ -1670,19 +1670,48 @@ Procedure DisplaySpriteInstance(*Graphics.Graphics_Structure, i.i)
     If *Graphics\Sprite_Instance[i]\Use_Colour = #False
       ; set intensity but not colour
       DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity)
-    Else
-      ; set intensity and colour
-      DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity, *Graphics\Sprite_Instance[i]\Colour)
+      If *Graphics\Sprite_Instance[i]\Repeat_X
+        For c = 1 To *Graphics\Sprite_Instance[i]\Repeat_X
+          DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X + c * *Graphics\Sprite_Instance[i]\Repeat_Space_X,
+                                     *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity)
+        Next c
+      EndIf
       If *Graphics\Sprite_Instance[i]\Repeat_Y
         For c = 1 To *Graphics\Sprite_Instance[i]\Repeat_Y
           DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X,
-                                     *Graphics\Sprite_Instance[i]\Y + c * *Graphics\Sprite_Instance[i]\Repeat_Space_Y,
-                                     *Graphics\Sprite_Instance[i]\Intensity, *Graphics\Sprite_Instance[i]\Colour)
+                                     *Graphics\Sprite_Instance[i]\Y + c * *Graphics\Sprite_Instance[i]\Repeat_Space_Y, *Graphics\Sprite_Instance[i]\Intensity)
+        Next c
+      EndIf
+    Else
+      ; set intensity and colour
+      DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity, *Graphics\Sprite_Instance[i]\Colour)
+      If *Graphics\Sprite_Instance[i]\Repeat_X
+        For c = 1 To *Graphics\Sprite_Instance[i]\Repeat_X
+          DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X + c * *Graphics\Sprite_Instance[i]\Repeat_Space_X,
+                                     *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity, *Graphics\Sprite_Instance[i]\Colour)
+        Next c
+      EndIf
+      If *Graphics\Sprite_Instance[i]\Repeat_Y
+        For c = 1 To *Graphics\Sprite_Instance[i]\Repeat_Y
+          DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X,
+                                     *Graphics\Sprite_Instance[i]\Y + c * *Graphics\Sprite_Instance[i]\Repeat_Space_Y, *Graphics\Sprite_Instance[i]\Intensity, *Graphics\Sprite_Instance[i]\Colour)
         Next c
       EndIf
     EndIf
   Else
     DisplaySprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y)
+      If *Graphics\Sprite_Instance[i]\Repeat_X
+        For c = 1 To *Graphics\Sprite_Instance[i]\Repeat_X
+          DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X + c * *Graphics\Sprite_Instance[i]\Repeat_Space_X,
+                                     *Graphics\Sprite_Instance[i]\Y)
+        Next c
+      EndIf
+      If *Graphics\Sprite_Instance[i]\Repeat_Y
+        For c = 1 To *Graphics\Sprite_Instance[i]\Repeat_Y
+          DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X,
+                                     *Graphics\Sprite_Instance[i]\Y + c * *Graphics\Sprite_Instance[i]\Repeat_Space_Y)
+        Next c
+      EndIf
   EndIf
 EndProcedure
 
@@ -3293,8 +3322,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1678
-; FirstLine = 1642
+; CursorPosition = 1714
+; FirstLine = 1660
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware

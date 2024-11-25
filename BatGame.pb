@@ -267,7 +267,7 @@ DataSection
   ; Collision_Class means only sprites with the same class can collied with it
   ; No reset means the sprite doesn't reset it's position when the level resets
   Data.i 10 ; Number of records
-  Data.i #Sprite_Dashed_Line, #True, 3, 222, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False, 0, 37, 0, 6: Data.d 126, #Wall_Thickness, 0, 0
+  Data.i #Sprite_Dashed_Line, #True, 3, 222, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False, 0, 35, 0, 6: Data.d 126, #Wall_Thickness, 0, 0
   Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 0, 0, 0, 0 ; top wall
   Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 0, #Wall_Thickness, 0, 0 ; goal side top left
@@ -346,8 +346,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 35
-; FirstLine = 277
+; CursorPosition = 275
+; FirstLine = 235
 ; Folding = -
 ; EnableXP
 ; DPIAware
