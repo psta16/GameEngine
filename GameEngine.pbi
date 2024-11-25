@@ -425,6 +425,8 @@ Structure Sprite_Resource_Structure
   File_Location.s
   Database_Location.i
   Vector_Drawn.i ; used to select whether it will be drawn using vectors
+  Repeat_X.i
+  Repeat_Y.i
 EndStructure
 
 Structure Sprite_Instance_Structure
@@ -452,6 +454,10 @@ Structure Sprite_Instance_Structure
   Pixel_Collisions.i ; true or false whether collisions is pixel based (false means box based)
   Is_Static.i
   No_Reset.i ; if true the sprite doesn't reset position when the level restarts
+  Repeat_X.i ; repeat the sprite within the sprite instance
+  Repeat_Y.i
+  Repeat_Space_X.i
+  Repeat_Space_Y.i
 EndStructure
 
 Structure System_Font_Instance_Structure
@@ -560,6 +566,7 @@ EndStructure
 
 Structure Story_Action_Structure
   Action.i
+  Custom.i
   Time_Length.i
   Sprite_Instance.i
   Player.i
@@ -982,18 +989,12 @@ Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Action
   EndIf
   For c = 0 To *System\Story_Action_Count - 1
     Read.i *Story_Actions\Story_Action[c]\Action
+    Read.i *Story_Actions\Story_Action[c]\Custom
     Read.i *Story_Actions\Story_Action[c]\Time_Length
     Read.i *Story_Actions\Story_Action[c]\Sprite_Instance
     Read.i *Story_Actions\Story_Action[c]\Player
-    Read.i *Story_Actions\Story_Action[c]\Random_X
-    Read.i *Story_Actions\Story_Action[c]\Random_Y
-    Read.i *Story_Actions\Story_Action[c]\Random_Steps
     Read.d *Story_Actions\Story_Action[c]\Velocity_X
     Read.d *Story_Actions\Story_Action[c]\Velocity_Y
-    Read.d *Story_Actions\Story_Action[c]\Random_Low_X
-    Read.d *Story_Actions\Story_Action[c]\Random_High_X
-    Read.d *Story_Actions\Story_Action[c]\Random_Low_Y
-    Read.d *Story_Actions\Story_Action[c]\Random_High_Y
   Next c
   Debug "LoadStoryActions: " + *System\Story_Action_Count + " story action(s) loaded"
 EndProcedure
@@ -1300,6 +1301,10 @@ Procedure LoadSpriteInstances(*System.System_Structure, *Graphics.Graphics_Struc
     Read.i *Graphics\Sprite_Instance[c]\Pixel_Collisions
     Read.i *Graphics\Sprite_Instance[c]\Collision_Class
     Read.i *Graphics\Sprite_Instance[c]\No_Reset
+    Read.i *Graphics\Sprite_Instance[c]\Repeat_X
+    Read.i *Graphics\Sprite_Instance[c]\Repeat_Y
+    Read.i *Graphics\Sprite_Instance[c]\Repeat_Space_X
+    Read.i *Graphics\Sprite_Instance[c]\Repeat_Space_Y
     Read.d *Graphics\Sprite_Instance[c]\X
     Read.d *Graphics\Sprite_Instance[c]\Y
     Read.d *Graphics\Sprite_Instance[c]\Velocity_X
@@ -1659,6 +1664,7 @@ Procedure Draw3DWorld(*System.System_Structure)
 EndProcedure
 
 Procedure DisplaySpriteInstance(*Graphics.Graphics_Structure, i.i)
+  Protected c.i
   ZoomSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\Width, *Graphics\Sprite_Instance[i]\Height)
   If *Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\Transparent
     If *Graphics\Sprite_Instance[i]\Use_Colour = #False
@@ -1667,6 +1673,13 @@ Procedure DisplaySpriteInstance(*Graphics.Graphics_Structure, i.i)
     Else
       ; set intensity and colour
       DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y, *Graphics\Sprite_Instance[i]\Intensity, *Graphics\Sprite_Instance[i]\Colour)
+      If *Graphics\Sprite_Instance[i]\Repeat_Y
+        For c = 1 To *Graphics\Sprite_Instance[i]\Repeat_Y
+          DisplayTransparentSprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X,
+                                     *Graphics\Sprite_Instance[i]\Y + c * *Graphics\Sprite_Instance[i]\Repeat_Space_Y,
+                                     *Graphics\Sprite_Instance[i]\Intensity, *Graphics\Sprite_Instance[i]\Colour)
+        Next c
+      EndIf
     EndIf
   Else
     DisplaySprite(*Graphics\Sprite_Resource[*Graphics\Sprite_Instance[i]\Sprite_Resource]\ID, *Graphics\Sprite_Instance[i]\X, *Graphics\Sprite_Instance[i]\Y)
@@ -2210,15 +2223,12 @@ EndProcedure
 Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
   Static Current_Time.q
   Protected Velocity_X.d, Velocity_Y.d
-  If *System\Story_Action_Count > 0
-    ;Debug "ProcessStory: processing story action: " + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
-    ;Debug "Story position: " + *Story_Actions\Story_Position
+  Debug "Story position: " + *Story_Actions\Story_Position
+  If *System\Story_Action_Count > 0 And Not *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom
     Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
       Case #Story_Action_Start
-        ;Debug "ProcessStory: start"
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_Pause
-        ;Debug "ProcessStory: pause"
         If *System\Pause_Gameplay = 0 
           Current_Time = ElapsedMilliseconds()
           *System\Pause_Gameplay = 1
@@ -2228,25 +2238,15 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
           *System\Pause_Gameplay = 0
         EndIf
       Case #Story_Action_Sprite_Change_Velocity
-        ;Debug "ProcessStory: change velocity"
         Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
         Velocity_Y = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_Y
-        If *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_X
-          Velocity_X = MapRange(Random(*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Steps), 0, 100, *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Low_X, *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_High_X)
-        EndIf
-        If *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Y
-          Velocity_Y = MapRange(Random(*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Steps), 0, 100, *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_Low_Y, *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_High_Y)
-        EndIf
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = Velocity_X
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = Velocity_Y
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_Continue
-        ;Debug "ProcessStory: continue"
       Case #Story_Action_Player_Point
-        ;Debug "ProcessStory: player point"
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_Restart_Level
-        ;Debug "ProcessStory: restart level"
         RestartLevel(*System, *Graphics, *Story_Actions)
     EndSelect
   EndIf
@@ -3029,7 +3029,7 @@ System\Game_Resource_Location = "Data"
 System\Debug_Window = 1
 System\Current_Directory = GetCurrentDirectory()
 System\Render_Engine3D = #Render_Engine3D_Builtin
-System\Show_Debug_Info = 0 ; onscreen debug info
+System\Show_Debug_Info = 1 ; onscreen debug info
 System\Allow_Switch_to_Window = 1
 Window_Settings\Allow_Window_Resize = 1
 Window_Settings\Reset_Window = 0
@@ -3293,8 +3293,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2248
-; FirstLine = 2209
+; CursorPosition = 1678
+; FirstLine = 1642
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware

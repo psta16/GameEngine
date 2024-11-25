@@ -32,43 +32,7 @@ Enumeration Sprites
 EndEnumeration
 
 Enumeration Sprite_Instances
-  #Sprite_Instance_Centre_Line1
-  #Sprite_Instance_Centre_Line2
-  #Sprite_Instance_Centre_Line3
-  #Sprite_Instance_Centre_Line4
-  #Sprite_Instance_Centre_Line5
-  #Sprite_Instance_Centre_Line6
-  #Sprite_Instance_Centre_Line7
-  #Sprite_Instance_Centre_Line8
-  #Sprite_Instance_Centre_Line9
-  #Sprite_Instance_Centre_Line10
-  #Sprite_Instance_Centre_Line11
-  #Sprite_Instance_Centre_Line12
-  #Sprite_Instance_Centre_Line13
-  #Sprite_Instance_Centre_Line14
-  #Sprite_Instance_Centre_Line15
-  #Sprite_Instance_Centre_Line16
-  #Sprite_Instance_Centre_Line17
-  #Sprite_Instance_Centre_Line18
-  #Sprite_Instance_Centre_Line19
-  #Sprite_Instance_Centre_Line20
-  #Sprite_Instance_Centre_Line21
-  #Sprite_Instance_Centre_Line22
-  #Sprite_Instance_Centre_Line23
-  #Sprite_Instance_Centre_Line24
-  #Sprite_Instance_Centre_Line25
-  #Sprite_Instance_Centre_Line26
-  #Sprite_Instance_Centre_Line27
-  #Sprite_Instance_Centre_Line28
-  #Sprite_Instance_Centre_Line29
-  #Sprite_Instance_Centre_Line30
-  #Sprite_Instance_Centre_Line31
-  #Sprite_Instance_Centre_Line32
-  #Sprite_Instance_Centre_Line33
-  #Sprite_Instance_Centre_Line34
-  #Sprite_Instance_Centre_Line35
-  #Sprite_Instance_Centre_Line36
-  #Sprite_Instance_Centre_Line37
+  #Sprite_Instance_Centre_Line
   #Sprite_Instance_Field1 ; used to create the playing field
   #Sprite_Instance_Field2
   #Sprite_Instance_Field3
@@ -109,6 +73,35 @@ EndEnumeration
 
 ;- Constants
 
+#Colour_Black = #Black
+#Colour_Light_Grey = 14474460
+#Colour_Dark_Grey = 9868950
+#Colour_Yellow = -16711681
+#Colour_White = -1
+#Colour_Blue_Slightly_Lighter = 16732184
+#Colour_Transparent = 0
+#Wall_Thickness = 6
+#Paddle_Thickness = 6
+#Paddle_Distance = 6
+#Paddle_Length = 30
+#Paddle_Speed = 400 ; pixels per second
+#Goal_Sides = 0
+#Paddle_Colour = #Colour_Light_Grey
+#Score_Size = 16
+#Wall_Colour = #Colour_Light_Grey
+#Ball_Diameter = 7
+#Ball_Colour = #Colour_White
+#Score_Colour = #Colour_Yellow
+#Score_Top = 12
+#Ball_X = (256/2)-(#Ball_Diameter/2)-1
+#Ball_Y = (224/2)-(#Ball_Diameter/2)-1
+#Ball_Velocity_X = 0
+#Ball_Velocity_Y = 0
+#Paddle_Start_Y1 = 224/2-#Paddle_Length/2
+#Paddle_Start_Y2 = 224/2-#Paddle_Length/2
+#Ball_Velocity_Y_Min = -200
+#Ball_Velocity_Y_Max = 200
+
 ;- Structures
 
 ;- Variables
@@ -133,10 +126,20 @@ Procedure InitialiseCustomCode()
   
 EndProcedure
 
-Procedure ProcessCustomSpritePositions()
-  ; Do collision between ball and paddle
-  
-  
+Procedure ProcessCustomStory(*Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
+  If *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom
+    Select *Story_Actions\Story_Position
+      Case #Story_Actions_Sprite_Change_Velocity
+        ; Change the velocity randomly
+        Debug "ProcessCustomStory: change velocity"
+        Protected Velocity_X.d, Velocity_Y.d
+        Velocity_X = 200
+        Velocity_Y = MapRange(Random(100), 0, 100, #Ball_Velocity_Y_Min, #Ball_Velocity_Y_Max)
+        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = Velocity_X
+        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = Velocity_Y
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+    EndSelect
+  EndIf
 EndProcedure
 
 ;- Main
@@ -207,7 +210,7 @@ Repeat ; used for restarting the game
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessStory(@System, @Graphics, @Story_Actions)
-      ProcessCustomSpritePositions()
+      ProcessCustomStory(@Graphics, @Story_Actions)
       ProcessSpritePositions(@System, @Graphics)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
       DoClearScreen(@System, @Screen_Settings)
@@ -238,35 +241,6 @@ End 0
 
 ;- Custom data
 
-#Colour_Black = #Black
-#Colour_Light_Grey = 14474460
-#Colour_Dark_Grey = 9868950
-#Colour_Yellow = -16711681
-#Colour_White = -1
-#Colour_Blue_Slightly_Lighter = 16732184
-#Colour_Transparent = 0
-#Wall_Thickness = 6
-#Paddle_Thickness = 6
-#Paddle_Distance = 6
-#Paddle_Length = 30
-#Paddle_Speed = 400 ; pixels per second
-#Goal_Sides = 0
-#Paddle_Colour = #Colour_Light_Grey
-#Score_Size = 16
-#Wall_Colour = #Colour_Light_Grey
-#Ball_Diameter = 7
-#Ball_Colour = #Colour_White
-#Score_Colour = #Colour_Yellow
-#Score_Top = 12
-#Ball_X = (256/2)-(#Ball_Diameter/2)-1
-#Ball_Y = (224/2)-(#Ball_Diameter/2)-1
-#Ball_Velocity_X = 0
-#Ball_Velocity_Y = 0
-#Paddle_Start_Y1 = 224/2-#Paddle_Length/2
-#Paddle_Start_Y2 = 224/2-#Paddle_Length/2
-#Ball_Velocity_Y_Min = -200
-#Ball_Velocity_Y_Max = 200
-
 DataSection
   
   Data_Vector_Resources:
@@ -279,66 +253,30 @@ DataSection
   
   Data_Custom_Sprite_Resources:
   ; Provides a list of sprite resources to be loaded
-  ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file
+  ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file, Repeat_X, Repeat_Y
   Data.i 4; Number of records
   Data.i 10, 10, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Box
   Data.i #Paddle_Thickness, #Paddle_Length, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Paddle
   Data.i #Ball_Diameter, #Ball_Diameter, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Ball   ; #Sprite_Ball
-  Data.i 3, 6, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Dashed_Line
+  Data.i 3, 222, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Dashed_Line
 
   Data_Sprite_Instances:
-  ; Format: Sprite_Resource, Is_Static, Width, Height, Intensity, Use_Colour, Colour, Layer, Visible, Enabled, Pixel_Collisions, Collision_Class, No Reset, X, Y, Velocity_X, Velocity_Y
+  ; Format: Sprite_Resource, Is_Static, Width, Height, Intensity, Use_Colour, Colour, Layer, Visible, Enabled, Pixel_Collisions, Collision_Class, No Reset, Repeat_X, Repeat_Y, X, Y, Velocity_X, Velocity_Y
   ; Layer 0 is background, higher numbers are on top
   ; You have to set an intensity if you want to set a colour
   ; Collision_Class means only sprites with the same class can collied with it
   ; No reset means the sprite doesn't reset it's position when the level resets
-  Data.i 46 ; Number of records
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+6, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+12, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+18, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+24, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+30, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+36, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+42, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+48, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+54, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+60, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+66, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+72, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+78, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+84, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+90, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+96, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+102, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+108, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+114, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+120, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+126, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+132, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+138, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+144, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+150, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+156, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+162, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+168, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+174, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+180, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+186, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+192, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+198, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+204, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+210, 0, 0
-  Data.i #Sprite_Dashed_Line, #True, 3, 6, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False: Data.d 126, #Wall_Thickness+216, 0, 0
-  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False:Data.d 0, 0, 0, 0 ; top wall
-  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False:Data.d 0, #Wall_Thickness, 0, 0 ; goal side top left
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0; goal side bottom left
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0; goal side top right
-  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom right
-  Data.i #Sprite_Paddle, #False, #Wall_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #True, #False, 1, #True:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
-  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #True, #False, 1, #True:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
-  Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #True, #False, 1, #False:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y                  ; ball
+  Data.i 10 ; Number of records
+  Data.i #Sprite_Dashed_Line, #True, 3, 222, 255, #True, #Colour_Blue_Slightly_Lighter, 0, #True, #True, #False, 0, #False, 0, 37, 0, 6: Data.d 126, #Wall_Thickness, 0, 0
+  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 0, 0, 0, 0 ; top wall
+  Data.i #Sprite_Box, #True, 256, #Wall_Thickness, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 0, 224-#Wall_Thickness, 0, 0 ; bottom wall
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 0, #Wall_Thickness, 0, 0 ; goal side top left
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom left
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0 ; goal side top right
+  Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom right
+  Data.i #Sprite_Paddle, #False, #Wall_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #True, #False, 1, #True, 0, 0, 0, 0:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
+  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #True, #False, 1, #True, 0, 0, 0, 0:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
+  Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y ; ball
   
   Data_System_Font_Instances:
   ; Used for displaying the system font
@@ -375,17 +313,19 @@ DataSection
   Data.i #Sprite_Instance_Paddle2, #Player2, #Control_Button_X_Button, #Object_Control_Fire:Data.d -1
   
   Data_Story_Actions:
-  ; Format: Action, Time_length, Sprite_Instance, Player, Random_X(T/F), Random_Y(T/F), Random_Steps, Velocity_X, Velocity_Y, Random_X_Low, Random_X_High, Random_Y_Low, Random_Y_High
+  ; Format: Action, Custom, Time_length, Sprite_Instance, Player, Velocity_X, Velocity_Y
   ; Note: you can create random values lower than 1 by using random steps. For example low=-0.5 high=0.5 steps = 100
+  ; Player 0 means not relevant
+  ; Custom means it is handled by custom code
   Data.i 8
-  Data.i #Story_Action_Start, 0, -1, -1, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0 ; Game Start
-  Data.i #Story_Action_Pause, 1000, -1, -1, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0 ; Pause
-  Data.i #Story_Action_Sprite_Change_Velocity, 0, #Sprite_Instance_Ball, -1, #False, #True, 100:Data.d 200, 0, 0, 0, #Ball_Velocity_Y_Min, #Ball_Velocity_Y_Max ; Sprite change veloocity
-  Data.i #Story_Action_Continue, 0, -1, -1, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0 ; Game continue
-  Data.i #Story_Action_Player_Point, 0, -1, 1, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0 ; Player 1 point
-  Data.i #Story_Action_Restart_Level, 0, -1, -1, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0 ; Restart level
-  Data.i #Story_Action_Player_Point, 0, -1, 2, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0 ; Player 2 point
-  Data.i #Story_Action_Restart_Level, 0, -1, -1, #False, #False, 0:Data.d 0, 0, 0, 0, 0, 0 ; Restart level  
+  Data.i #Story_Action_Start, #False, 0, -1, 0:Data.d 0, 0 ; Game Start
+  Data.i #Story_Action_Pause, #False, 1000, -1, 0:Data.d 0, 0 ; Pause
+  Data.i #Story_Action_Sprite_Change_Velocity, #True, 0, #Sprite_Instance_Ball, -1:Data.d 0, 0 ; Sprite change veloocity
+  Data.i #Story_Action_Continue, #False, 0, -1, 0:Data.d 0, 0 ; Game continue
+  Data.i #Story_Action_Player_Point, #False, 0, -1, 1:Data.d 0, 0 ; Player 1 point
+  Data.i #Story_Action_Restart_Level, #False, 0, -1, 0:Data.d 0, 0 ; Restart level
+  Data.i #Story_Action_Player_Point, #False, 0, -1, 2:Data.d 0, 0 ; Player 2 point
+  Data.i #Story_Action_Restart_Level, #False, 0, -1, 0:Data.d 0, 0 ; Restart level  
   
   Data_Sprite_Constraints:
   ; Format: Sprite_Instance, Type, Value, Sprite_Action, Story_Action, Player
@@ -406,8 +346,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 44
-; FirstLine = 27
+; CursorPosition = 35
+; FirstLine = 277
 ; Folding = -
 ; EnableXP
 ; DPIAware
