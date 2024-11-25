@@ -2211,14 +2211,14 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
   Static Current_Time.q
   Protected Velocity_X.d, Velocity_Y.d
   If *System\Story_Action_Count > 0
-    Debug "ProcessStory: processing story action: " + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
-    Debug "Story position: " + *Story_Actions\Story_Position
+    ;Debug "ProcessStory: processing story action: " + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
+    ;Debug "Story position: " + *Story_Actions\Story_Position
     Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
       Case #Story_Action_Start
-        Debug "ProcessStory: start"
+        ;Debug "ProcessStory: start"
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_Pause
-        Debug "ProcessStory: pause"
+        ;Debug "ProcessStory: pause"
         If *System\Pause_Gameplay = 0 
           Current_Time = ElapsedMilliseconds()
           *System\Pause_Gameplay = 1
@@ -2228,7 +2228,7 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
           *System\Pause_Gameplay = 0
         EndIf
       Case #Story_Action_Sprite_Change_Velocity
-        Debug "ProcessStory: change velocity"
+        ;Debug "ProcessStory: change velocity"
         Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
         Velocity_Y = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_Y
         If *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Random_X
@@ -2241,12 +2241,12 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = Velocity_Y
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_Continue
-        Debug "ProcessStory: continue"
+        ;Debug "ProcessStory: continue"
       Case #Story_Action_Player_Point
-        Debug "ProcessStory: player point"
+        ;Debug "ProcessStory: player point"
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_Restart_Level
-        Debug "ProcessStory: restart level"
+        ;Debug "ProcessStory: restart level"
         RestartLevel(*System, *Graphics, *Story_Actions)
     EndSelect
   EndIf
@@ -3293,8 +3293,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2520
-; FirstLine = 2453
+; CursorPosition = 2248
+; FirstLine = 2209
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware
