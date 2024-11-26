@@ -195,6 +195,20 @@ Enumeration Story_Actions
   #Story_Action_Restart_Level
 EndEnumeration
 
+Enumeration Sprite_Collision
+  ;1 = top, 2 = right, 3 = bottom, 4 = left
+  #Sprite_Collision_None
+  #Sprite_Collision_Top
+  #Sprite_Collision_Right
+  #Sprite_Collision_Bottom
+  #Sprite_Collision_Left
+EndEnumeration
+
+Enumeration Collision_Action
+  #Collision_Action_Stop
+  #Collision_Action_Bounce
+EndEnumeration
+
 ;- Globals
 Global Restart.i = 0 ; restarts the game engine
 Global Delta_Time.d = 0
@@ -224,6 +238,7 @@ Global Delta_Time.d = 0
 #Max_Players = 4
 #Max_Sprite_Constraints = 32
 #Max_Story_Actions = 32
+#Max_Collisions = 32
 
 ;- Structures
 
@@ -314,6 +329,7 @@ Structure System_Structure
   Sprite_Constraints_Count.i
   Story_Action_Count.i
   Pause_Gameplay.i
+  Collisions_Count.i
 EndStructure
 
 Structure Debug_Structure
@@ -554,6 +570,7 @@ EndStructure
 Structure Sprite_Constraint_Structure
   Sprite_Instance.i
   Constraint_Type.i
+  Custom.i
   Value.i
   Sprite_Action.i
   Story_Action.i
@@ -586,6 +603,17 @@ Structure Story_Actions_Structure
   Story_Action.Story_Action_Structure[#Max_Story_Actions]
 EndStructure
 
+Structure Collision_Structure
+  Sprite.i
+  Sprite2.i
+  Custom.i
+  Action.i
+EndStructure
+
+Structure Collisions_Structure
+  Collision.Collision_Structure[#Max_Collisions]
+EndStructure
+
 ;- Defines
 
 ;***************************************************
@@ -602,6 +630,7 @@ Define Controls.Controls_Structure
 Define Players.Players_Structure
 Define Sprite_Constraints.Sprite_Constraints_Structure
 Define Story_Actions.Story_Actions_Structure
+Define Collisions.Collisions_Structure
   
 ;***********************************************
 ; Menu
@@ -939,6 +968,24 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
   EndIf
 EndProcedure
 
+Procedure LoadCollisions(*System.System_Structure, *Collisions.Collisions_Structure)
+  Protected c.i
+  Debug "LoadCollisions: loading player constraints"
+  Restore Data_Sprite_Collisions
+  Read *System\Collisions_Count
+  If *System\Collisions_Count > #Max_Collisions
+    *System\Fatal_Error_Message = "#Max_Collisions too small to load all collisions"
+    Fatal_Error(*System)
+  EndIf
+  For c = 0 To *System\Collisions_Count - 1
+    Read.i *Collisions\Collision[c]\Sprite
+    Read.i *Collisions\Collision[c]\Sprite2
+    Read.i *Collisions\Collision[c]\Custom
+    Read.i *Collisions\Collision[c]\Action
+  Next c
+  Debug "LoadCollisions: " + *System\Sprite_Constraints_Count + " collisions(s) loaded"
+EndProcedure
+
 Procedure LoadVariables(*System.System_Structure)
   ; Format: Action, Time_length, Sprite_Instance, Random_X, Random_Y, Random_Steps, Velocity_X, Velocity_Y, Velocity_X_Low, Velocity_X_High, Velicity_Y_Low, Velocity_Y_High
   Protected c.i
@@ -1011,6 +1058,7 @@ Procedure LoadSpriteConstraints(*System.System_Structure, *Sprite_Constraints.Sp
   For c = 0 To *System\Sprite_Constraints_Count - 1
     Read.i *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance
     Read.i *Sprite_Constraints\Sprite_Constraint[c]\Constraint_Type
+    Read.i *Sprite_Constraints\Sprite_Constraint[c]\Custom
     Read.i *Sprite_Constraints\Sprite_Constraint[c]\Value
     Read.i *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
     Read.i *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
@@ -2252,7 +2300,7 @@ EndProcedure
 Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
   Static Current_Time.q
   Protected Velocity_X.d, Velocity_Y.d
-  Debug "Story position: " + *Story_Actions\Story_Position
+  ;Debug "Story position: " + *Story_Actions\Story_Position
   If *System\Story_Action_Count > 0 And Not *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom
     Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
       Case #Story_Action_Start
@@ -2552,6 +2600,188 @@ Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_
   EndIf
 EndProcedure
 
+Procedure CheckCollisionAll(*System.System_Structure, *Graphics.Graphics_Structure, *Side.Integer, Sprite.i)
+  ; *Side = 0 no collision, 1 = top, 2 = right, 3 = bottom, 4 = left
+  Protected Sprite2.i
+  If Not *Graphics\Sprite_Instance[Sprite]\Is_Static ; only check the non-static sprites for collisions
+    For Sprite2 = 0 To *System\Sprite_Instance_Count-1
+      If Sprite <> Sprite2 And *Graphics\Sprite_Instance[Sprite]\Collision_Class = *Graphics\Sprite_Instance[Sprite2]\Collision_Class
+        If Sign(*Graphics\Sprite_Instance[Sprite]\Velocity_X) = 1
+          ; Right wall (ie the left side of a sprite)
+          If LinesIntersect(*Graphics\Sprite_Instance[Sprite]\Old_X + *Graphics\Sprite_Instance[Sprite]\Width, *Graphics\Sprite_Instance[Sprite]\Old_Y,
+                            *Graphics\Sprite_Instance[Sprite]\X + *Graphics\Sprite_Instance[Sprite]\Width, *Graphics\Sprite_Instance[Sprite]\Y,
+                            *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y, *Graphics\Sprite_Instance[Sprite2]\X,
+                            *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height) Or
+             LinesIntersect(*Graphics\Sprite_Instance[Sprite]\Old_X + *Graphics\Sprite_Instance[Sprite]\Width, *Graphics\Sprite_Instance[Sprite]\Old_Y + *Graphics\Sprite_Instance[Sprite]\Height,
+                            *Graphics\Sprite_Instance[Sprite]\X + *Graphics\Sprite_Instance[Sprite]\Width, *Graphics\Sprite_Instance[Sprite]\Y + *Graphics\Sprite_Instance[Sprite]\Height,
+                            *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y, *Graphics\Sprite_Instance[Sprite2]\X,
+                            *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height)
+            *Side\i = #Sprite_Collision_Right
+            ProcedureReturn
+          EndIf
+        EndIf 
+        If Sign(*Graphics\Sprite_Instance[Sprite]\Velocity_Y) = -1
+          ; Top wall
+          If LinesIntersect(*Graphics\Sprite_Instance[Sprite]\Old_X, *Graphics\Sprite_Instance[Sprite]\Old_Y,
+                            *Graphics\Sprite_Instance[Sprite]\X, *Graphics\Sprite_Instance[Sprite]\Y,
+                            *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height,
+                            *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                            *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height) Or
+             LinesIntersect(*Graphics\Sprite_Instance[Sprite]\Old_X + *Graphics\Sprite_Instance[Sprite]\Width, *Graphics\Sprite_Instance[Sprite]\Old_Y,
+                            *Graphics\Sprite_Instance[Sprite]\X + *Graphics\Sprite_Instance[Sprite]\Width, *Graphics\Sprite_Instance[Sprite]\Y,
+                            *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height,
+                            *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                            *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height)
+            *Side\i = #Sprite_Collision_Top
+            ProcedureReturn
+          EndIf
+        EndIf
+        If Sign(*Graphics\Sprite_Instance[Sprite]\Velocity_X) = -1
+          ; Left wall
+          If LinesIntersect(*Graphics\Sprite_Instance[Sprite]\Old_X, *Graphics\Sprite_Instance[Sprite]\Old_Y,
+                            *Graphics\Sprite_Instance[Sprite]\X, *Graphics\Sprite_Instance[Sprite]\Y,
+                            *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width, *Graphics\Sprite_Instance[Sprite2]\Y,
+                            *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                            *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height) Or
+             LinesIntersect(*Graphics\Sprite_Instance[Sprite]\Old_X, *Graphics\Sprite_Instance[Sprite]\Old_Y + *Graphics\Sprite_Instance[Sprite]\Height,
+                            *Graphics\Sprite_Instance[Sprite]\X, *Graphics\Sprite_Instance[Sprite]\Y + *Graphics\Sprite_Instance[Sprite]\Height,
+                            *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width, *Graphics\Sprite_Instance[Sprite2]\Y,
+                            *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                            *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height)
+            *Side\i = #Sprite_Collision_Left
+            ProcedureReturn
+          EndIf
+        EndIf 
+        If Sign(*Graphics\Sprite_Instance[Sprite]\Velocity_Y) = 1
+          ; Bottom wall
+          If LinesIntersect(*Graphics\Sprite_Instance[Sprite]\Old_X, *Graphics\Sprite_Instance[Sprite]\Old_Y + *Graphics\Sprite_Instance[Sprite]\Height,
+                            *Graphics\Sprite_Instance[Sprite]\X, *Graphics\Sprite_Instance[Sprite]\Y + *Graphics\Sprite_Instance[Sprite]\Height,
+                            *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y,
+                            *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                            *Graphics\Sprite_Instance[Sprite2]\Y) Or
+             LinesIntersect(*Graphics\Sprite_Instance[Sprite]\Old_X + *Graphics\Sprite_Instance[Sprite]\Width, *Graphics\Sprite_Instance[Sprite]\Old_Y + *Graphics\Sprite_Instance[Sprite]\Height,
+                            *Graphics\Sprite_Instance[Sprite]\X + *Graphics\Sprite_Instance[Sprite]\Width, *Graphics\Sprite_Instance[Sprite]\Y + *Graphics\Sprite_Instance[Sprite]\Height,
+                            *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y,
+                            *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                            *Graphics\Sprite_Instance[Sprite2]\Y)
+            *Side\i = #Sprite_Collision_Bottom
+            ProcedureReturn
+          EndIf   
+        EndIf 
+      EndIf  
+    Next Sprite2
+  EndIf
+  *Side\i = #Sprite_Collision_None ; no collision
+EndProcedure
+
+Procedure CheckCollision(*System.System_Structure, *Graphics.Graphics_Structure, *Side.Integer, Sprite1.i, Sprite2.i)
+  ; *Side = 0 no collision, 1 = top, 2 = right, 3 = bottom, 4 = left
+  If Not *Graphics\Sprite_Instance[Sprite1]\Is_Static ; only check the non-static sprites for collisions
+    If Sprite1 <> Sprite2 And *Graphics\Sprite_Instance[Sprite1]\Collision_Class = *Graphics\Sprite_Instance[Sprite2]\Collision_Class
+      If Sign(*Graphics\Sprite_Instance[Sprite1]\Velocity_X) = 1
+        ; Right wall (ie the left side of a sprite)
+        If LinesIntersect(*Graphics\Sprite_Instance[Sprite1]\Old_X + *Graphics\Sprite_Instance[Sprite1]\Width, *Graphics\Sprite_Instance[Sprite1]\Old_Y,
+                          *Graphics\Sprite_Instance[Sprite1]\X + *Graphics\Sprite_Instance[Sprite1]\Width, *Graphics\Sprite_Instance[Sprite1]\Y,
+                          *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y, *Graphics\Sprite_Instance[Sprite2]\X,
+                          *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height) Or
+           LinesIntersect(*Graphics\Sprite_Instance[Sprite1]\Old_X + *Graphics\Sprite_Instance[Sprite1]\Width, *Graphics\Sprite_Instance[Sprite1]\Old_Y + *Graphics\Sprite_Instance[Sprite1]\Height,
+                          *Graphics\Sprite_Instance[Sprite1]\X + *Graphics\Sprite_Instance[Sprite1]\Width, *Graphics\Sprite_Instance[Sprite1]\Y + *Graphics\Sprite_Instance[Sprite1]\Height,
+                          *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y, *Graphics\Sprite_Instance[Sprite2]\X,
+                          *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height)
+          *Side\i = #Sprite_Collision_Right
+          ProcedureReturn
+        EndIf
+      EndIf 
+      If Sign(*Graphics\Sprite_Instance[Sprite1]\Velocity_Y) = -1
+        ; Top wall
+        If LinesIntersect(*Graphics\Sprite_Instance[Sprite1]\Old_X, *Graphics\Sprite_Instance[Sprite1]\Old_Y,
+                          *Graphics\Sprite_Instance[Sprite1]\X, *Graphics\Sprite_Instance[Sprite1]\Y,
+                          *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height,
+                          *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                          *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height) Or
+           LinesIntersect(*Graphics\Sprite_Instance[Sprite1]\Old_X + *Graphics\Sprite_Instance[Sprite1]\Width, *Graphics\Sprite_Instance[Sprite1]\Old_Y,
+                          *Graphics\Sprite_Instance[Sprite1]\X + *Graphics\Sprite_Instance[Sprite1]\Width, *Graphics\Sprite_Instance[Sprite1]\Y,
+                          *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height,
+                          *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                          *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height)
+          *Side\i = #Sprite_Collision_Top
+          ProcedureReturn
+        EndIf
+      EndIf
+      If Sign(*Graphics\Sprite_Instance[Sprite1]\Velocity_X) = -1
+        ; Left wall
+        If LinesIntersect(*Graphics\Sprite_Instance[Sprite1]\Old_X, *Graphics\Sprite_Instance[Sprite1]\Old_Y,
+                          *Graphics\Sprite_Instance[Sprite1]\X, *Graphics\Sprite_Instance[Sprite1]\Y,
+                          *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width, *Graphics\Sprite_Instance[Sprite2]\Y,
+                          *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                          *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height) Or
+           LinesIntersect(*Graphics\Sprite_Instance[Sprite1]\Old_X, *Graphics\Sprite_Instance[Sprite1]\Old_Y + *Graphics\Sprite_Instance[Sprite1]\Height,
+                          *Graphics\Sprite_Instance[Sprite1]\X, *Graphics\Sprite_Instance[Sprite1]\Y + *Graphics\Sprite_Instance[Sprite1]\Height,
+                          *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width, *Graphics\Sprite_Instance[Sprite2]\Y,
+                          *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                          *Graphics\Sprite_Instance[Sprite2]\Y + *Graphics\Sprite_Instance[Sprite2]\Height)
+          *Side\i = #Sprite_Collision_Left
+          ProcedureReturn
+        EndIf
+      EndIf 
+      If Sign(*Graphics\Sprite_Instance[Sprite1]\Velocity_Y) = 1
+        ; Bottom wall
+        If LinesIntersect(*Graphics\Sprite_Instance[Sprite1]\Old_X, *Graphics\Sprite_Instance[Sprite1]\Old_Y + *Graphics\Sprite_Instance[Sprite1]\Height,
+                          *Graphics\Sprite_Instance[Sprite1]\X, *Graphics\Sprite_Instance[Sprite1]\Y + *Graphics\Sprite_Instance[Sprite1]\Height,
+                          *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y,
+                          *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                          *Graphics\Sprite_Instance[Sprite2]\Y) Or
+           LinesIntersect(*Graphics\Sprite_Instance[Sprite1]\Old_X + *Graphics\Sprite_Instance[Sprite1]\Width, *Graphics\Sprite_Instance[Sprite1]\Old_Y + *Graphics\Sprite_Instance[Sprite1]\Height,
+                          *Graphics\Sprite_Instance[Sprite1]\X + *Graphics\Sprite_Instance[Sprite1]\Width, *Graphics\Sprite_Instance[Sprite1]\Y + *Graphics\Sprite_Instance[Sprite1]\Height,
+                          *Graphics\Sprite_Instance[Sprite2]\X, *Graphics\Sprite_Instance[Sprite2]\Y,
+                          *Graphics\Sprite_Instance[Sprite2]\X + *Graphics\Sprite_Instance[Sprite2]\Width,
+                          *Graphics\Sprite_Instance[Sprite2]\Y)
+          *Side\i = #Sprite_Collision_Bottom
+          ProcedureReturn
+        EndIf   
+      EndIf 
+    EndIf  
+  EndIf
+  *Side\i = #Sprite_Collision_None ; no collision
+EndProcedure
+  
+Procedure ProcessCollisions(*System.System_Structure, *Graphics.Graphics_Structure, *Collisions.Collisions_Structure)
+  Protected c.i, Side.i
+  For c = 0 To *System\Collisions_Count-1
+    If Not *Collisions\Collision[c]\Custom
+      CheckCollision(*System, *Graphics, @Side, *Collisions\Collision[c]\Sprite, *Collisions\Collision[c]\Sprite2)
+      If Side
+        Select *Collisions\Collision[c]\Action
+          Case #Collision_Action_Stop
+            Select Side
+              Case #Sprite_Collision_Right
+                *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\X = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\X - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Width
+              Case #Sprite_Collision_Left
+                *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\X = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\X + *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Width
+              Case #Sprite_Collision_Top
+                *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Y = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Y + *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Height
+              Case #Sprite_Collision_Bottom
+                *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Y = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Y - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Height
+            EndSelect
+            *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X = 0
+            *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = 0
+          Case #Collision_Action_Bounce
+            Select Side
+              Case #Sprite_Collision_Right
+                *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X = 0 - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X
+              Case #Sprite_Collision_Left
+                *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X = 0 - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X
+              Case #Sprite_Collision_Top
+                *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = 0 - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y
+              Case #Sprite_Collision_Bottom
+                *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = 0 - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y
+            EndSelect
+        EndSelect
+      EndIf
+    EndIf
+  Next c
+EndProcedure
+
 Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_Structure)
   Protected c.i, d.i
   For c = 0 To *System\Sprite_Instance_Count-1
@@ -2559,78 +2789,6 @@ Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_St
     *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Y
     *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Time
     *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Time
-  Next c
-  ; Process collisions
-  ; NB static sprites don't need to be checked for collisions
-  For c = 0 To *System\Sprite_Instance_Count-1
-    If Not *Graphics\Sprite_Instance[c]\Is_Static ; only check the non-static sprites for collisions
-      For d = 0 To *System\Sprite_Instance_Count-1
-        If c <> d And *Graphics\Sprite_Instance[c]\Collision_Class = *Graphics\Sprite_Instance[d]\Collision_Class
-          If Sign(*Graphics\Sprite_Instance[c]\Velocity_X) = 1
-            ; Right wall
-            If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y,
-                              *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y,
-                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y, *Graphics\Sprite_Instance[d]\X,
-                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
-              LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
-                              *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
-                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y, *Graphics\Sprite_Instance[d]\X,
-                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)             
-              *Graphics\Sprite_Instance[c]\Velocity_X = -*Graphics\Sprite_Instance[c]\Velocity_X ; reverse the velocity
-              *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Time ; bounce the object
-            EndIf
-          EndIf 
-          If Sign(*Graphics\Sprite_Instance[c]\Velocity_Y) = -1
-            ; Top wall
-            If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y,
-                              *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y,
-                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height,
-                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
-              LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y,
-                              *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y,
-                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height,
-                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)
-              *Graphics\Sprite_Instance[c]\Velocity_Y = Abs(*Graphics\Sprite_Instance[c]\Velocity_Y) ; reverse the velocity
-              *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Time ; bounce the object
-            EndIf
-          EndIf
-          If Sign(*Graphics\Sprite_Instance[c]\Velocity_X) = -1
-            ; Left wall
-            If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y,
-                              *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y,
-                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width, *Graphics\Sprite_Instance[d]\Y,
-                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height) Or
-              LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
-                              *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
-                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width, *Graphics\Sprite_Instance[d]\Y,
-                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                              *Graphics\Sprite_Instance[d]\Y + *Graphics\Sprite_Instance[d]\Height)
-              *Graphics\Sprite_Instance[c]\Velocity_X = Abs(*Graphics\Sprite_Instance[c]\Velocity_X) ; reverse the velocity
-              *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Time ; bounce the object
-            EndIf
-          EndIf 
-          If Sign(*Graphics\Sprite_Instance[c]\Velocity_Y) = 1
-            ; Bottom wall
-            If LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
-                              *Graphics\Sprite_Instance[c]\X, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
-                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y,
-                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                              *Graphics\Sprite_Instance[d]\Y) Or
-               LinesIntersect(*Graphics\Sprite_Instance[c]\Old_X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Old_Y + *Graphics\Sprite_Instance[c]\Height,
-                              *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Width, *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Height,
-                              *Graphics\Sprite_Instance[d]\X, *Graphics\Sprite_Instance[d]\Y,
-                              *Graphics\Sprite_Instance[d]\X + *Graphics\Sprite_Instance[d]\Width,
-                              *Graphics\Sprite_Instance[d]\Y)
-              *Graphics\Sprite_Instance[c]\Velocity_Y = -*Graphics\Sprite_Instance[c]\Velocity_Y ; reverse the velocity
-              *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Time ; bounce the object
-            EndIf   
-          EndIf 
-        EndIf  
-      Next d
-    EndIf
   Next c
 EndProcedure
 
@@ -2652,7 +2810,6 @@ Procedure ProcessMouse(*System.System_Structure, *Screen_Settings.Screen_Setting
       *System\Mouse_Y = WindowMouseY(#Game_Window_Main)
       ; Window mouse clicks are handled by ProcessWindowEvents
     EndIf 
-    
   EndIf
 EndProcedure
 
@@ -2896,7 +3053,7 @@ EndProcedure
 
 Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure,
                      *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Sprite_Constraints.Sprite_Constraints_Structure,
-                     *Story_Actions.Story_Actions_Structure)
+                     *Story_Actions.Story_Actions_Structure, *Collisions.Collisions_Structure)
   ; Initialises the environment
   Protected Result.i, c.i
   
@@ -3002,14 +3159,15 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   
   LoadVectorResources(*System, *Graphics)
   LoadSpriteResources(*System, *Screen_Settings, *Graphics)
+  LoadSystemFont(*System)
   LoadSpriteInstances(*System, *Graphics)
   LoadSystemFontInstances(*System, *Graphics)
   LoadControls(*System, *Controls)
   LoadObjectControls(*System, *Controls)
   LoadSpriteConstraints(*System, *Sprite_Constraints)
   LoadStoryActions(*System, *Story_Actions)
-  LoadSystemFont(*System)
-  
+  LoadCollisions(*System, *Collisions)
+    
   ;If Not InitialiseFonts(*System)
   ;  Debug "Initialise: could not initialise fonts"
   ;  SetInitialiseError(*P, "Could not initialise fonts")
@@ -3084,7 +3242,7 @@ Story_Actions\Story_Position = 0
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
-  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions)
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions, @Collisions)
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
     Repeat
@@ -3098,6 +3256,7 @@ Repeat ; used for restarting the game
       ProcessStory(@System, @Graphics, @Story_Actions)
       ProcessSpritePositions(@System, @Graphics)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
+      ProcessCollisions(@System, @Graphics, @Collisions)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -3316,14 +3475,16 @@ DataSection
   Data.i 0
   Data_Story_Actions:
   Data.i 0
+  Data_Sprite_Collisions:
+  Data.i 0
   
   CompilerEndIf
   
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1714
-; FirstLine = 1660
+; CursorPosition = 2757
+; FirstLine = 2729
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware

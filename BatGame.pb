@@ -33,8 +33,8 @@ EndEnumeration
 
 Enumeration Sprite_Instances
   #Sprite_Instance_Centre_Line
-  #Sprite_Instance_Field1 ; used to create the playing field
-  #Sprite_Instance_Field2
+  #Sprite_Instance_Top_Wall ; used to create the playing field
+  #Sprite_Instance_Bottom_Wall
   #Sprite_Instance_Field3
   #Sprite_Instance_Field4
   #Sprite_Instance_Field5
@@ -71,6 +71,13 @@ Enumeration Story_Actions
   #Story_Actions_Restart_Level2
 EndEnumeration
 
+Enumeration Collisions
+  #Collisions_Ball_Top_Wall
+  #Collisions_Ball_Bottom_Wall
+  #Collisions_Ball_Paddle1
+  #Collisions_Ball_Paddle2
+EndEnumeration
+
 ;- Constants
 
 #Colour_Black = #Black
@@ -99,8 +106,9 @@ EndEnumeration
 #Ball_Velocity_Y = 0
 #Paddle_Start_Y1 = 224/2-#Paddle_Length/2
 #Paddle_Start_Y2 = 224/2-#Paddle_Length/2
-#Ball_Velocity_Y_Min = -200
-#Ball_Velocity_Y_Max = 200
+#Ball_Max_Serve_Angle = 3*#PI/12
+#Ball_Max_Bounce_Angle = 3*#PI/12
+#Ball_Speed = 200 ; pixels per second
 
 ;- Structures
 
@@ -130,16 +138,49 @@ Procedure ProcessCustomStory(*Graphics.Graphics_Structure, *Story_Actions.Story_
   If *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom
     Select *Story_Actions\Story_Position
       Case #Story_Actions_Sprite_Change_Velocity
-        ; Change the velocity randomly
         Debug "ProcessCustomStory: change velocity"
         Protected Velocity_X.d, Velocity_Y.d
-        Velocity_X = 200
-        Velocity_Y = MapRange(Random(100), 0, 100, #Ball_Velocity_Y_Min, #Ball_Velocity_Y_Max)
+        Protected Serve_Angle.i = Random(30) - 15
+        Protected New_Angle.d
+        Protected Actual_Serve_Angle.d
+        New_Angle = Serve_Angle / 15
+        Actual_Serve_Angle = New_Angle * #Ball_Max_Serve_Angle
+        Velocity_X = #Ball_Speed * Cos(Actual_Serve_Angle)
+        Velocity_Y = #Ball_Speed * Sin(Actual_Serve_Angle)
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = Velocity_X
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = Velocity_Y
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
     EndSelect
   EndIf
+EndProcedure
+
+Procedure ProcessCustomCollisions(*System.System_Structure, *Graphics.Graphics_Structure, *Collisions.Collisions_Structure)
+  Protected c.i, Side.i
+  Protected Paddle_Pos.i
+  Protected Paddle_Height.i
+  Protected Ball_Height.i
+  Protected New_Angle.d
+  Protected Bounce_Angle.d
+  For c = 0 To *System\Collisions_Count-1
+    If *Collisions\Collision[c]\Custom
+      CheckCollision(*System, *Graphics, @Side, *Collisions\Collision[c]\Sprite, *Collisions\Collision[c]\Sprite2)
+      If Side
+        Paddle_Height = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Height
+        Ball_Height = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Height
+        Paddle_Pos = (*Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Y+(Paddle_Height/2)) - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Y - Ball_Height/2
+        New_Angle = Paddle_Pos / (Paddle_Height / 2)
+        Bounce_Angle = New_Angle * #Ball_Max_Bounce_Angle        
+        Select c
+          Case #Collisions_Ball_Paddle1
+            *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X = #Ball_Speed * Cos(Bounce_Angle)
+            *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = #Ball_Speed * -Sin(Bounce_Angle)
+          Case #Collisions_Ball_Paddle2
+            *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X = #Ball_Speed * -Cos(Bounce_Angle)
+            *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = #Ball_Speed * -Sin(Bounce_Angle)
+         EndSelect   
+      EndIf
+    EndIf
+  Next c
 EndProcedure
 
 ;- Main
@@ -154,7 +195,7 @@ CompilerSelect #PB_Compiler_OS
     System\Minimum_Colour_Depth = 32
 CompilerEndSelect  
 System\Fatal_Error_Message = "none"
-System\Game_Title = "Battle Pong"
+System\Game_Title = "Battle Tennis"
 System\Game_Config_File = "settings.cfg"
 System\Sprite_List_Data_Source = #Data_Source_Internal_Memory
 System\Game_Resource_Location = "Data"
@@ -191,7 +232,7 @@ Story_Actions\Story_Position = #Story_Actions_Start
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
-  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions)
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions, @Collisions)
     InitialiseCustomCode()
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
@@ -213,6 +254,8 @@ Repeat ; used for restarting the game
       ProcessCustomStory(@Graphics, @Story_Actions)
       ProcessSpritePositions(@System, @Graphics)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
+      ProcessCollisions(@System, @Graphics, @Collisions)
+      ProcessCustomCollisions(@System, @Graphics, @Collisions)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -253,7 +296,7 @@ DataSection
   
   Data_Custom_Sprite_Resources:
   ; Provides a list of sprite resources to be loaded
-  ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file, Repeat_X, Repeat_Y
+  ; Format: Width, Height, Mode, Transparent, Vector_Drawn, Source, Index/file
   Data.i 4; Number of records
   Data.i 10, 10, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Box
   Data.i #Paddle_Thickness, #Paddle_Length, #PB_Sprite_AlphaBlending, #True, #True, #Data_Source_Internal_Memory, #Vector_Box ; #Sprite_Paddle
@@ -328,15 +371,23 @@ DataSection
   Data.i #Story_Action_Restart_Level, #False, 0, -1, 0:Data.d 0, 0 ; Restart level  
   
   Data_Sprite_Constraints:
-  ; Format: Sprite_Instance, Type, Value, Sprite_Action, Story_Action, Player
+  ; Format: Sprite_Instance, Type, Custom, Value, Sprite_Action, Story_Action, Player
   ; Use -1 for no change in story action
   Data.i 6
-  Data.i #Sprite_Instance_Paddle1, #Constraint_Type_Bottom, #Wall_Thickness, #Sprite_Action_Stop, -1, 0
-  Data.i #Sprite_Instance_Paddle1, #Constraint_Type_Top, 224-#Wall_Thickness-#Paddle_Length, #Sprite_Action_Stop, -1, 0
-  Data.i #Sprite_Instance_Paddle2, #Constraint_Type_Bottom, #Wall_Thickness, #Sprite_Action_Stop, -1, 0
-  Data.i #Sprite_Instance_Paddle2, #Constraint_Type_Top, 224-#Wall_Thickness-#Paddle_Length, #Sprite_Action_Stop, -1, 0
-  Data.i #Sprite_Instance_Ball, #Constraint_Type_Right, 0, #Sprite_Action_Invisible, 4, 1
-  Data.i #Sprite_Instance_Ball, #Constraint_Type_Left, 255, #Sprite_Action_Invisible, 6, 2
+  Data.i #Sprite_Instance_Paddle1, #Constraint_Type_Bottom, #False, #Wall_Thickness, #Sprite_Action_Stop, -1, 0
+  Data.i #Sprite_Instance_Paddle1, #Constraint_Type_Top, #False, 224-#Wall_Thickness-#Paddle_Length, #Sprite_Action_Stop, -1, 0
+  Data.i #Sprite_Instance_Paddle2, #Constraint_Type_Bottom, #False, #Wall_Thickness, #Sprite_Action_Stop, -1, 0
+  Data.i #Sprite_Instance_Paddle2, #Constraint_Type_Top, #False, 224-#Wall_Thickness-#Paddle_Length, #Sprite_Action_Stop, -1, 0
+  Data.i #Sprite_Instance_Ball, #Constraint_Type_Right, #False, 0, #Sprite_Action_Invisible, 4, 1
+  Data.i #Sprite_Instance_Ball, #Constraint_Type_Left, #False, 255, #Sprite_Action_Invisible, 6, 2
+    
+  Data_Sprite_Collisions:
+  ; Format: Sprite_Instance, Sprite_Instance2, Custom, Collision_Action
+  Data.i 4
+  Data.i #Sprite_Instance_Ball, #Sprite_Instance_Top_Wall, #False, #Collision_Action_Bounce ; bounce off the top wall
+  Data.i #Sprite_Instance_Ball, #Sprite_Instance_Bottom_Wall, #False, #Collision_Action_Bounce ; bounce off the bottom wall
+  Data.i #Sprite_Instance_Ball, #Sprite_Instance_Paddle1, #True, -1
+  Data.i #Sprite_Instance_Ball, #Sprite_Instance_Paddle2, #True, -1
   
   Data_Variables:
   ;Format: Type, default value
@@ -346,8 +397,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 275
-; FirstLine = 235
+; CursorPosition = 171
+; FirstLine = 125
 ; Folding = -
 ; EnableXP
 ; DPIAware
