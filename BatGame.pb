@@ -97,7 +97,7 @@ EndEnumeration
 #Paddle_Thickness = 6
 #Paddle_Distance = 6
 #Paddle_Length = 30
-#Paddle_Speed = 400 ; pixels per second
+#Paddle_Speed = 300 ; pixels per second
 #Goal_Sides = 0
 #Paddle_Colour = #Colour_Light_Grey
 #Score_Size = 16
@@ -416,9 +416,9 @@ DataSection
   Data.i #Sprite_Instance_Ball, #Sprite_Instance_Paddle2, #True, -1
   
 EndDataSection
-; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 351
-; FirstLine = 336
+; IDE Options = PureBasic 6.11 LTS (Linux - x64)
+; CursorPosition = 99
+; FirstLine = 80
 ; Folding = -
 ; EnableXP
 ; DPIAware

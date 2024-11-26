@@ -3476,6 +3476,8 @@ DataSection
   
   CompilerIf #PB_Compiler_IsMainFile
     
+  Data_Variables:
+  Data.i 0  
   Data_Vector_Resources:
   ; Format: Shape type, Background Transparent (T/F), Colour, Background colour, X, Y, Width, Height, Radius, Round_X, Round_Y, Continue
   Data.i 0 ; Number of records
@@ -3509,8 +3511,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1905
-; FirstLine = 1876
+; CursorPosition = 3479
+; FirstLine = 3440
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware
