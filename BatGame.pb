@@ -158,6 +158,7 @@ Procedure ProcessCustomCollisions(*System.System_Structure, *Graphics.Graphics_S
   Protected c.i, Side.i
   Protected Paddle_Pos.i
   Protected Paddle_Height.i
+  Protected Surface.i
   Protected Ball_Height.i
   Protected New_Angle.d
   Protected Bounce_Angle.d
@@ -168,8 +169,11 @@ Procedure ProcessCustomCollisions(*System.System_Structure, *Graphics.Graphics_S
         Case #Sprite_Collision_Right, #Sprite_Collision_Left
           Paddle_Height = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Height
           Ball_Height = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Height
-          Paddle_Pos = (*Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Y+(Paddle_Height/2)) - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Y - Ball_Height/2
-          New_Angle = Paddle_Pos / (Paddle_Height / 2)
+          Surface = Paddle_Height + Ball_Height
+          Paddle_Pos = (*Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Y+(-(Ball_Height/2)+Surface/2)) - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Y - Ball_Height/2
+          Debug "Paddle pos: " + Paddle_Pos
+          New_Angle = Paddle_Pos / (Surface / 2)
+          ;Debug "New angle: " + New_Angle
           Bounce_Angle = New_Angle * #Ball_Max_Bounce_Angle        
           Select c
             Case #Collisions_Ball_Paddle1
@@ -361,21 +365,21 @@ DataSection
   Data.i #Sprite_Instance_Paddle2, #Player2, #Control_Button_X_Button, #Object_Control_Fire:Data.d -1
   
   Data_Story_Actions:
-  ; Format: Action, Custom, Time_length, Sprite_Instance, Player, Velocity_X, Velocity_Y
+  ; Format: Action, Custom, Time_length, Score_Amount, Sprite_Instance, Player, Velocity_X, Velocity_Y
   ; Note: you can create random values lower than 1 by using random steps. For example low=-0.5 high=0.5 steps = 100
   ; Player 0 means not relevant
   ; Custom means it is handled by custom code
   Data.i 10
-  Data.i #Story_Action_Start, #False, 0, -1, 0:Data.d 0, 0 ; Game Start
-  Data.i #Story_Action_Pause, #False, 1000, -1, 0:Data.d 0, 0 ; Pause
-  Data.i #Story_Action_Sprite_Change_Velocity, #True, 0, #Sprite_Instance_Ball, -1:Data.d 0, 0 ; Sprite change veloocity
-  Data.i #Story_Action_Continue, #False, 0, -1, 0:Data.d 0, 0 ; Game continue
-  Data.i #Story_Action_Player_Point, #False, 0, -1, 1:Data.d 0, 0 ; Player 1 point
-  Data.i #Story_Action_Pause, #False, 1000, -1, 0:Data.d 0, 0 ; Pause
-  Data.i #Story_Action_Restart_Level, #False, 0, -1, 0:Data.d 0, 0 ; Restart level
-  Data.i #Story_Action_Player_Point, #False, 0, -1, 2:Data.d 0, 0  ; Player 2 point
-  Data.i #Story_Action_Pause, #False, 1000, -1, 0:Data.d 0, 0 ; Pause
-  Data.i #Story_Action_Restart_Level, #False, 0, -1, 0:Data.d 0, 0 ; Restart level  
+  Data.i #Story_Action_Start, #False, 0, 0, -1, 0:Data.d 0, 0 ; Game Start
+  Data.i #Story_Action_Pause, #False, 1000, 0, -1, 0:Data.d 0, 0 ; Pause
+  Data.i #Story_Action_Sprite_Change_Velocity, #True, 0, 0, #Sprite_Instance_Ball, -1:Data.d 0, 0 ; Sprite change veloocity
+  Data.i #Story_Action_Continue, #False, 0, 0, -1, 0:Data.d 0, 0 ; Game continue
+  Data.i #Story_Action_Player_Point, #False, 0, 1, -1, 1:Data.d 0, 0 ; Player 1 point
+  Data.i #Story_Action_Pause, #False, 1000, 0, -1, 0:Data.d 0, 0 ; Pause
+  Data.i #Story_Action_Restart_Level, #False, 0, 0, -1, 0:Data.d 0, 0 ; Restart level
+  Data.i #Story_Action_Player_Point, #False, 0, 1, -1, 2:Data.d 0, 0  ; Player 2 point
+  Data.i #Story_Action_Pause, #False, 1000, 0, -1, 0:Data.d 0, 0 ; Pause
+  Data.i #Story_Action_Restart_Level, #False, 0, 0, -1, 0:Data.d 0, 0 ; Restart level  
   
   Data_Sprite_Constraints:
   ; Format: Sprite_Instance, Type, Custom, Value, Sprite_Action, Story_Action, Player
@@ -404,8 +408,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 109
-; FirstLine = 69
+; CursorPosition = 77
+; FirstLine = 59
 ; Folding = -
 ; EnableXP
 ; DPIAware

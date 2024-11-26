@@ -585,17 +585,11 @@ Structure Story_Action_Structure
   Action.i
   Custom.i
   Time_Length.i
+  Score_Amount.i
   Sprite_Instance.i
   Player.i
-  Random_X.i ; true if allow random
-  Random_Y.i ; true if allow random
-  Random_Steps.i
   Velocity_X.d
   Velocity_Y.d
-  Random_Low_X.d
-  Random_High_X.d
-  Random_Low_Y.d
-  Random_High_Y.d
 EndStructure
 
 Structure Story_Actions_Structure
@@ -1038,6 +1032,7 @@ Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Action
     Read.i *Story_Actions\Story_Action[c]\Action
     Read.i *Story_Actions\Story_Action[c]\Custom
     Read.i *Story_Actions\Story_Action[c]\Time_Length
+    Read.i *Story_Actions\Story_Action[c]\Score_Amount
     Read.i *Story_Actions\Story_Action[c]\Sprite_Instance
     Read.i *Story_Actions\Story_Action[c]\Player
     Read.d *Story_Actions\Story_Action[c]\Velocity_X
@@ -3488,8 +3483,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2330
-; FirstLine = 2281
+; CursorPosition = 1034
+; FirstLine = 1020
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware
