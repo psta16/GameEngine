@@ -106,8 +106,8 @@ EndEnumeration
 #Ball_Velocity_Y = 0
 #Paddle_Start_Y1 = 224/2-#Paddle_Length/2
 #Paddle_Start_Y2 = 224/2-#Paddle_Length/2
-#Ball_Max_Serve_Angle = 3*#PI/12
-#Ball_Max_Bounce_Angle = 3*#PI/12
+#Ball_Max_Serve_Angle = 45*#PI/180
+#Ball_Max_Bounce_Angle = 75*#PI/180
 #Ball_Speed = 200 ; pixels per second
 
 ;- Structures
@@ -365,14 +365,16 @@ DataSection
   ; Note: you can create random values lower than 1 by using random steps. For example low=-0.5 high=0.5 steps = 100
   ; Player 0 means not relevant
   ; Custom means it is handled by custom code
-  Data.i 8
+  Data.i 10
   Data.i #Story_Action_Start, #False, 0, -1, 0:Data.d 0, 0 ; Game Start
   Data.i #Story_Action_Pause, #False, 1000, -1, 0:Data.d 0, 0 ; Pause
   Data.i #Story_Action_Sprite_Change_Velocity, #True, 0, #Sprite_Instance_Ball, -1:Data.d 0, 0 ; Sprite change veloocity
   Data.i #Story_Action_Continue, #False, 0, -1, 0:Data.d 0, 0 ; Game continue
   Data.i #Story_Action_Player_Point, #False, 0, -1, 1:Data.d 0, 0 ; Player 1 point
+  Data.i #Story_Action_Pause, #False, 1000, -1, 0:Data.d 0, 0 ; Pause
   Data.i #Story_Action_Restart_Level, #False, 0, -1, 0:Data.d 0, 0 ; Restart level
-  Data.i #Story_Action_Player_Point, #False, 0, -1, 2:Data.d 0, 0 ; Player 2 point
+  Data.i #Story_Action_Player_Point, #False, 0, -1, 2:Data.d 0, 0  ; Player 2 point
+  Data.i #Story_Action_Pause, #False, 1000, -1, 0:Data.d 0, 0 ; Pause
   Data.i #Story_Action_Restart_Level, #False, 0, -1, 0:Data.d 0, 0 ; Restart level  
   
   Data_Sprite_Constraints:
@@ -384,7 +386,7 @@ DataSection
   Data.i #Sprite_Instance_Paddle2, #Constraint_Type_Bottom, #False, #Wall_Thickness, #Sprite_Action_Stop, -1, 0
   Data.i #Sprite_Instance_Paddle2, #Constraint_Type_Top, #False, 224-#Wall_Thickness-#Paddle_Length, #Sprite_Action_Stop, -1, 0
   Data.i #Sprite_Instance_Ball, #Constraint_Type_Right, #False, 0, #Sprite_Action_Invisible, 4, 1
-  Data.i #Sprite_Instance_Ball, #Constraint_Type_Left, #False, 255, #Sprite_Action_Invisible, 6, 2
+  Data.i #Sprite_Instance_Ball, #Constraint_Type_Left, #False, 255, #Sprite_Action_Invisible, 7, 2
     
   Data_Sprite_Collisions:
   ; Format: Sprite_Instance, Sprite_Instance2, Custom, Collision_Action
@@ -402,8 +404,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 145
-; FirstLine = 115
+; CursorPosition = 109
+; FirstLine = 69
 ; Folding = -
 ; EnableXP
 ; DPIAware

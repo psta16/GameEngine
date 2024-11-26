@@ -2305,16 +2305,19 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
     Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
       Case #Story_Action_Start
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+        Debug "ProcessStory: start"
       Case #Story_Action_Pause
         If *System\Pause_Gameplay = 0 
           Current_Time = ElapsedMilliseconds()
           *System\Pause_Gameplay = 1
+          Debug "ProcessStory: pause"
         EndIf
         If ElapsedMilliseconds() - Current_Time > *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Time_Length
           *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
           *System\Pause_Gameplay = 0
         EndIf
       Case #Story_Action_Sprite_Change_Velocity
+        Debug "ProcessStory: change velocity"
         Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
         Velocity_Y = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_Y
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = Velocity_X
@@ -2322,8 +2325,10 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_Continue
       Case #Story_Action_Player_Point
+        Debug "ProcessStory: player point"
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_Restart_Level
+        Debug "ProcessStory: restart level"
         RestartLevel(*System, *Graphics, *Story_Actions)
     EndSelect
   EndIf
@@ -3483,8 +3488,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 3256
-; FirstLine = 3207
+; CursorPosition = 2330
+; FirstLine = 2281
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware
