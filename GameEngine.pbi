@@ -3254,9 +3254,9 @@ Repeat ; used for restarting the game
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessStory(@System, @Graphics, @Story_Actions)
-      ProcessSpritePositions(@System, @Graphics)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
       ProcessCollisions(@System, @Graphics, @Collisions)
+      ProcessSpritePositions(@System, @Graphics)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -3483,8 +3483,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 2757
-; FirstLine = 2729
+; CursorPosition = 3256
+; FirstLine = 3207
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware

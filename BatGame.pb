@@ -164,21 +164,26 @@ Procedure ProcessCustomCollisions(*System.System_Structure, *Graphics.Graphics_S
   For c = 0 To *System\Collisions_Count-1
     If *Collisions\Collision[c]\Custom
       CheckCollision(*System, *Graphics, @Side, *Collisions\Collision[c]\Sprite, *Collisions\Collision[c]\Sprite2)
-      If Side
-        Paddle_Height = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Height
-        Ball_Height = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Height
-        Paddle_Pos = (*Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Y+(Paddle_Height/2)) - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Y - Ball_Height/2
-        New_Angle = Paddle_Pos / (Paddle_Height / 2)
-        Bounce_Angle = New_Angle * #Ball_Max_Bounce_Angle        
-        Select c
-          Case #Collisions_Ball_Paddle1
-            *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X = #Ball_Speed * Cos(Bounce_Angle)
-            *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = #Ball_Speed * -Sin(Bounce_Angle)
-          Case #Collisions_Ball_Paddle2
-            *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X = #Ball_Speed * -Cos(Bounce_Angle)
-            *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = #Ball_Speed * -Sin(Bounce_Angle)
-         EndSelect   
-      EndIf
+      Select Side
+        Case #Sprite_Collision_Right, #Sprite_Collision_Left
+          Paddle_Height = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Height
+          Ball_Height = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Height
+          Paddle_Pos = (*Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Y+(Paddle_Height/2)) - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Y - Ball_Height/2
+          New_Angle = Paddle_Pos / (Paddle_Height / 2)
+          Bounce_Angle = New_Angle * #Ball_Max_Bounce_Angle        
+          Select c
+            Case #Collisions_Ball_Paddle1
+              *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X = #Ball_Speed * Cos(Bounce_Angle)
+              *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = #Ball_Speed * -Sin(Bounce_Angle)
+            Case #Collisions_Ball_Paddle2
+              *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_X = #Ball_Speed * -Cos(Bounce_Angle)
+              *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = #Ball_Speed * -Sin(Bounce_Angle)
+          EndSelect   
+        Case #Sprite_Collision_Top ; ball bounces off the bottom of the paddle
+          *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = 0 - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y
+        Case #Sprite_Collision_Bottom ; ball bounces off the top of the paddle
+          *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y = 0 - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Velocity_Y
+      EndSelect
     EndIf
   Next c
 EndProcedure
@@ -250,12 +255,12 @@ Repeat ; used for restarting the game
       ProcessMouse(@System, @Screen_Settings)
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
       ProcessControls(@System, @Graphics, @Controls, @Players)
-      ProcessStory(@System, @Graphics, @Story_Actions)
       ProcessCustomStory(@Graphics, @Story_Actions)
-      ProcessSpritePositions(@System, @Graphics)
+      ProcessStory(@System, @Graphics, @Story_Actions)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
-      ProcessCollisions(@System, @Graphics, @Collisions)
       ProcessCustomCollisions(@System, @Graphics, @Collisions)
+      ProcessCollisions(@System, @Graphics, @Collisions)
+      ProcessSpritePositions(@System, @Graphics)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -397,8 +402,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 171
-; FirstLine = 125
+; CursorPosition = 145
+; FirstLine = 115
 ; Folding = -
 ; EnableXP
 ; DPIAware
