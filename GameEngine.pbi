@@ -192,7 +192,8 @@ Enumeration Story_Actions
   #Story_Action_Sprite_Change_Velocity
   #Story_Action_Continue
   #Story_Action_Player_Point
-  #Story_Action_Restart_Level
+  #Story_Action_Restore_Level
+  #Story_Action_Goto
 EndEnumeration
 
 Enumeration Sprite_Collision
@@ -584,10 +585,13 @@ EndStructure
 Structure Story_Action_Structure
   Action.i
   Custom.i
+  Custom_Value.i
   Time_Length.i
   Score_Amount.i
+  Score_Variable.i
   Sprite_Instance.i
   Player.i
+  New_Position.i ; when using goto this is where it goes
   Velocity_X.d
   Velocity_Y.d
 EndStructure
@@ -981,12 +985,11 @@ Procedure LoadCollisions(*System.System_Structure, *Collisions.Collisions_Struct
 EndProcedure
 
 Procedure LoadVariables(*System.System_Structure)
-  ; Format: Action, Time_length, Sprite_Instance, Random_X, Random_Y, Random_Steps, Velocity_X, Velocity_Y, Velocity_X_Low, Velocity_X_High, Velicity_Y_Low, Velocity_Y_High
   Protected c.i
   Debug "LoadVariables: loading story actions"
-  Restore Data_Story_Actions
+  Restore Data_Variables
   Read *System\Variable_Count
-  If *System\Variable_Count > #Max_Story_Actions
+  If *System\Variable_Count > #Max_Variables
     *System\Fatal_Error_Message = "#Max_Variabless too small to load all variables"
     Fatal_Error(*System)
   EndIf
@@ -1019,7 +1022,6 @@ Procedure LoadVariables(*System.System_Structure)
 EndProcedure
 
 Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Actions_Structure)
-  ; Format: Action, Time_length, Sprite_Instance, Random_X, Random_Y, Random_Steps, Velocity_X, Velocity_Y, Velocity_X_Low, Velocity_X_High, Velicity_Y_Low, Velocity_Y_High
   Protected c.i
   Debug "LoadStoryActions: loading story actions"
   Restore Data_Story_Actions
@@ -1031,10 +1033,13 @@ Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Action
   For c = 0 To *System\Story_Action_Count - 1
     Read.i *Story_Actions\Story_Action[c]\Action
     Read.i *Story_Actions\Story_Action[c]\Custom
+    Read.i *Story_Actions\Story_Action[c]\Custom_Value
     Read.i *Story_Actions\Story_Action[c]\Time_Length
     Read.i *Story_Actions\Story_Action[c]\Score_Amount
+    Read.i *Story_Actions\Story_Action[c]\Score_Variable
     Read.i *Story_Actions\Story_Action[c]\Sprite_Instance
     Read.i *Story_Actions\Story_Action[c]\Player
+    Read.i *Story_Actions\Story_Action[c]\New_Position
     Read.d *Story_Actions\Story_Action[c]\Velocity_X
     Read.d *Story_Actions\Story_Action[c]\Velocity_Y
   Next c
@@ -1888,7 +1893,17 @@ Procedure DisplaySystemFontString(*System.System_Structure, s.s, x.i, y.i, Inten
 EndProcedure
 
 Procedure DisplaySystemFontInstance(*System.System_Structure, *Graphics.Graphics_Structure, i.i)
-  DisplaySystemFontString(*System, *Graphics\System_Font_Instance[i]\S, *Graphics\System_Font_Instance[i]\X, *Graphics\System_Font_Instance[i]\Y, *Graphics\System_Font_Instance[i]\Intensity,
+  Protected Display_String.s
+  Protected Variable.i = *Graphics\System_Font_Instance[i]\Variable
+  If Variable > -1
+    Select *System\Variable[Variable]\Var_Type
+      Case #Variable_Type_Integer, #Variable_Type_Ascii, #Variable_Type_Byte, #Variable_Type_Long, #Variable_Type_Unicode, #Variable_Type_Word
+        Display_String = Str(*System\Variable[Variable]\Integer)
+    EndSelect
+  Else
+    Display_String = *Graphics\System_Font_Instance[i]\S
+  EndIf
+  DisplaySystemFontString(*System, Display_String, *Graphics\System_Font_Instance[i]\X, *Graphics\System_Font_Instance[i]\Y, *Graphics\System_Font_Instance[i]\Intensity,
                           *Graphics\System_Font_Instance[i]\Colour, *Graphics\System_Font_Instance[i]\Char_Width, *Graphics\System_Font_Instance[i]\Char_Height)
 EndProcedure
 
@@ -2274,7 +2289,7 @@ Procedure CheckFullScreen(*System.System_Structure, *Window_Settings.Window_Sett
   EndIf
 EndProcedure
 
-Procedure RestartLevel(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
+Procedure RestoreLevel(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
   Protected c.i
   ; Set all sprites back to original positions
   Debug "Restarting level"
@@ -2289,13 +2304,12 @@ Procedure RestartLevel(*System.System_Structure, *Graphics.Graphics_Structure, *
       *Graphics\Sprite_Instance[c]\Visible = *Graphics\Sprite_Instance[c]\Start_Visible
     EndIf
   Next c
-  *Story_Actions\Story_Position = 0
 EndProcedure
 
 Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
   Static Current_Time.q
   Protected Velocity_X.d, Velocity_Y.d
-  ;Debug "Story position: " + *Story_Actions\Story_Position
+  Protected Score_Variable.i
   If *System\Story_Action_Count > 0 And Not *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom
     Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
       Case #Story_Action_Start
@@ -2321,10 +2335,21 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
       Case #Story_Action_Continue
       Case #Story_Action_Player_Point
         Debug "ProcessStory: player point"
+        Score_Variable = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Score_Variable
+        Select *System\Variable[Score_Variable]\Var_Type
+          Case #Variable_Type_Integer
+            *System\Variable[Score_Variable]\Integer = *System\Variable[Score_Variable]\Integer + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Score_Amount
+          Case #Variable_Type_Long
+            *System\Variable[Score_Variable]\Integer = *System\Variable[Score_Variable]\Integer + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Score_Amount
+        EndSelect
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-      Case #Story_Action_Restart_Level
-        Debug "ProcessStory: restart level"
-        RestartLevel(*System, *Graphics, *Story_Actions)
+      Case #Story_Action_Restore_Level
+        Debug "ProcessStory: restore level"
+        RestoreLevel(*System, *Graphics, *Story_Actions)
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+      Case #Story_Action_Goto
+        Debug "ProcessStory: goto " + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\New_Position
+        *Story_Actions\Story_Position = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\New_Position
     EndSelect
   EndIf
 EndProcedure
@@ -3167,6 +3192,7 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   LoadSpriteConstraints(*System, *Sprite_Constraints)
   LoadStoryActions(*System, *Story_Actions)
   LoadCollisions(*System, *Collisions)
+  LoadVariables(*System)
     
   ;If Not InitialiseFonts(*System)
   ;  Debug "Initialise: could not initialise fonts"
@@ -3483,8 +3509,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 1034
-; FirstLine = 1020
+; CursorPosition = 1905
+; FirstLine = 1876
 ; Folding = ---------------
 ; EnableXP
 ; DPIAware

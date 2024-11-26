@@ -17,6 +17,11 @@ CompilerEndIf
 
 ;- Enumerations
 
+Enumeration Variables
+  #Player_1_Score
+  #Player_2_Score
+EndEnumeration
+
 Enumeration Vectors
   #Vector_Box
   #Vector_Ball
@@ -55,20 +60,21 @@ Enumeration Sprite_Class
   #Sprite_Class_In_Play ; objects in play (ie excludes the score)
 EndEnumeration
 
-Enumeration Variables
-  #Player_1_Score
-  #Player_2_Score
-EndEnumeration
-
 Enumeration Story_Actions
   #Story_Actions_Start
-  #Story_Actions_Pause
-  #Story_Actions_Sprite_Change_Velocity
+  #Story_Actions_Pause1
+  #Story_Actions_Sprite_Change_Velocity1
   #Story_Actions_Continue
   #Story_Actions_Player1_Point
-  #Story_Actions_Restart_Level1
+  #Story_Actions_Restore_Level1
+  #Story_Actions_Pause2
+  #Story_Actions_Sprite_Change_Velocity2
+  #Story_Actions_Goto_Start1
   #Story_Actions_Player2_Point
-  #Story_Actions_Restart_Level2
+  #Story_Actions_Restore_Level2
+  #Story_Actions_Pause3
+  #Story_Actions_Sprite_Change_Velocity3
+  #Story_Actions_Goto_Start2
 EndEnumeration
 
 Enumeration Collisions
@@ -137,7 +143,7 @@ EndProcedure
 Procedure ProcessCustomStory(*Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
   If *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom
     Select *Story_Actions\Story_Position
-      Case #Story_Actions_Sprite_Change_Velocity
+      Case #Story_Actions_Sprite_Change_Velocity1, #Story_Actions_Sprite_Change_Velocity2, #Story_Actions_Sprite_Change_Velocity3
         Debug "ProcessCustomStory: change velocity"
         Protected Velocity_X.d, Velocity_Y.d
         Protected Serve_Angle.i = Random(30) - 15
@@ -147,6 +153,9 @@ Procedure ProcessCustomStory(*Graphics.Graphics_Structure, *Story_Actions.Story_
         Actual_Serve_Angle = New_Angle * #Ball_Max_Serve_Angle
         Velocity_X = #Ball_Speed * Cos(Actual_Serve_Angle)
         Velocity_Y = #Ball_Speed * Sin(Actual_Serve_Angle)
+        If Not *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom_Value
+          Velocity_X = 0 - Velocity_X
+        EndIf
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = Velocity_X
         *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = Velocity_Y
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
@@ -171,9 +180,7 @@ Procedure ProcessCustomCollisions(*System.System_Structure, *Graphics.Graphics_S
           Ball_Height = *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Height
           Surface = Paddle_Height + Ball_Height
           Paddle_Pos = (*Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite2]\Y+(-(Ball_Height/2)+Surface/2)) - *Graphics\Sprite_Instance[*Collisions\Collision[c]\Sprite]\Y - Ball_Height/2
-          Debug "Paddle pos: " + Paddle_Pos
           New_Angle = Paddle_Pos / (Surface / 2)
-          ;Debug "New angle: " + New_Angle
           Bounce_Angle = New_Angle * #Ball_Max_Bounce_Angle        
           Select c
             Case #Collisions_Ball_Paddle1
@@ -295,6 +302,12 @@ End 0
 
 DataSection
   
+  Data_Variables:
+  ;Format: Type, default value
+  Data.i 2
+  Data.i #Variable_Type_Integer, 0 ; Player 1 score
+  Data.i #Variable_Type_Integer, 0 ; Player 2 score
+  
   Data_Vector_Resources:
   ; Format: Shape type, Background Transparent (T/F), Colour, Background colour, X, Y, Width, Height, Radius, Round_X, Round_Y, Continue
   Data.i 3 ; Number of records
@@ -333,12 +346,10 @@ DataSection
   Data_System_Font_Instances:
   ; Used for displaying the system font
   ; Format: String, Variable, X, Y, Char_Width, Char_Height, Intensity, Colour, Layer, Visible
+  ; If not using a variable use -1
   Data.i 2 ; Number of records
-  ;Data.s "AaBbCcDdEeFfGgHhIiJjKkLlMm":Data.i -1, 30, 30, 8, 8, 255, #White, 0, 1
-  ;Data.s "NnOoPpQqRrSsTtUuVvWwXxYyZz":Data.i -1, 30, 38, 8, 8, 255, #White, 0, 1
-  ;Data.s "Score: 15450":Data.i -1, 30, 46, 8, 8, 255, #White, 0, 1
-  Data.s "00":Data.i -1, 64-#Score_Size, 16, #Score_Size, #Score_Size, 255, #Score_Colour, 0, 1
-  Data.s "00":Data.i -1, 192-#Score_Size, 16, #Score_Size, #Score_Size, 255, #Score_Colour, 0, 1
+  Data.s "":Data.i #Player_1_Score, 64-#Score_Size, 16, #Score_Size, #Score_Size, 255, #Score_Colour, 0, 1
+  Data.s "":Data.i #Player_2_Score, 192-#Score_Size, 16, #Score_Size, #Score_Size, 255, #Score_Colour, 0, 1
   
   Data_Control_Sets:
   ; Format: up, down, left, right, A_Button, B_Button, X_Button, Y_Button, Left_Shoulder, Right_Shoulder, Left_Trigger_Axis, Right_Trigger_Axis, Left_Stick_X, Left_Stick_Y,
@@ -365,21 +376,25 @@ DataSection
   Data.i #Sprite_Instance_Paddle2, #Player2, #Control_Button_X_Button, #Object_Control_Fire:Data.d -1
   
   Data_Story_Actions:
-  ; Format: Action, Custom, Time_length, Score_Amount, Sprite_Instance, Player, Velocity_X, Velocity_Y
+  ; Format: Action, Custom, Custom_Value, Time_length, Score_Amount, Score_Variable, Sprite_Instance, Player, New_Position, Velocity_X, Velocity_Y
   ; Note: you can create random values lower than 1 by using random steps. For example low=-0.5 high=0.5 steps = 100
   ; Player 0 means not relevant
   ; Custom means it is handled by custom code
-  Data.i 10
-  Data.i #Story_Action_Start, #False, 0, 0, -1, 0:Data.d 0, 0 ; Game Start
-  Data.i #Story_Action_Pause, #False, 1000, 0, -1, 0:Data.d 0, 0 ; Pause
-  Data.i #Story_Action_Sprite_Change_Velocity, #True, 0, 0, #Sprite_Instance_Ball, -1:Data.d 0, 0 ; Sprite change veloocity
-  Data.i #Story_Action_Continue, #False, 0, 0, -1, 0:Data.d 0, 0 ; Game continue
-  Data.i #Story_Action_Player_Point, #False, 0, 1, -1, 1:Data.d 0, 0 ; Player 1 point
-  Data.i #Story_Action_Pause, #False, 1000, 0, -1, 0:Data.d 0, 0 ; Pause
-  Data.i #Story_Action_Restart_Level, #False, 0, 0, -1, 0:Data.d 0, 0 ; Restart level
-  Data.i #Story_Action_Player_Point, #False, 0, 1, -1, 2:Data.d 0, 0  ; Player 2 point
-  Data.i #Story_Action_Pause, #False, 1000, 0, -1, 0:Data.d 0, 0 ; Pause
-  Data.i #Story_Action_Restart_Level, #False, 0, 0, -1, 0:Data.d 0, 0 ; Restart level  
+  Data.i 14
+  Data.i #Story_Action_Start,                  #False, 0, 0,    0, 0,               -1, 0, 0:Data.d 0, 0 ; Game Start
+  Data.i #Story_Action_Pause,                  #False, 0, 1000, 0, 0,               -1, 0, 0:Data.d 0, 0 ; Pause
+  Data.i #Story_Action_Sprite_Change_Velocity, #True,  0, 0,    0, 0,               #Sprite_Instance_Ball, -1, 0:Data.d 0, 0 ; Sprite change veloocity
+  Data.i #Story_Action_Continue,               #False, 0, 0,    0, 0,               -1, 0, 0:Data.d 0, 0 ; Game continue
+  Data.i #Story_Action_Player_Point,           #False, 0, 0,    1, #Player_1_Score, -1, 1, 0:Data.d 0, 0 ; Player 1 point
+  Data.i #Story_Action_Restore_Level,          #False, 0, 0,    0, 0,               -1, 0, 0:Data.d 0, 0 ; Restore level
+  Data.i #Story_Action_Pause,                  #False, 0, 1000, 0, 0,               -1, 0, 0:Data.d 0, 0      ; Pause
+  Data.i #Story_Action_Sprite_Change_Velocity, #True,  1, 0,    0, 0,               #Sprite_Instance_Ball, -1, 0:Data.d 0, 0
+  Data.i #Story_Action_Goto,                   #False, 0, 0,    0, 0,               -1, 0, #Story_Actions_Continue:Data.d 0, 0
+  Data.i #Story_Action_Player_Point,           #False, 0, 0,    1, #Player_2_Score, -1, 2, 0:Data.d 0, 0  ; Player 2 point
+  Data.i #Story_Action_Restore_Level,          #False, 0, 0,    0, 0,               -1, 0, 0:Data.d 0, 0 ; Restore level
+  Data.i #Story_Action_Pause,                  #False, 0, 1000, 0, 0,               -1, 0, 0:Data.d 0, 0      ; Pause
+  Data.i #Story_Action_Sprite_Change_Velocity, #True,  0, 0,    0, 0,               #Sprite_Instance_Ball, -1, 0:Data.d 0, 0
+  Data.i #Story_Action_Goto,                   #False, 0, 0,    0, 0,               -1, 0, #Story_Actions_Continue:Data.d 0, 0
   
   Data_Sprite_Constraints:
   ; Format: Sprite_Instance, Type, Custom, Value, Sprite_Action, Story_Action, Player
@@ -389,8 +404,8 @@ DataSection
   Data.i #Sprite_Instance_Paddle1, #Constraint_Type_Top, #False, 224-#Wall_Thickness-#Paddle_Length, #Sprite_Action_Stop, -1, 0
   Data.i #Sprite_Instance_Paddle2, #Constraint_Type_Bottom, #False, #Wall_Thickness, #Sprite_Action_Stop, -1, 0
   Data.i #Sprite_Instance_Paddle2, #Constraint_Type_Top, #False, 224-#Wall_Thickness-#Paddle_Length, #Sprite_Action_Stop, -1, 0
-  Data.i #Sprite_Instance_Ball, #Constraint_Type_Right, #False, 0, #Sprite_Action_Invisible, 4, 1
-  Data.i #Sprite_Instance_Ball, #Constraint_Type_Left, #False, 255, #Sprite_Action_Invisible, 7, 2
+  Data.i #Sprite_Instance_Ball, #Constraint_Type_Right, #False, 0, #Sprite_Action_Invisible, #Story_Actions_Player2_Point, 1
+  Data.i #Sprite_Instance_Ball, #Constraint_Type_Left, #False, 255, #Sprite_Action_Invisible, #Story_Actions_Player1_Point, 2
     
   Data_Sprite_Collisions:
   ; Format: Sprite_Instance, Sprite_Instance2, Custom, Collision_Action
@@ -400,16 +415,10 @@ DataSection
   Data.i #Sprite_Instance_Ball, #Sprite_Instance_Paddle1, #True, -1
   Data.i #Sprite_Instance_Ball, #Sprite_Instance_Paddle2, #True, -1
   
-  Data_Variables:
-  ;Format: Type, default value
-  Data.i 2
-  Data.i #Variable_Type_Integer, 0
-  Data.i #Variable_Type_Integer, 0
-  
 EndDataSection
 ; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 77
-; FirstLine = 59
+; CursorPosition = 351
+; FirstLine = 336
 ; Folding = -
 ; EnableXP
 ; DPIAware
