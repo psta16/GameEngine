@@ -325,8 +325,8 @@ DataSection
   Data_Variable_Constraints:
   ;Format: Variable, Variable_Constraint_Type, Value, Story_Action
   Data.i 2
-  Data.i #Player_1_Score, #Variable_Constraint_Type_Greater_Than, 0, #Story_Actions_Display_Ply1_Wins
-  Data.i #Player_2_Score, #Variable_Constraint_Type_Greater_Than, 0, #Story_Actions_Display_Ply2_Wins
+  Data.i #Player_1_Score, #Variable_Constraint_Type_Greater_Than, 10, #Story_Actions_Display_Ply1_Wins
+  Data.i #Player_2_Score, #Variable_Constraint_Type_Greater_Than, 10, #Story_Actions_Display_Ply2_Wins
   
   Data_Vector_Resources:
   ; Format: Shape type, Background Transparent (T/F), Colour, Background colour, X, Y, Width, Height, Radius, Round_X, Round_Y, Continue
@@ -431,7 +431,7 @@ DataSection
   Data.i #Sprite_Instance_Paddle1, #Constraint_Type_Top, #False, 224-#Wall_Thickness-#Paddle_Length, #Sprite_Action_Stop, -1, 0
   Data.i #Sprite_Instance_Paddle2, #Constraint_Type_Bottom, #False, #Wall_Thickness, #Sprite_Action_Stop, -1, 0
   Data.i #Sprite_Instance_Paddle2, #Constraint_Type_Top, #False, 224-#Wall_Thickness-#Paddle_Length, #Sprite_Action_Stop, -1, 0
-  Data.i #Sprite_Instance_Ball, #Constraint_Type_Right, #False, 0, #Sprite_Action_Invisible, #Story_Actions_Player2_Point, 1
+  Data.i #Sprite_Instance_Ball, #Constraint_Type_Right, #False, 0-#Ball_Diameter, #Sprite_Action_Invisible, #Story_Actions_Player2_Point, 1
   Data.i #Sprite_Instance_Ball, #Constraint_Type_Left, #False, 255, #Sprite_Action_Invisible, #Story_Actions_Player1_Point, 2
     
   Data_Sprite_Collisions:
@@ -444,8 +444,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.12 LTS (Windows - x64)
-; CursorPosition = 226
-; FirstLine = 208
+; CursorPosition = 328
+; FirstLine = 294
 ; Folding = -
 ; EnableXP
 ; DPIAware

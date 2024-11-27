@@ -275,6 +275,7 @@ Structure Variable_Constraint_Structure
   Constraint_Type.i
   Value.i
   Story_Action.i
+  Triggered.i
 EndStructure
 
 Structure Desktop_Structure ; structure to store parametres for each available display
@@ -349,6 +350,7 @@ Structure System_Structure
   Pause_Gameplay.i
   Collisions_Count.i
   Variable_Constraints_Count.i
+  Stop_Game.i
 EndStructure
 
 Structure Debug_Structure
@@ -2394,8 +2396,10 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
       Case #Story_Action_Display_System_Text
         Debug "ProcessStory: display system text"
         *Graphics\System_Font_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action_Value]\Visible = 1
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_End
-        ; Do nothing
+        Debug "ProcessStory: end"
+        *System\Stop_Game = 1
     EndSelect
   EndIf
 EndProcedure
@@ -2615,12 +2619,14 @@ Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_
           Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
             Case #Sprite_Action_Stop
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y = *Sprite_Constraints\Sprite_Constraint[c]\Value
-              Constraint_Met = #True
-              Break
+              If *Sprite_Constraints\Sprite_Constraint[c]\Story_Action > -1
+                *Story_Actions\Story_Position = *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
+              EndIf
             Case #Sprite_Action_Invisible
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
-              Constraint_Met = #True
-              Break
+              If *Sprite_Constraints\Sprite_Constraint[c]\Story_Action > -1
+                *Story_Actions\Story_Position = *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
+              EndIf
           EndSelect
         EndIf
       Case #Constraint_Type_Bottom
@@ -2628,12 +2634,14 @@ Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_
           Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
             Case #Sprite_Action_Stop
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Y = *Sprite_Constraints\Sprite_Constraint[c]\Value
-              Constraint_Met = #True
-              Break
+              If *Sprite_Constraints\Sprite_Constraint[c]\Story_Action > -1
+                *Story_Actions\Story_Position = *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
+              EndIf
             Case #Sprite_Action_Invisible
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
-              Constraint_Met = #True
-              Break
+              If *Sprite_Constraints\Sprite_Constraint[c]\Story_Action > -1
+                *Story_Actions\Story_Position = *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
+              EndIf
           EndSelect
         EndIf
       Case #Constraint_Type_Left
@@ -2641,12 +2649,14 @@ Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_
           Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
             Case #Sprite_Action_Stop
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X = *Sprite_Constraints\Sprite_Constraint[c]\Value
-              Constraint_Met = #True
-              Break
+              If *Sprite_Constraints\Sprite_Constraint[c]\Story_Action > -1
+                *Story_Actions\Story_Position = *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
+              EndIf
             Case #Sprite_Action_Invisible
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
-              Constraint_Met = #True
-              Break
+              If *Sprite_Constraints\Sprite_Constraint[c]\Story_Action > -1
+                *Story_Actions\Story_Position = *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
+              EndIf
           EndSelect
         EndIf
       Case #Constraint_Type_Right
@@ -2654,21 +2664,18 @@ Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_
           Select *Sprite_Constraints\Sprite_Constraint[c]\Sprite_Action
             Case #Sprite_Action_Stop
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\X = *Sprite_Constraints\Sprite_Constraint[c]\Value
-              Constraint_Met = #True
-              Break
+              If *Sprite_Constraints\Sprite_Constraint[c]\Story_Action > -1
+                *Story_Actions\Story_Position = *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
+              EndIf
             Case #Sprite_Action_Invisible
               *Graphics\Sprite_Instance[*Sprite_Constraints\Sprite_Constraint[c]\Sprite_Instance]\Visible = #False
-              Constraint_Met = #True
-              Break
+              If *Sprite_Constraints\Sprite_Constraint[c]\Story_Action > -1
+                *Story_Actions\Story_Position = *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
+              EndIf
           EndSelect
         EndIf
     EndSelect
   Next c
-  If Constraint_Met
-    If *Sprite_Constraints\Sprite_Constraint[c]\Story_Action > -1
-      *Story_Actions\Story_Position = *Sprite_Constraints\Sprite_Constraint[c]\Story_Action
-    EndIf
-  EndIf
 EndProcedure
 
 Procedure ProcessVariableConstraints(*System.System_Structure, *Story_Actions.Story_Actions_Structure)
@@ -2676,7 +2683,13 @@ Procedure ProcessVariableConstraints(*System.System_Structure, *Story_Actions.St
   For c = 0 To *System\Variable_Constraints_Count-1
     Select *System\Variable_Constraint[c]\Constraint_Type
       Case #Variable_Constraint_Type_Greater_Than
-        If *System\Variable[*System\Variable_Constraint[c]\Variable]\Integer > *System\Variable_Constraint[c]\Value
+        If *System\Variable[*System\Variable_Constraint[c]\Variable]\Integer <= *System\Variable_Constraint[c]\Value
+          ; untrigger the constraint if it is below
+          *System\Variable_Constraint[c]\Triggered = 0
+        EndIf
+        If *System\Variable[*System\Variable_Constraint[c]\Variable]\Integer > *System\Variable_Constraint[c]\Value And Not *System\Variable_Constraint[c]\Triggered
+          ; one shot trigger
+          *System\Variable_Constraint[c]\Triggered = 1
           *Story_Actions\Story_Position = *System\Variable_Constraint[c]\Story_Action
         EndIf
       Case #Variable_Constraint_Type_Equal
@@ -2869,12 +2882,14 @@ EndProcedure
 
 Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_Structure)
   Protected c.i, d.i
-  For c = 0 To *System\Sprite_Instance_Count-1
-    *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\X
-    *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Y
-    *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Time
-    *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Time
-  Next c
+  If Not *System\Stop_Game
+    For c = 0 To *System\Sprite_Instance_Count-1
+      *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\X
+      *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Y
+      *Graphics\Sprite_Instance[c]\X = *Graphics\Sprite_Instance[c]\X + *Graphics\Sprite_Instance[c]\Velocity_X * Delta_Time
+      *Graphics\Sprite_Instance[c]\Y = *Graphics\Sprite_Instance[c]\Y + *Graphics\Sprite_Instance[c]\Velocity_Y * Delta_Time
+    Next c
+  EndIf
 EndProcedure
 
 Procedure ProcessMouse(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
@@ -3579,8 +3594,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.12 LTS (Windows - x64)
-; CursorPosition = 3313
-; FirstLine = 3274
+; CursorPosition = 2678
+; FirstLine = 2614
 ; Folding = ----------------
 ; EnableXP
 ; DPIAware
