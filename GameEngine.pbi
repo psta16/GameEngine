@@ -44,16 +44,22 @@ CompilerEndIf
 ; Layer 1 - System and universal controls
 
 Enumeration Variable_Type
-    #Variable_Type_Byte
-    #Variable_Type_Ascii
-    #Variable_Type_Char
-    #Variable_Type_Word
-    #Variable_Type_Unicode
-    #Variable_Type_Long
-    #Variable_Type_Integer
-    #Variable_Type_Float
-    #Variable_Type_Double
-    #Variable_Type_String
+  #Variable_Type_Byte
+  #Variable_Type_Ascii
+  #Variable_Type_Char
+  #Variable_Type_Word
+  #Variable_Type_Unicode
+  #Variable_Type_Long
+  #Variable_Type_Integer
+  #Variable_Type_Float
+  #Variable_Type_Double
+  #Variable_Type_String
+EndEnumeration
+  
+Enumeration Variable_Constraint_Type
+  #Variable_Constraint_Type_Greater_Than
+  #Variable_Constraint_Type_Equal
+  #Variable_Constraint_Type_Less_Than
 EndEnumeration
 
 Enumeration Render_Engine3D
@@ -131,7 +137,7 @@ EndEnumeration
 Enumeration Menu_Background
   #Menu_Background_None ; displays a solid colour
   #Menu_Background_Vector
-  #Data_Menu_Background_Image
+  #Menu_Background_Image
 EndEnumeration
 
 Enumeration Object_Control
@@ -194,6 +200,8 @@ Enumeration Story_Actions
   #Story_Action_Player_Point
   #Story_Action_Restore_Level
   #Story_Action_Goto
+  #Story_Action_Display_System_Text
+  #Story_Action_End
 EndEnumeration
 
 Enumeration Sprite_Collision
@@ -221,6 +229,7 @@ Global Delta_Time.d = 0
 #Max_Sprite_Resources = 256 ; total amount of individual sprites supported
 #Num_System_Font_Char = 101 ; number of characters in the system font
 #Max_Variables = 128
+#Max_Variable_Constraints = 16
 #Max_Debug_Vars = 32
 #Max_Keyboard_Value = 300 ; used for storing which keys are down
 #Mouse_Sprite = 0
@@ -259,6 +268,13 @@ Structure Variable_Structure
     Double.d
   EndStructureUnion
   String.s
+EndStructure
+
+Structure Variable_Constraint_Structure
+  Variable.i
+  Constraint_Type.i
+  Value.i
+  Story_Action.i
 EndStructure
 
 Structure Desktop_Structure ; structure to store parametres for each available display
@@ -322,6 +338,7 @@ Structure System_Structure
   Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
   Sprite_Vector_Resource_Count.i ; number of vector resources
   Variable.Variable_Structure[#Max_Variables] ; variables used for displaying values on screen etc
+  Variable_Constraint.Variable_Constraint_Structure[#Max_Variable_Constraints]
   Variable_Count.i
   System_Font_Instance_Count.i                ; number of system font instances
   Controls_Count.i                            ; number of control sets
@@ -331,6 +348,7 @@ Structure System_Structure
   Story_Action_Count.i
   Pause_Gameplay.i
   Collisions_Count.i
+  Variable_Constraints_Count.i
 EndStructure
 
 Structure Debug_Structure
@@ -584,6 +602,7 @@ EndStructure
 
 Structure Story_Action_Structure
   Action.i
+  Action_Value.i
   Custom.i
   Custom_Value.i
   Time_Length.i
@@ -990,7 +1009,7 @@ Procedure LoadVariables(*System.System_Structure)
   Restore Data_Variables
   Read *System\Variable_Count
   If *System\Variable_Count > #Max_Variables
-    *System\Fatal_Error_Message = "#Max_Variabless too small to load all variables"
+    *System\Fatal_Error_Message = "#Max_Variables too small to load all variables"
     Fatal_Error(*System)
   EndIf
   For c = 0 To *System\Variable_Count - 1
@@ -1021,6 +1040,24 @@ Procedure LoadVariables(*System.System_Structure)
   Debug "LoadVariables: " + *System\Variable_Count + " variable(s) loaded"
 EndProcedure
 
+Procedure LoadVariableConstraints(*System.System_Structure)
+  Protected c.i
+  Debug "LoadVariableConstraints: loading story actions"
+  Restore Data_Variable_Constraints
+  Read *System\Variable_Constraints_Count
+  If *System\Variable_Constraints_Count > #Max_Variable_Constraints
+    *System\Fatal_Error_Message = "#Max_Variable_Constraints too small to load all variable constraints"
+    Fatal_Error(*System)
+  EndIf
+  For c = 0 To *System\Variable_Constraints_Count - 1
+    Read.i *System\Variable_Constraint[c]\Variable
+    Read.i *System\Variable_Constraint[c]\Constraint_Type
+    Read.i *System\Variable_Constraint[c]\Value
+    Read.i *System\Variable_Constraint[c]\Story_Action
+  Next c
+  Debug "LoadVariableConstraints: " + *System\Variable_Constraints_Count + " variable constraint(s) loaded"
+EndProcedure
+
 Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Actions_Structure)
   Protected c.i
   Debug "LoadStoryActions: loading story actions"
@@ -1032,6 +1069,7 @@ Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Action
   EndIf
   For c = 0 To *System\Story_Action_Count - 1
     Read.i *Story_Actions\Story_Action[c]\Action
+    Read.i *Story_Actions\Story_Action[c]\Action_Value
     Read.i *Story_Actions\Story_Action[c]\Custom
     Read.i *Story_Actions\Story_Action[c]\Custom_Value
     Read.i *Story_Actions\Story_Action[c]\Time_Length
@@ -1895,16 +1933,19 @@ EndProcedure
 Procedure DisplaySystemFontInstance(*System.System_Structure, *Graphics.Graphics_Structure, i.i)
   Protected Display_String.s
   Protected Variable.i = *Graphics\System_Font_Instance[i]\Variable
-  If Variable > -1
-    Select *System\Variable[Variable]\Var_Type
-      Case #Variable_Type_Integer, #Variable_Type_Ascii, #Variable_Type_Byte, #Variable_Type_Long, #Variable_Type_Unicode, #Variable_Type_Word
-        Display_String = Str(*System\Variable[Variable]\Integer)
-    EndSelect
-  Else
-    Display_String = *Graphics\System_Font_Instance[i]\S
+  Protected Visible.i = *Graphics\System_Font_Instance[i]\Visible
+  If Visible
+    If Variable > -1
+      Select *System\Variable[Variable]\Var_Type
+        Case #Variable_Type_Integer, #Variable_Type_Ascii, #Variable_Type_Byte, #Variable_Type_Long, #Variable_Type_Unicode, #Variable_Type_Word
+          Display_String = Str(*System\Variable[Variable]\Integer)
+      EndSelect
+    Else
+      Display_String = *Graphics\System_Font_Instance[i]\S
+    EndIf
+    DisplaySystemFontString(*System, Display_String, *Graphics\System_Font_Instance[i]\X, *Graphics\System_Font_Instance[i]\Y, *Graphics\System_Font_Instance[i]\Intensity,
+                            *Graphics\System_Font_Instance[i]\Colour, *Graphics\System_Font_Instance[i]\Char_Width, *Graphics\System_Font_Instance[i]\Char_Height)
   EndIf
-  DisplaySystemFontString(*System, Display_String, *Graphics\System_Font_Instance[i]\X, *Graphics\System_Font_Instance[i]\Y, *Graphics\System_Font_Instance[i]\Intensity,
-                          *Graphics\System_Font_Instance[i]\Colour, *Graphics\System_Font_Instance[i]\Char_Width, *Graphics\System_Font_Instance[i]\Char_Height)
 EndProcedure
 
 Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure)
@@ -2142,7 +2183,7 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
         Case #Menu_Background_None
           ; nothing to do
         Case #Menu_Background_Vector
-        Case #Data_Menu_Background_Image
+        Case #Menu_Background_Image
       EndSelect
     EndIf
     ;StopDrawing()
@@ -2350,6 +2391,11 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
       Case #Story_Action_Goto
         Debug "ProcessStory: goto " + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\New_Position
         *Story_Actions\Story_Position = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\New_Position
+      Case #Story_Action_Display_System_Text
+        Debug "ProcessStory: display system text"
+        *Graphics\System_Font_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action_Value]\Visible = 1
+      Case #Story_Action_End
+        ; Do nothing
     EndSelect
   EndIf
 EndProcedure
@@ -2625,6 +2671,20 @@ Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_
   EndIf
 EndProcedure
 
+Procedure ProcessVariableConstraints(*System.System_Structure, *Story_Actions.Story_Actions_Structure)
+  Protected c.i
+  For c = 0 To *System\Variable_Constraints_Count-1
+    Select *System\Variable_Constraint[c]\Constraint_Type
+      Case #Variable_Constraint_Type_Greater_Than
+        If *System\Variable[*System\Variable_Constraint[c]\Variable]\Integer > *System\Variable_Constraint[c]\Value
+          *Story_Actions\Story_Position = *System\Variable_Constraint[c]\Story_Action
+        EndIf
+      Case #Variable_Constraint_Type_Equal
+      Case #Variable_Constraint_Type_Less_Than
+    EndSelect
+  Next c
+EndProcedure
+
 Procedure CheckCollisionAll(*System.System_Structure, *Graphics.Graphics_Structure, *Side.Integer, Sprite.i)
   ; *Side = 0 no collision, 1 = top, 2 = right, 3 = bottom, 4 = left
   Protected Sprite2.i
@@ -2886,9 +2946,11 @@ Procedure ProcessWindowEvents(*System.System_Structure, *Window_Settings.Window_
               EndIf
             Case #Game_Window_Debug
               Debug "Resizing debug window"
-              *Window_Settings\Window_Debug_W = WindowWidth(#Game_Window_Debug)
-              *Window_Settings\Window_Debug_H = WindowHeight(#Game_Window_Debug)
-              ResizeGadget(*Window_Settings\Window_Debug_Edit_Gadget, 10, 10, *Window_Settings\Window_Debug_W-20, *Window_Settings\Window_Debug_H-20)
+              If *Window_Settings\Window_Debug_Edit_Gadget
+                *Window_Settings\Window_Debug_W = WindowWidth(#Game_Window_Debug)
+                *Window_Settings\Window_Debug_H = WindowHeight(#Game_Window_Debug)
+                ResizeGadget(*Window_Settings\Window_Debug_Edit_Gadget, 10, 10, *Window_Settings\Window_Debug_W-20, *Window_Settings\Window_Debug_H-20)
+              EndIf
           EndSelect
         Case #PB_Event_MoveWindow
           Select Event_Window
@@ -3193,6 +3255,7 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   LoadStoryActions(*System, *Story_Actions)
   LoadCollisions(*System, *Collisions)
   LoadVariables(*System)
+  LoadVariableConstraints(*System)
     
   ;If Not InitialiseFonts(*System)
   ;  Debug "Initialise: could not initialise fonts"
@@ -3247,6 +3310,8 @@ System\Allow_Switch_to_Window = 1
 Window_Settings\Allow_Window_Resize = 1
 Window_Settings\Reset_Window = 0
 Window_Settings\Background_Colour = #Black
+Window_Settings\Window_Debug_W = 120
+Window_Settings\Window_Debug_H = 300
 Screen_Settings\Num_Monitors = 0
 Screen_Settings\Total_Desktop_Width = 0
 Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
@@ -3283,6 +3348,7 @@ Repeat ; used for restarting the game
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
       ProcessCollisions(@System, @Graphics, @Collisions)
       ProcessSpritePositions(@System, @Graphics)
+      ProcessVariableConstraints(@System, @Story_Actions)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
@@ -3477,7 +3543,9 @@ DataSection
   CompilerIf #PB_Compiler_IsMainFile
     
   Data_Variables:
-  Data.i 0  
+  Data.i 0
+  Data_Variable_Constraints:
+  Data.i 0
   Data_Vector_Resources:
   ; Format: Shape type, Background Transparent (T/F), Colour, Background colour, X, Y, Width, Height, Radius, Round_X, Round_Y, Continue
   Data.i 0 ; Number of records
@@ -3510,10 +3578,10 @@ DataSection
   
 EndDataSection
 
-; IDE Options = PureBasic 6.11 LTS (Windows - x64)
-; CursorPosition = 3479
-; FirstLine = 3440
-; Folding = ---------------
+; IDE Options = PureBasic 6.12 LTS (Windows - x64)
+; CursorPosition = 3313
+; FirstLine = 3274
+; Folding = ----------------
 ; EnableXP
 ; DPIAware
 ; Executable = ..\..\GameEngine.exe
