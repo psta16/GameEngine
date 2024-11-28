@@ -1953,8 +1953,9 @@ EndProcedure
 Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure)
   Protected FPS.s
   If *System\Show_Debug_Info And Not *Screen_Settings\Full_Screen_Inactive
-    FPS = "FPS:"
-    FPS = FPS + Str(*FPS_Data\FPS)
+    ;FPS = "FPS:"
+    ;FPS = FPS + Str(*FPS_Data\FPS)
+    FPS = Str(*FPS_Data\FPS)
     ;Font::DisplayStringSpriteUnicode(#Font_Fixedsys_Neo_Plus, FPS, 0, 0)
     DisplaySystemFontString(*System, FPS, 0, 0, 255, #White, 8, 8)
   EndIf
@@ -3300,6 +3301,16 @@ Procedure Shutdown(*System.System_Structure, *Window_Settings.Window_Settings_St
   CompilerIf #PB_Compiler_OS = #PB_OS_Windows : CloseHandle_(*System\MutexID) : CompilerEndIf
 EndProcedure
 
+CompilerIf #PB_Compiler_IsMainFile
+
+Procedure ProcessCustomStory(*Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
+EndProcedure
+
+Procedure ProcessCustomCollisions(*System.System_Structure, *Graphics.Graphics_Structure, *Collisions.Collisions_Structure)
+EndProcedure
+
+CompilerEndIf
+
 ;- Set defaults
 
 CompilerIf #PB_Compiler_IsMainFile
@@ -3359,8 +3370,10 @@ Repeat ; used for restarting the game
       ProcessMouse(@System, @Screen_Settings)
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
       ProcessControls(@System, @Graphics, @Controls, @Players)
+      ProcessCustomStory(@Graphics, @Story_Actions)
       ProcessStory(@System, @Graphics, @Story_Actions)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
+      ProcessCustomCollisions(@System, @Graphics, @Collisions)
       ProcessCollisions(@System, @Graphics, @Collisions)
       ProcessSpritePositions(@System, @Graphics)
       ProcessVariableConstraints(@System, @Story_Actions)
@@ -3594,8 +3607,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.12 LTS (Windows - x64)
-; CursorPosition = 2678
-; FirstLine = 2614
+; CursorPosition = 3310
+; FirstLine = 3303
 ; Folding = ----------------
 ; EnableXP
 ; DPIAware
