@@ -117,27 +117,8 @@ Enumeration Menu_System ; specifies how the menu will be navigated
 EndEnumeration
 
 Enumeration Menu_Action
-  ; specifies different actions a menu will take
-  #Menu_Action_None
-  ; menuless
-  #Menu_Action_Start  ; starts the game
-  #Menu_Action_Select ; selects which mode of the game to play
-  #Menu_Action_Reset  ; resets the game
-  ; simple
-  #Menu_Action_Confirm
-  #Menu_Action_Back
-  #Menu_Action_Up
-  #Menu_Action_Down
-  #Menu_Action_Left
-  #Menu_Action_Right
-  ; pointer based menu controls
-  #Menu_Action_Click
-EndEnumeration
-
-Enumeration Menu_Background
-  #Menu_Background_None ; displays a solid colour
-  #Menu_Background_Vector
-  #Menu_Background_Image
+  #Menu_Action_Start_One_Player
+  #Menu_Action_Start_Two_Player
 EndEnumeration
 
 Enumeration Object_Control
@@ -227,7 +208,7 @@ Global Delta_Time.d = 0
 #Max_FPS_Samples = 500 ; number of FPS sample to average to get FPS
 #Max_Monitors_Supported = 3
 #Max_Sprite_Resources = 256 ; total amount of individual sprites supported
-#Num_System_Font_Char = 101 ; number of characters in the system font
+#Num_System_Font_Char = 102 ; number of characters in the system font
 #Max_Variables = 128
 #Max_Variable_Constraints = 16
 #Max_Debug_Vars = 32
@@ -238,7 +219,8 @@ Global Delta_Time.d = 0
 #Debug_Window_Update_Rate = 100 ; every 100ms
 
 ; Menu
-#Max_Menu_Controls = 12
+#Max_Menus = 32
+#Max_Menu_Controls = 32
 
 ; Game
 #Max_Sprite_Instances = 2048 ; all sprites used by the game
@@ -276,6 +258,17 @@ Structure Variable_Constraint_Structure
   Value.i
   Story_Action.i
   Triggered.i
+EndStructure
+
+Structure Menu_Structure
+  Text.s
+  Goto_Menu.i
+  Action.i
+  x.i
+  y.i
+  Colour.i
+  Size_X.i
+  Size_Y.i
 EndStructure
 
 Structure Desktop_Structure ; structure to store parametres for each available display
@@ -351,6 +344,9 @@ Structure System_Structure
   Collisions_Count.i
   Variable_Constraints_Count.i
   Stop_Game.i
+  Menu_Enable.i
+  Menu.Menu_Structure[#Max_Menus]
+  Menus_Count.i
 EndStructure
 
 Structure Debug_Structure
@@ -987,6 +983,28 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
   EndIf
 EndProcedure
 
+Procedure LoadMenus(*System.System_Structure)
+  Protected c.i
+  Debug "LoadCollisions: loading menus"
+  Restore Data_Menus
+  Read *System\Menus_Count
+  If *System\Menus_Count > #Max_Menus
+    *System\Fatal_Error_Message = "#Max_Menus too small to load all menus"
+    Fatal_Error(*System)
+  EndIf
+  For c = 0 To *System\Menus_Count - 1
+    Read.s *System\Menu[c]\Text
+    Read.i *System\Menu[c]\Goto_Menu
+    Read.i *System\Menu[c]\Action
+    Read.i *System\Menu[c]\x
+    Read.i *System\Menu[c]\y
+    Read.i *System\Menu[c]\Colour
+    Read.i *System\Menu[c]\Size_X
+    Read.i *System\Menu[c]\Size_Y
+  Next c
+  Debug "LoadCollisions: " + *System\Sprite_Constraints_Count + " menu(s) loaded"
+EndProcedure
+
 Procedure LoadCollisions(*System.System_Structure, *Collisions.Collisions_Structure)
   Protected c.i
   Debug "LoadCollisions: loading player constraints"
@@ -1002,7 +1020,7 @@ Procedure LoadCollisions(*System.System_Structure, *Collisions.Collisions_Struct
     Read.i *Collisions\Collision[c]\Custom
     Read.i *Collisions\Collision[c]\Action
   Next c
-  Debug "LoadCollisions: " + *System\Sprite_Constraints_Count + " collisions(s) loaded"
+  Debug "LoadCollisions: " + *System\Sprite_Constraints_Count + " collision(s) loaded"
 EndProcedure
 
 Procedure LoadVariables(*System.System_Structure)
@@ -1913,8 +1931,9 @@ Procedure GetSystemFontChar(c.i)
     Case 8364:ProcedureReturn 96 ;€
     Case 165:ProcedureReturn 97 ;¥
     Case 169:ProcedureReturn 98 ;©
-    Case 8482:ProcedureReturn 99 ;™
-    Default:ProcedureReturn 100 ;unknown
+    Case 8482:ProcedureReturn 99;™
+    Case 8594:ProcedureReturn 100 ;→
+    Default:ProcedureReturn 101 ;unknown
   EndSelect
 EndProcedure
 
@@ -1957,7 +1976,7 @@ Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settin
     ;FPS = FPS + Str(*FPS_Data\FPS)
     FPS = Str(*FPS_Data\FPS)
     ;Font::DisplayStringSpriteUnicode(#Font_Fixedsys_Neo_Plus, FPS, 0, 0)
-    DisplaySystemFontString(*System, FPS, 0, 0, 255, #White, 8, 8)
+    DisplaySystemFontString(*System, FPS, 0, 0, 255, #Black, 16, 16)
   EndIf
 EndProcedure
 
@@ -1995,33 +2014,6 @@ Procedure DrawPixel(*Screen_Settings.Screen_Settings_Structure, x.i, y.i, Colour
   ;ZoomSprite(*Screen_Settings\Pixel_Sprite, *Screen_Settings\Zoom, *Screen_Settings\Zoom)
   DisplayTransparentSprite(*Screen_Settings\Pixel_Sprite, x, y, 255, Colour)
 EndProcedure
-
-;Procedure DrawPixel2(x.i, y.i, Colour.i, *Screen_Settings.Screen_Settings_Structure)
-;  ; This draws a pixel and adjusts for different ratios
-;  Protected Pixel_End.d, Next_Pixel_Start.d
-;  Protected Width.d
-;  Protected Height.d
-;  Width = *Screen_Settings\Zoom
-;  Height = *Screen_Settings\Zoom
-;  If x > 0
-;    Pixel_End = (x * *Screen_Settings\Zoom)
-;    Next_Pixel_Start = (x+1) * *Screen_Settings\Zoom
-;    If Round(Next_Pixel_Start, #PB_Round_Nearest) - Round(Pixel_End, #PB_Round_Nearest) > Round(*Screen_Settings\Zoom, #PB_Round_Down)
-;      Width = Width + 1
-;      Colour = #Red
-;    EndIf
-;  EndIf
-;  If  y > 0
-;    Pixel_End = (y * *Screen_Settings\Zoom)
-;    Next_Pixel_Start = (y+1) * *Screen_Settings\Zoom
-;    If Round(Next_Pixel_Start, #PB_Round_Nearest) - Round(Pixel_End, #PB_Round_Nearest) > Round(*Screen_Settings\Zoom, #PB_Round_Down)
-;      Height = Height + 1
-;      Colour = #Green
-;    EndIf    
-;  EndIf
-;  ZoomSprite(*Screen_Settings\Pixel_Sprite, Width, Height)
-;  DisplayTransparentSprite(*Screen_Settings\Pixel_Sprite, x * *Screen_Settings\Zoom, y * *Screen_Settings\Zoom, 255, Colour)
-;EndProcedure
 
 Procedure DrawLine(*Screen_Settings.Screen_Settings_Structure, x1.i, y1.i, x2.i, y2.i, Colour.i)
   Protected Steep.i, DeltaX.i, DeltaY.i, YStep.i, XStep.i, Error.i
@@ -2171,26 +2163,15 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
   For c = 0 To *System\System_Font_Instance_Count - 1
     DisplaySystemFontInstance(*System, *Graphics, c)
   Next c
-  
-  
-  If Not *Screen_Settings\Full_Screen_Inactive ; don't draw anything if full screen has been alt+tabbed
-    
-    ; *************************************
-    ; menu
-    ; *************************************   
-    ;StartDrawing(ScreenOutput())
-    If *Menu_Settings\Menu_Active
-      ; Only draw background and menus when active
-      ; Draw menu background
-      Select *Menu_Settings\Menu_Background
-        Case #Menu_Background_None
-          ; nothing to do
-        Case #Menu_Background_Vector
-        Case #Menu_Background_Image
-      EndSelect
-    EndIf
-    ;StopDrawing()
-    
+
+EndProcedure
+
+Procedure ShowMenu(*System.System_Structure)
+  Protected c.i
+  If *System\Menu_Enable
+    For c = 0 To *System\Menus_Count-1
+      DisplaySystemFontString(*System, *System\Menu[c]\Text, *System\Menu[c]\x, *System\Menu[c]\y, 255, *System\Menu[c]\Colour, *System\Menu[c]\Size_X, *System\Menu[c]\Size_Y)
+    Next c
   EndIf
 EndProcedure
 
@@ -3238,28 +3219,6 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
     EndSelect
   EndIf
   
-  Debug "Initialise: loading menu controls"
-  
-  Select *Menu_Settings\Menu_System_Type
-    Case #Menu_System_Menuless
-      Restore Data_Menu_Controls_Menuless
-    Case #Menu_System_Simple
-      Restore Data_Menu_Controls_Simple
-    Case #Menu_System_Pointer
-      Restore Data_Menu_Controls_Pointer
-  EndSelect
-  Read.i *Menu_Settings\Menu_Controls_Count
-  If *Menu_Settings\Menu_Controls_Count > #Max_Menu_Controls
-    *System\Fatal_Error_Message = "#Max_Menu_Controls too small to load all menu controls"
-    Fatal_Error(*System)       
-  EndIf
-  For c = 0 To *Menu_Settings\Menu_Controls_Count - 1
-    Read.i *Menu_Settings\Menu_Control[c]\Menu_Control_Type
-    Read.i *Menu_Settings\Menu_Control[c]\Menu_Control_Action
-    Read.i *Menu_Settings\Menu_Control[c]\Menu_Control_Hardware_Type
-    Read.i *Menu_Settings\Menu_Control[c]\Menu_Control_ID
-  Next
-  
   LoadVectorResources(*System, *Graphics)
   LoadSpriteResources(*System, *Screen_Settings, *Graphics)
   LoadSystemFont(*System)
@@ -3380,11 +3339,12 @@ Repeat ; used for restarting the game
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
-      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
+      ShowMenu(@System)
       GrabScreen(@Screen_Settings)
       Draw2DGraphics(@System, @Screen_Settings)
       DrawBorder(@Screen_Settings)
       ShowZoomed2DScreen(@Screen_Settings)
+      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
       AddScreenFilter(@Screen_Settings)
       DoPostProcessing(@System) ; eg screen capture
       DrawMouse(@System, @Screen_Settings, @Graphics)
@@ -3407,33 +3367,6 @@ CompilerEndIf
 
 ;- Data section
 DataSection
-  Data_Menu_Controls:
-  ; First record is the number of records (make sure #Max_Menu_Controls is higher than the largest)
-  ; Data is in the format of the Structure Menu_Control_Type
-  ; menuless system
-  Data_Menu_Controls_Menuless:
-  ; This menu control system is like the Atari 2600 and is only included for making very simple games
-  Data.i 3
-  Data.i #Menu_System_Menuless, #Menu_Action_Start, #Control_Type_Keyboard, #PB_Key_Space
-  Data.i #Menu_System_Menuless, #Menu_Action_Select, #Control_Type_Keyboard, #PB_Key_F1
-  Data.i #Menu_System_Menuless, #Menu_Action_Reset, #Control_Type_Keyboard, #PB_Key_F2
-  ; simple menu system
-  Data_Menu_Controls_Simple:
-  ; This menu system is for making console type games where the menu is controlled by up/down/left/right etc
-  Data.i 6
-  Data.i #Menu_System_Simple, #Menu_Action_Confirm, #Control_Type_Keyboard, #PB_Key_Return
-  Data.i #Menu_System_Simple, #Menu_Action_Back, #Control_Type_Keyboard, #PB_Key_Escape
-  Data.i #Menu_System_Simple, #Menu_Action_Up, #Control_Type_Keyboard, #PB_Key_Up
-  Data.i #Menu_System_Simple, #Menu_Action_Down, #Control_Type_Keyboard, #PB_Key_Down
-  Data.i #Menu_System_Simple, #Menu_Action_Left, #Control_Type_Keyboard, #PB_Key_Left
-  Data.i #Menu_System_Simple, #Menu_Action_Right, #Control_Type_Keyboard, #PB_Key_Right
-  ; pointer menu system
-  Data_Menu_Controls_Pointer:
-  ; This menu system is the most common for PC games
-  Data.i 3
-  Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Type_Keyboard, #PB_Key_Return
-  Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Type_Keyboard, #PB_Key_Space
-  Data.i #Menu_System_Pointer, #Menu_Action_Click, #Control_Type_Mouse, #PB_MouseButton_Left
   
   Data_Images:
   ; These are all the 2D images loaded by the system available to the game
@@ -3566,6 +3499,7 @@ DataSection
   Data.a %11001100, %11001100, %01111000, %11111100, %00110000, %11111100, %00110000, %00000000 ;¥ (non C64)
   Data.a %01111100, %10000010, %10111010, %10100010, %10111010, %10000010, %01111100, %00000000 ;© (non C64)
   Data.a %11101010, %01001110, %01010101, %00000000, %00000000, %00000000, %00000000, %00000000 ;™ (non C64)
+  Data.a %00110000, %00011000, %00001100, %11111110, %00001100, %00011000, %00110000, %00000000 ;→ (non C64)
   Data.a %11111110, %11000110, %10101010, %10010010, %10101010, %11000110, %11111110, %00000000 ;unknown  
   
   CompilerIf #PB_Compiler_IsMainFile
@@ -3601,15 +3535,17 @@ DataSection
   Data.i 0
   Data_Sprite_Collisions:
   Data.i 0
+  Data_Menus:
+  Data.i 0
   
   CompilerEndIf
   
 EndDataSection
 
 ; IDE Options = PureBasic 6.12 LTS (Windows - x64)
-; CursorPosition = 3310
-; FirstLine = 3303
-; Folding = ----------------
+; CursorPosition = 1978
+; FirstLine = 1971
+; Folding = -----------------
 ; EnableXP
 ; DPIAware
 ; Executable = ..\..\GameEngine.exe

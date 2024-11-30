@@ -226,12 +226,13 @@ System\Game_Title = "Battle Tennis"
 System\Game_Config_File = "settings.cfg"
 System\Sprite_List_Data_Source = #Data_Source_Internal_Memory
 System\Game_Resource_Location = "Data"
-System\Debug_Window = 1
+System\Debug_Window = 0
 System\Current_Directory = GetCurrentDirectory()
 System\Render_Engine3D = #Render_Engine3D_Builtin
-System\Show_Debug_Info = 0 ; onscreen debug info
+System\Show_Debug_Info = 1 ; onscreen debug info
 System\Allow_Switch_to_Window = 1
 System\Allow_Screen_Capture = 1
+System\Menu_Enable = 1
 Window_Settings\Allow_Window_Resize = 1
 Window_Settings\Reset_Window = 0
 Window_Settings\Background_Colour = #Gray
@@ -289,11 +290,12 @@ Repeat ; used for restarting the game
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
-      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
+      ShowMenu(@System)
       GrabScreen(@Screen_Settings)
       Draw2DGraphics(@System, @Screen_Settings)
       DrawBorder(@Screen_Settings)
       ShowZoomed2DScreen(@Screen_Settings)
+      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
       AddScreenFilter(@Screen_Settings)
       DoPostProcessing(@System) ; eg screen capture
       DrawMouse(@System, @Screen_Settings, @Graphics)
@@ -359,7 +361,7 @@ DataSection
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 0, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom left
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 256-#Wall_Thickness, #Wall_Thickness, 0, 0 ; goal side top right
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom right
-  Data.i #Sprite_Paddle, #False, #Wall_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #True, #False, 1, #True, 0, 0, 0, 0:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
+  Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #True, #False, 1, #True, 0, 0, 0, 0:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
   Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #True, #False, 1, #True, 0, 0, 0, 0:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
   Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y ; ball
   
@@ -442,10 +444,17 @@ DataSection
   Data.i #Sprite_Instance_Ball, #Sprite_Instance_Paddle1, #True, -1
   Data.i #Sprite_Instance_Ball, #Sprite_Instance_Paddle2, #True, -1
   
+  Data_Menus:
+  ; Format: Menu text, Goto_Menu, Menu_Action, x, y
+  Data.i 2
+  Data.s "One Player": Data.i -1, #Menu_Action_Start_One_Player, 100, 80, #Yellow, 8, 8
+  Data.s "Two Players": Data.i -1, #Menu_Action_Start_Two_Player, 100, 96, #Yellow, 8, 8
+  
 EndDataSection
 ; IDE Options = PureBasic 6.12 LTS (Windows - x64)
-; CursorPosition = 328
-; FirstLine = 294
+; CursorPosition = 106
+; FirstLine = 72
 ; Folding = -
 ; EnableXP
 ; DPIAware
+; Executable = C:\Users\ps\OneDrive\Desktop\game.exe
