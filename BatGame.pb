@@ -69,16 +69,19 @@ EndEnumeration
 
 Enumeration Story_Actions
   #Story_Actions_Start
+  #Story_Actions_Ball_Sprite_Visible1
   #Story_Actions_Pause1
   #Story_Actions_Sprite_Change_Velocity1
   #Story_Actions_Continue
   #Story_Actions_Player1_Point
   #Story_Actions_Restore_Level1
+  #Story_Actions_Ball_Sprite_Visible2
   #Story_Actions_Pause2
   #Story_Actions_Sprite_Change_Velocity2
   #Story_Actions_Goto_Start1
   #Story_Actions_Player2_Point
   #Story_Actions_Restore_Level2
+  #Story_Actions_Ball_Sprite_Visible3
   #Story_Actions_Pause3
   #Story_Actions_Sprite_Change_Velocity3
   #Story_Actions_Goto_Start2
@@ -95,6 +98,15 @@ Enumeration Collisions
   #Collisions_Ball_Paddle2
 EndEnumeration
 
+Enumeration Menu
+  #Menu_Main
+EndEnumeration
+
+Enumeration Menu_Item
+  #Menu_Item_Player_One_Start
+  #Menu_Item_Player_Two_Start
+EndEnumeration
+
 ;- Constants
 
 #Colour_Black = #Black
@@ -104,8 +116,8 @@ EndEnumeration
 #Colour_White = -1
 #Colour_Blue_Slightly_Lighter = 16732184
 #Colour_Transparent = 0
-#Wall_Thickness = 6
-#Paddle_Thickness = 6
+#Wall_Thickness = 8
+#Paddle_Thickness = 4
 #Paddle_Distance = 6
 #Paddle_Length = 30
 #Paddle_Speed = 200 ; pixels per second
@@ -232,7 +244,7 @@ System\Render_Engine3D = #Render_Engine3D_Builtin
 System\Show_Debug_Info = 1 ; onscreen debug info
 System\Allow_Switch_to_Window = 1
 System\Allow_Screen_Capture = 1
-System\Menu_Enable = 1
+System\Game_State = #Game_State_Menu
 Window_Settings\Allow_Window_Resize = 1
 Window_Settings\Reset_Window = 0
 Window_Settings\Background_Colour = #Gray
@@ -258,11 +270,13 @@ Players\Player[1]\Player_Name = "Player 2"
 Players\Player[1]\Control_Set = #Control_Set_Keyboard_2Ply_2
 System\Player_Count = 2
 Story_Actions\Story_Position = #Story_Actions_Start
+Menus\Current_Menu = #Menu_Main
+Menus\Current_Item = #Menu_Item_Player_One_Start
 
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
-  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions, @Collisions)
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions, @Collisions, @Menus)
     InitialiseCustomCode()
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
@@ -278,7 +292,7 @@ Repeat ; used for restarting the game
       Debug_Settings\Debug_Var[6] = "Ball Velocity Y: " + FormatNumber(Graphics\Sprite_Instance[#Sprite_Instance_Ball]\Velocity_Y, 1)
       ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, @Graphics)
       ProcessMouse(@System, @Screen_Settings)
-      ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
+      ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Graphics, @Menus)
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessCustomStory(@Graphics, @Story_Actions)
       ProcessStory(@System, @Graphics, @Story_Actions)
@@ -289,13 +303,13 @@ Repeat ; used for restarting the game
       ProcessVariableConstraints(@System, @Story_Actions)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
-      DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
-      ShowMenu(@System)
+      DrawSprites(@System, @Screen_Settings, @Graphics)
+      ShowMenu(@System, @Menus)
+      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
       GrabScreen(@Screen_Settings)
       Draw2DGraphics(@System, @Screen_Settings)
       DrawBorder(@Screen_Settings)
       ShowZoomed2DScreen(@Screen_Settings)
-      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
       AddScreenFilter(@Screen_Settings)
       DoPostProcessing(@System) ; eg screen capture
       DrawMouse(@System, @Screen_Settings, @Graphics)
@@ -363,7 +377,7 @@ DataSection
   Data.i #Sprite_Box, #True, #Wall_Thickness, #Goal_Sides, 255, #True, #Wall_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d 256-#Wall_Thickness, 224-#Goal_Sides-#Wall_Thickness, 0, 0 ; goal side bottom right
   Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #True, #False, 1, #True, 0, 0, 0, 0:Data.d #Paddle_Distance, #Paddle_Start_Y1, 0, 0 ; paddle 1
   Data.i #Sprite_Paddle, #False, #Paddle_Thickness, #Paddle_Length, 255, #True, #Paddle_Colour, 0, #True, #True, #False, 1, #True, 0, 0, 0, 0:Data.d 256-#Paddle_Distance-#Paddle_Thickness, #Paddle_Start_Y2, 0, 0 ; paddle 2
-  Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #True, #True, #False, 1, #False, 0, 0, 0, 0:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y ; ball
+  Data.i #Sprite_Ball, #False, #Ball_Diameter, #Ball_Diameter, 255, #True, #Ball_Colour, 0, #False, #True, #False, 1, #False, 0, 0, 0, 0:Data.d #Ball_X, #Ball_Y, #Ball_Velocity_X, #Ball_Velocity_Y ; ball
   
   Data_System_Font_Instances:
   ; Used for displaying the system font
@@ -404,25 +418,28 @@ DataSection
   ; Note: you can create random values lower than 1 by using random steps. For example low=-0.5 high=0.5 steps = 100
   ; Player 0 means not relevant
   ; Custom means it is handled by custom code
-  Data.i 18
-  Data.i #Story_Action_Start,                    -1,                             #False, 0, 0,    0, 0,               -1,                     0, 0:Data.d 0, 0 ; Game Start
-  Data.i #Story_Action_Pause,                  1000,                             #False, 0, 1000, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; Pause
-  Data.i #Story_Action_Sprite_Change_Velocity,   -1,                             #True,  0, 0,    0, 0,               #Sprite_Instance_Ball, -1, 0:Data.d 0, 0 ; Sprite change veloocity
-  Data.i #Story_Action_Continue,                 -1,                             #False, 0, 0,    0, 0,               -1,                     0, 0:Data.d 0, 0 ; Game continue
-  Data.i #Story_Action_Player_Point,              1,                             #False, 0, 0,    1, #Player_1_Score, -1,                     1, 0:Data.d 0, 0 ; Player 1 point
-  Data.i #Story_Action_Restore_Level,            -1,                             #False, 0, 0,    0, 0,               -1,                     0, 0:Data.d 0, 0 ; Restore level
-  Data.i #Story_Action_Pause,                  1000,                             #False, 0, 1000, 0, 0,               -1,                     0, 0:Data.d 0, 0      ; Pause
-  Data.i #Story_Action_Sprite_Change_Velocity,   -1,                             #True,  1, 0,    0, 0,               #Sprite_Instance_Ball, -1, 0:Data.d 0, 0
-  Data.i #Story_Action_Goto,                     -1,                             #False, 0, 0,    0, 0,               -1,                     0, #Story_Actions_Continue:Data.d 0, 0
-  Data.i #Story_Action_Player_Point,             -1,                             #False, 0, 0,    1, #Player_2_Score, -1,                     2, 0:Data.d 0, 0  ; Player 2 point
-  Data.i #Story_Action_Restore_Level,            -1,                             #False, 0, 0,    0, 0,               -1,                     0, 0:Data.d 0, 0 ; Restore level
-  Data.i #Story_Action_Pause,                  1000,                             #False, 0, 1000, 0, 0,               -1,                     0, 0:Data.d 0, 0      ; Pause
-  Data.i #Story_Action_Sprite_Change_Velocity,   -1,                             #True,  0, 0,    0, 0,               #Sprite_Instance_Ball, -1, 0:Data.d 0, 0
-  Data.i #Story_Action_Goto,                     -1,                             #False, 0, 0,    0, 0,               -1,                     0, #Story_Actions_Continue:Data.d 0, 0
-  Data.i #Story_Action_Display_System_Text,      #System_Font_Instance_Ply1_Win, #False, 0, 0,    0, 0,               -1,                     0, 0:Data.d 0, 0
-  Data.i #Story_Action_End,                      -1,                             #False, 0, 0,    0, 0,               -1,                     0, 0:Data.d 0, 0
-  Data.i #Story_Action_Display_System_Text,      #System_Font_Instance_Ply2_Win, #False, 0, 0,    0, 0,               -1,                     0, 0:Data.d 0, 0
-  Data.i #Story_Action_End,                      -1,                             #False, 0, 0,    0, 0,               -1,                     0, 0:Data.d 0, 0
+  Data.i 21
+  Data.i #Story_Action_Start,                    -1,                             #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; Game Start
+  Data.i #Story_Action_Sprite_Visible,           -1,                             #False, 0, 0, 0, 0,               #Sprite_Instance_Ball,  0, 0:Data.d 0, 0 ; Show ball
+  Data.i #Story_Action_Pause,                  1000,                             #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; Pause
+  Data.i #Story_Action_Sprite_Change_Velocity,   -1,                             #True,  0, 0, 0, 0,               #Sprite_Instance_Ball, -1, 0:Data.d 0, 0 ; Sprite change veloocity
+  Data.i #Story_Action_Continue,                 -1,                             #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; Game continue
+  Data.i #Story_Action_Player_Point,              1,                             #False, 0, 0, 1, #Player_1_Score, -1,                     1, 0:Data.d 0, 0 ; Player 1 point
+  Data.i #Story_Action_Restore_Level,            -1,                             #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; Restore level
+  Data.i #Story_Action_Sprite_Visible,           -1,                             #False, 0, 0, 0, 0,               #Sprite_Instance_Ball,  0, 0:Data.d 0, 0 ; Show ball
+  Data.i #Story_Action_Pause,                  1000,                             #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; Pause
+  Data.i #Story_Action_Sprite_Change_Velocity,   -1,                             #True,  1, 0, 0, 0,               #Sprite_Instance_Ball, -1, 0:Data.d 0, 0 ; Sprite change velocity
+  Data.i #Story_Action_Goto,                     -1,                             #False, 0, 0, 0, 0,               -1,                     0, #Story_Actions_Continue:Data.d 0, 0 ; goto story position
+  Data.i #Story_Action_Player_Point,             -1,                             #False, 0, 0, 1, #Player_2_Score, -1,                     2, 0:Data.d 0, 0 ; Player 2 point
+  Data.i #Story_Action_Restore_Level,            -1,                             #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; Restore level
+  Data.i #Story_Action_Sprite_Visible,           -1,                             #False, 0, 0, 0, 0,               #Sprite_Instance_Ball,  0, 0:Data.d 0, 0 ; Show ball
+  Data.i #Story_Action_Pause,                  1000,                             #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; Pause
+  Data.i #Story_Action_Sprite_Change_Velocity,   -1,                             #True,  0, 0, 0, 0,               #Sprite_Instance_Ball, -1, 0:Data.d 0, 0 ; Sprite change velocity
+  Data.i #Story_Action_Goto,                     -1,                             #False, 0, 0, 0, 0,               -1,                     0, #Story_Actions_Continue:Data.d 0, 0 ; goto story position
+  Data.i #Story_Action_Display_System_Text,      #System_Font_Instance_Ply1_Win, #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; Display win text
+  Data.i #Story_Action_End,                      -1,                             #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; End game
+  Data.i #Story_Action_Display_System_Text,      #System_Font_Instance_Ply2_Win, #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; Display win text
+  Data.i #Story_Action_End,                      -1,                             #False, 0, 0, 0, 0,               -1,                     0, 0:Data.d 0, 0 ; End game
   
   
   Data_Sprite_Constraints:
@@ -445,15 +462,20 @@ DataSection
   Data.i #Sprite_Instance_Ball, #Sprite_Instance_Paddle2, #True, -1
   
   Data_Menus:
-  ; Format: Menu text, Goto_Menu, Menu_Action, x, y
+  ; Format: Name, type, num items, First item, Last item
+  Data.i 1
+  Data.s "Main Manu":Data.i #Menu_Type_Player_Count_Select, 2, #Menu_Item_Player_One_Start, #Menu_Item_Player_Two_Start
+  
+  Data_Menu_Items:
+  ; Format: Menu text, Menu, Goto_Menu, Menu_Action, x, y, Selector_X, Selector_Y
   Data.i 2
-  Data.s "One Player": Data.i -1, #Menu_Action_Start_One_Player, 100, 80, #Yellow, 8, 8
-  Data.s "Two Players": Data.i -1, #Menu_Action_Start_Two_Player, 100, 96, #Yellow, 8, 8
+  Data.s "One Player": Data.i #Menu_Main, -1, #Menu_Action_Start_One_Player, 88, 96, #Yellow, 8, 8, 72, 96
+  Data.s "Two Players": Data.i #Menu_Main, -1, #Menu_Action_Start_Two_Player, 88, 112, #Yellow, 8, 8, 72, 112
   
 EndDataSection
 ; IDE Options = PureBasic 6.12 LTS (Windows - x64)
-; CursorPosition = 106
-; FirstLine = 72
+; CursorPosition = 429
+; FirstLine = 405
 ; Folding = -
 ; EnableXP
 ; DPIAware

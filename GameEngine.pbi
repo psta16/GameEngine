@@ -108,12 +108,21 @@ Enumeration Control_Type
   #Control_Type_Mouse
 EndEnumeration
 
+Enumeration Game_State
+  #Game_State_Menu
+  #Game_State_Game
+EndEnumeration
+
 ; Layer 2 - Menus and controls
 
 Enumeration Menu_System ; specifies how the menu will be navigated
   #Menu_System_Menuless ; uses buttons only to start and reset the game
   #Menu_System_Simple   ; like most console and some PC games (uses arrow keys/controller to navigate)
   #Menu_System_Pointer  ; like most PC games
+EndEnumeration
+
+Enumeration Menu_Type
+  #Menu_Type_Player_Count_Select
 EndEnumeration
 
 Enumeration Menu_Action
@@ -176,6 +185,7 @@ EndEnumeration
 Enumeration Story_Actions
   #Story_Action_Start = 0
   #Story_Action_Pause
+  #Story_Action_Sprite_Visible
   #Story_Action_Sprite_Change_Velocity
   #Story_Action_Continue
   #Story_Action_Player_Point
@@ -219,7 +229,8 @@ Global Delta_Time.d = 0
 #Debug_Window_Update_Rate = 100 ; every 100ms
 
 ; Menu
-#Max_Menus = 32
+#Max_Menus = 4
+#Max_Menu_Items = 32
 #Max_Menu_Controls = 32
 
 ; Game
@@ -260,17 +271,6 @@ Structure Variable_Constraint_Structure
   Triggered.i
 EndStructure
 
-Structure Menu_Structure
-  Text.s
-  Goto_Menu.i
-  Action.i
-  x.i
-  y.i
-  Colour.i
-  Size_X.i
-  Size_Y.i
-EndStructure
-
 Structure Desktop_Structure ; structure to store parametres for each available display
   Name.s
   Width.i
@@ -280,6 +280,7 @@ Structure Desktop_Structure ; structure to store parametres for each available d
 EndStructure
 
 Structure System_Structure
+  Game_State.i ; state of the game eg menu or game play
   Current_Directory.s
   Data_Directory.s
   MutexID.i    ; used to check if more than one instance of the game is running
@@ -343,10 +344,8 @@ Structure System_Structure
   Pause_Gameplay.i
   Collisions_Count.i
   Variable_Constraints_Count.i
-  Stop_Game.i
-  Menu_Enable.i
-  Menu.Menu_Structure[#Max_Menus]
-  Menus_Count.i
+  Menu_Count.i
+  Menu_Items_Count.i
 EndStructure
 
 Structure Debug_Structure
@@ -555,23 +554,52 @@ EndStructure
 
 ; Menu
 
-Structure Menu_Control_Structure ; ways of controlling menus
-  Menu_Control_Type.i ; specifies the type of the menu control system, see Enumeration Menu_System
-  Menu_Control_Action.i ; this is the action the control will take, see Enumeration Menu_Control_Actions
-  Menu_Control_Hardware_Type.i   ; see Enumeration Control_Hardware
-  Menu_Control_ID.i              ; this is the ID of the actual control, for example a keyboard key
+Structure Menu_Structure
+  Name.s
+  Menu_Type.i
+  Num_Items.i
+  First_Item.i
+  Last_Item.i
 EndStructure
 
-Structure Menu_Settings_Structure
-  Menu_Active.i           ; when true means that the menu system is active and has control
-  Menu_System_Type.i    ; the type of menu system
-  Menu_Background.i       ; see enumeration Menu_Background
-  Data_Menu_Background_Source.i   ; see enumeration Data_Source
-  Menu_Background_Colour.i        ; background colour for the menu
-  Menu_Action.i
-  Menu_Controls_Count.i ; total number of menu controls loaded
-  Menu_Control.Menu_Control_Structure[#Max_Menu_Controls] ; array that holds menu controls
+Structure Menu_Item_Structure
+  Text.s
+  Menu.i
+  Goto_Menu.i
+  Action.i
+  x.i
+  y.i
+  Colour.i
+  Size_X.i
+  Size_Y.i
+  Selector_X.i
+  Selector_Y.i
 EndStructure
+
+Structure Menus_Structure
+  Current_Menu.i
+  Current_Item.i
+  Menu.Menu_Structure[#Max_Menus]
+  Menu_Item.Menu_Item_Structure[#Max_Menu_Items]
+EndStructure
+
+;Structure Menu_Control_Structure ; ways of controlling menus
+;  Menu_Control_Type.i ; specifies the type of the menu control system, see Enumeration Menu_System
+;  Menu_Control_Action.i ; this is the action the control will take, see Enumeration Menu_Control_Actions
+;  Menu_Control_Hardware_Type.i   ; see Enumeration Control_Hardware
+;  Menu_Control_ID.i              ; this is the ID of the actual control, for example a keyboard key
+;EndStructure
+
+;Structure Menu_Settings_Structure
+;  Menu_Active.i           ; when true means that the menu system is active and has control
+;  Menu_System_Type.i    ; the type of menu system
+;  Menu_Background.i       ; see enumeration Menu_Background
+;  Data_Menu_Background_Source.i   ; see enumeration Data_Source
+;  Menu_Background_Colour.i        ; background colour for the menu
+;  Menu_Action.i
+;  Menu_Controls_Count.i ; total number of menu controls loaded
+;  Menu_Control.Menu_Control_Structure[#Max_Menu_Controls] ; array that holds menu controls
+;EndStructure
 
 ; Game
 
@@ -651,7 +679,8 @@ Define Collisions.Collisions_Structure
 ; Menu
 ;***********************************************
 
-Define Menu_Settings.Menu_Settings_Structure
+Define Menus.Menus_Structure
+;Define Menu_Settings.Menu_Settings_Structure
   
 ;***********************************************
 ; Game
@@ -983,26 +1012,45 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
   EndIf
 EndProcedure
 
-Procedure LoadMenus(*System.System_Structure)
+Procedure LoadMenus(*System.System_Structure, *Menus.Menus_Structure)
   Protected c.i
-  Debug "LoadCollisions: loading menus"
+  Debug "LoadMenus: loading menus"
   Restore Data_Menus
-  Read *System\Menus_Count
-  If *System\Menus_Count > #Max_Menus
+  Read *System\Menu_Count
+  If *System\Menu_Count > #Max_Menus
     *System\Fatal_Error_Message = "#Max_Menus too small to load all menus"
     Fatal_Error(*System)
   EndIf
-  For c = 0 To *System\Menus_Count - 1
-    Read.s *System\Menu[c]\Text
-    Read.i *System\Menu[c]\Goto_Menu
-    Read.i *System\Menu[c]\Action
-    Read.i *System\Menu[c]\x
-    Read.i *System\Menu[c]\y
-    Read.i *System\Menu[c]\Colour
-    Read.i *System\Menu[c]\Size_X
-    Read.i *System\Menu[c]\Size_Y
+  For c = 0 To *System\Menu_Count - 1
+    Read.s *Menus\Menu[c]\Name
+    Read.i *Menus\Menu[c]\Menu_Type
+    Read.i *Menus\Menu[c]\Num_Items
+    Read.i *Menus\Menu[c]\First_Item
+    Read.i *Menus\Menu[c]\Last_Item
   Next c
-  Debug "LoadCollisions: " + *System\Sprite_Constraints_Count + " menu(s) loaded"
+  Debug "LoadMenus: " + *System\Menu_Count + " menu(s) loaded"
+  
+  Debug "LoadMenus: loading menu items"
+  Restore Data_Menu_Items
+  Read *System\Menu_Items_Count
+  If *System\Menu_Items_Count > #Max_Menu_Items
+    *System\Fatal_Error_Message = "#Max_Menu_Items too small to load all menu items"
+    Fatal_Error(*System)
+  EndIf
+  For c = 0 To *System\Menu_Items_Count - 1
+    Read.s *Menus\Menu_Item[c]\Text
+    Read.i *Menus\Menu_Item[c]\Menu
+    Read.i *Menus\Menu_Item[c]\Goto_Menu
+    Read.i *Menus\Menu_Item[c]\Action
+    Read.i *Menus\Menu_Item[c]\x
+    Read.i *Menus\Menu_Item[c]\y
+    Read.i *Menus\Menu_Item[c]\Colour
+    Read.i *Menus\Menu_Item[c]\Size_X
+    Read.i *Menus\Menu_Item[c]\Size_Y
+    Read.i *Menus\Menu_Item[c]\Selector_X
+    Read.i *Menus\Menu_Item[c]\Selector_Y
+  Next c
+  Debug "LoadMenus: " + *System\Menu_Items_Count + " menu item(s) loaded"  
 EndProcedure
 
 Procedure LoadCollisions(*System.System_Structure, *Collisions.Collisions_Structure)
@@ -1976,7 +2024,7 @@ Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settin
     ;FPS = FPS + Str(*FPS_Data\FPS)
     FPS = Str(*FPS_Data\FPS)
     ;Font::DisplayStringSpriteUnicode(#Font_Fixedsys_Neo_Plus, FPS, 0, 0)
-    DisplaySystemFontString(*System, FPS, 0, 0, 255, #Black, 16, 16)
+    DisplaySystemFontString(*System, FPS, 0, 0, 255, #Black, 8, 8)
   EndIf
 EndProcedure
 
@@ -2132,7 +2180,7 @@ Procedure DrawDashedLineSprite(*System.System_Structure, *Screen_Settings.Screen
   ProcedureReturn cc ; return the offset so drawing can continue
 EndProcedure
 
-Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure)
+Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
   Protected c.i
   ;For c = 1 To 1000
   ;  DrawPixel(*Screen_Settings, (Random(*Screen_Settings\Screen_Res_Width)), (Random(*Screen_Settings\Screen_Res_Height)), #White)
@@ -2158,7 +2206,9 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
   ;DisplayTransparentSprite(*Graphics\Sprite_Resource[1]\ID, 10, 10)
   
   For c = 0 To *System\Sprite_Instance_Count - 1
-    DisplaySpriteInstance(*Graphics, c)
+    If *Graphics\Sprite_Instance[c]\Visible
+      DisplaySpriteInstance(*Graphics, c)
+    EndIf
   Next c
   For c = 0 To *System\System_Font_Instance_Count - 1
     DisplaySystemFontInstance(*System, *Graphics, c)
@@ -2166,11 +2216,16 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
 
 EndProcedure
 
-Procedure ShowMenu(*System.System_Structure)
-  Protected c.i
-  If *System\Menu_Enable
-    For c = 0 To *System\Menus_Count-1
-      DisplaySystemFontString(*System, *System\Menu[c]\Text, *System\Menu[c]\x, *System\Menu[c]\y, 255, *System\Menu[c]\Colour, *System\Menu[c]\Size_X, *System\Menu[c]\Size_Y)
+Procedure ShowMenu(*System.System_Structure, *Menus.Menus_Structure)
+  Protected c.i = 0
+  If *System\Game_State = #Game_State_Menu
+    For c = 0 To *System\Menu_Items_Count-1
+      If *Menus\Menu_Item[c]\Menu = *Menus\Current_Menu
+        DisplaySystemFontString(*System, *Menus\Menu_Item[c]\Text, *Menus\Menu_Item[c]\x, *Menus\Menu_Item[c]\y, 255, *Menus\Menu_Item[c]\Colour, *Menus\Menu_Item[c]\Size_X, *Menus\Menu_Item[c]\Size_Y)
+        If *Menus\Current_Item = c
+          DisplaySystemFontString(*System, "→", *Menus\Menu_Item[c]\Selector_X, *Menus\Menu_Item[c]\Selector_Y, 255, *Menus\Menu_Item[c]\Colour, *Menus\Menu_Item[c]\Size_X, *Menus\Menu_Item[c]\Size_Y)
+        EndIf
+      EndIf
     Next c
   EndIf
 EndProcedure
@@ -2335,21 +2390,25 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
   Static Current_Time.q
   Protected Velocity_X.d, Velocity_Y.d
   Protected Score_Variable.i
-  If *System\Story_Action_Count > 0 And Not *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom
+  If *System\Story_Action_Count > 0 And Not *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom And *System\Game_State = #Game_State_Game
     Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
       Case #Story_Action_Start
-        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
         Debug "ProcessStory: start"
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_Pause
         If *System\Pause_Gameplay = 0 
           Current_Time = ElapsedMilliseconds()
           *System\Pause_Gameplay = 1
           Debug "ProcessStory: pause"
         EndIf
-        If ElapsedMilliseconds() - Current_Time > *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Time_Length
+        If ElapsedMilliseconds() - Current_Time > *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action_Value
           *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
           *System\Pause_Gameplay = 0
         EndIf
+      Case #Story_Action_Sprite_Visible
+        Debug "ProcessStory: sprite visible"
+        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Visible = #True
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_Sprite_Change_Velocity
         Debug "ProcessStory: change velocity"
         Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
@@ -2381,7 +2440,7 @@ Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *
         *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
       Case #Story_Action_End
         Debug "ProcessStory: end"
-        *System\Stop_Game = 1
+        *System\Game_State = #Game_State_Menu
     EndSelect
   EndIf
 EndProcedure
@@ -2405,8 +2464,7 @@ Procedure KeyPressed(*System.System_Structure, k.i)
   ProcedureReturn Pressed
 EndProcedure
 
-Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure,
-                          *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure)
+Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure, *Menus.Menus_Structure)
   Protected c.i
   If Not *Screen_Settings\Full_Screen_Inactive
     ; Disable keyboard when classic full screen inactive
@@ -2436,32 +2494,35 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
           *System\Quit = 1
         EndIf
       EndIf
-    EndIf    
+    EndIf 
     
-    ; *************************************
-    ; menu
-    ; *************************************
+    If *System\Game_State = #Game_State_Menu
+      ; Process menu inputs
+      If KeyPressed(*System, #PB_Key_Down)
+        If *Menus\Current_Item < *Menus\Menu[*Menus\Current_Menu]\Last_Item
+          *Menus\Current_Item = *Menus\Current_Item + 1
+        EndIf
+      EndIf
+      If KeyPressed(*System, #PB_Key_Up)
+        If *Menus\Current_Item > *Menus\Menu[*Menus\Current_Menu]\First_Item
+          *Menus\Current_Item = *Menus\Current_Item - 1
+        EndIf
+      EndIf
+      If KeyPressed(*System, #PB_Key_Return)
+        Select *Menus\Menu[*Menus\Current_Menu]\Menu_Type
+          Case #Menu_Type_Player_Count_Select
+            Select *Menus\Menu_Item[*Menus\Current_Item]\Action
+              Case #Menu_Action_Start_One_Player
+                *System\Game_State = #Game_State_Game
+                *System\Player_Count = 1
+              Case #Menu_Action_Start_Two_Player
+                *System\Game_State = #Game_State_Game
+                *System\Player_Count = 2
+            EndSelect
+        EndSelect
+      EndIf
+    EndIf
     
-    ;If *Menu_Settings\Menu_Active
-    ;  ; only process menu controls when the menu is active
-    ;  *Menu_Settings\Menu_Action = #Menu_Action_None
-    ;  For c = 0 To #Max_Menu_Controls - 1
-    ;    If *Menu_Settings\Menu_Control[c]\Menu_Control_Hardware_Type = #Control_Hardware_Keyboard
-    ;      ; only check keyboard controls since this is the keyboard handler
-    ;      If KeyPressed(*System, *Menu_Settings\Menu_Control[c]\Menu_Control_ID)
-    ;        Debug "ProcessKeyboard: menu control " + *Menu_Settings\Menu_Control[c]\Menu_Control_ID + " pressed"
-    ;        *Menu_Settings\Menu_Action = *Menu_Settings\Menu_Control[c]\Menu_Control_Action
-    ;      EndIf
-    ;    EndIf
-    ;    If *Menu_Settings\Menu_Action <> #Menu_Action_None : Break : EndIf 
-    ;  Next
-    ;EndIf    
-    
-    ; *************************************
-    ; system
-    ; *************************************
-    ; Process full screen only key commands
-    ; *************************************
     If *Screen_Settings\Full_Screen
       If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
         If KeyPressed(*System, #PB_Key_F4)
@@ -2519,10 +2580,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
         EndIf          
       EndIf
     EndIf
-    ; ************************************************
-    ; Process both full screen and window key commands
-    ; ************************************************ 
-    
+
     If KeyPressed(*System, #PB_Key_F3)
       ; toggle border
      *Screen_Settings\Screen_Filter = 1 - *Screen_Settings\Screen_Filter
@@ -2566,29 +2624,31 @@ EndProcedure
 
 Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Players.Players_Structure)
   Protected c.i, d.i
-  For c = 0 To *System\Player_Count-1
-    If *Controls\Control_Set[*Players\Player[c]\Control_Set]\Control_Type = #Control_Type_Keyboard
-      For d = 0 To *System\Object_Controls_Count-1
-        ; Check whether the control set button is down
-        Select *Controls\Object_Control[d]\Control_Set_Control
-          Case #Control_Button_Up
-            If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Up)
-              If *Controls\Object_Control[d]\Player = c
-                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y - *Controls\Object_Control[d]\Move_Speed * Delta_Time
-                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Old_Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y
+  If *System\Game_State = #Game_State_Game
+    For c = 0 To *System\Player_Count-1
+      If *Controls\Control_Set[*Players\Player[c]\Control_Set]\Control_Type = #Control_Type_Keyboard
+        For d = 0 To *System\Object_Controls_Count-1
+          ; Check whether the control set button is down
+          Select *Controls\Object_Control[d]\Control_Set_Control
+            Case #Control_Button_Up
+              If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Up)
+                If *Controls\Object_Control[d]\Player = c
+                  *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y - *Controls\Object_Control[d]\Move_Speed * Delta_Time
+                  *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Old_Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y
+                EndIf
               EndIf
-            EndIf
-          Case #Control_Button_Down
-            If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Down)
-              If *Controls\Object_Control[d]\Player = c
-                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y + *Controls\Object_Control[d]\Move_Speed * Delta_Time
-                *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Old_Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y
+            Case #Control_Button_Down
+              If KeyboardPushed(*Controls\Control_Set[*Players\Player[c]\Control_Set]\Down)
+                If *Controls\Object_Control[d]\Player = c
+                  *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y + *Controls\Object_Control[d]\Move_Speed * Delta_Time
+                  *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Old_Y = *Graphics\Sprite_Instance[*Controls\Object_Control[d]\Sprite_Instance]\Y
+                EndIf
               EndIf
-            EndIf
-        EndSelect
-      Next d
-    EndIf
-  Next c
+          EndSelect
+        Next d
+      EndIf
+    Next c
+  EndIf
 EndProcedure
 
 Procedure ProcessSpriteConstraints(*System.System_Structure, *Graphics.Graphics_Structure, *Sprite_Constraints.Sprite_Constraints_Structure, *Story_Actions.Story_Actions_Structure)
@@ -2864,7 +2924,7 @@ EndProcedure
 
 Procedure ProcessSpritePositions(*System.System_Structure, *Graphics.Graphics_Structure)
   Protected c.i, d.i
-  If Not *System\Stop_Game
+  If *System\Game_State = #Game_State_Game
     For c = 0 To *System\Sprite_Instance_Count-1
       *Graphics\Sprite_Instance[c]\Old_X = *Graphics\Sprite_Instance[c]\X
       *Graphics\Sprite_Instance[c]\Old_Y = *Graphics\Sprite_Instance[c]\Y
@@ -3136,8 +3196,8 @@ Procedure SetInitialiseError(*System.System_Structure, Message.s)
 EndProcedure
 
 Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_Data_Structure,
-                     *Menu_Settings.Menu_Settings_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Sprite_Constraints.Sprite_Constraints_Structure,
-                     *Story_Actions.Story_Actions_Structure, *Collisions.Collisions_Structure)
+                     *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Sprite_Constraints.Sprite_Constraints_Structure,
+                     *Story_Actions.Story_Actions_Structure, *Collisions.Collisions_Structure, *Menu.Menus_Structure)
   ; Initialises the environment
   Protected Result.i, c.i
   
@@ -3231,6 +3291,7 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   LoadCollisions(*System, *Collisions)
   LoadVariables(*System)
   LoadVariableConstraints(*System)
+  LoadMenus(*System, *Menu)
     
   ;If Not InitialiseFonts(*System)
   ;  Debug "Initialise: could not initialise fonts"
@@ -3240,8 +3301,7 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   
   ; Elevate control to layer 2 (menu)
   ;*Screen_Settings\Background_Colour = *Menu_Settings\Menu_Background_Colour
-  *Menu_Settings\Menu_Active = 1
-  
+    
   Debug "Initialise: completed"
   *System\Initialised = 1
   ProcedureReturn 1 ; Initialise successful
@@ -3292,6 +3352,7 @@ System\Current_Directory = GetCurrentDirectory()
 System\Render_Engine3D = #Render_Engine3D_Builtin
 System\Show_Debug_Info = 1 ; onscreen debug info
 System\Allow_Switch_to_Window = 1
+System\Game_State = #Game_State_Menu
 Window_Settings\Allow_Window_Resize = 1
 Window_Settings\Reset_Window = 0
 Window_Settings\Background_Colour = #Black
@@ -3318,7 +3379,7 @@ Story_Actions\Story_Position = 0
 Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
-  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Menu_Settings, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions, @Collisions)
+  If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions, @Collisions, @Menus)
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
     Repeat
@@ -3327,7 +3388,7 @@ Repeat ; used for restarting the game
       Debug_Settings\Debug_Var[0] = "FPS: " + FPS_Data\FPS
       ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, @Graphics)
       ProcessMouse(@System, @Screen_Settings)
-      ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Menu_Settings, @Graphics)
+      ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Graphics)
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessCustomStory(@Graphics, @Story_Actions)
       ProcessStory(@System, @Graphics, @Story_Actions)
@@ -3338,13 +3399,13 @@ Repeat ; used for restarting the game
       ProcessVariableConstraints(@System, @Story_Actions)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
-      DrawSprites(@System, @Screen_Settings, @Menu_Settings, @Graphics)
-      ShowMenu(@System)
+      DrawSprites(@System, @Screen_Settings, @Graphics)
+      ShowMenu(@System, @Menus)
+      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
       GrabScreen(@Screen_Settings)
       Draw2DGraphics(@System, @Screen_Settings)
       DrawBorder(@Screen_Settings)
       ShowZoomed2DScreen(@Screen_Settings)
-      ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
       AddScreenFilter(@Screen_Settings)
       DoPostProcessing(@System) ; eg screen capture
       DrawMouse(@System, @Screen_Settings, @Graphics)
@@ -3537,14 +3598,16 @@ DataSection
   Data.i 0
   Data_Menus:
   Data.i 0
+  Data_Menu_Items:
+  Data.i 0
   
   CompilerEndIf
   
 EndDataSection
 
 ; IDE Options = PureBasic 6.12 LTS (Windows - x64)
-; CursorPosition = 1978
-; FirstLine = 1971
+; CursorPosition = 2403
+; FirstLine = 2371
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
