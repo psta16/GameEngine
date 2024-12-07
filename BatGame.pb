@@ -169,8 +169,15 @@ XIncludeFile "GameEngine.pbi"
 
 ;- Procedures
 
-Procedure InitialiseCustomCode()
-  
+Procedure ProcessCustomAI(*System.System_Structure, *Graphics.Graphics_Structure)
+  If *System\Game_State = #Game_State_Game And *System\Player_Count = 1
+    If *Graphics\Sprite_Instance[#Sprite_Instance_Paddle2]\Y + #Ball_Diameter/2 < *Graphics\Sprite_Instance[#Sprite_Instance_Ball]\Y + #Paddle_Length/2
+      *Graphics\Sprite_Instance[#Sprite_Instance_Paddle2]\Y = *Graphics\Sprite_Instance[#Sprite_Instance_Paddle2]\Y + #Paddle_Speed * Delta_Time
+    EndIf
+    If *Graphics\Sprite_Instance[#Sprite_Instance_Paddle2]\Y + #Ball_Diameter/2 > *Graphics\Sprite_Instance[#Sprite_Instance_Ball]\Y - #Paddle_Length/2
+      *Graphics\Sprite_Instance[#Sprite_Instance_Paddle2]\Y = *Graphics\Sprite_Instance[#Sprite_Instance_Paddle2]\Y - #Paddle_Speed * Delta_Time
+    EndIf    
+  EndIf
 EndProcedure
 
 Procedure ProcessCustomControls(*System.System_Structure, *Players.Players_Structure)
@@ -297,7 +304,6 @@ Repeat ; used for restarting the game
   If Restart : Debug "System: restarting..." : EndIf
   Restart = 0 ; game has started so don't restart again
   If Initialise(@System, @Window_Settings, @Screen_Settings, @FPS_Data, @Graphics, @Controls, @Sprite_Constraints, @Story_Actions, @Collisions, @Menus)
-    InitialiseCustomCode()
     Debug "System: starting main loop"
     FPS_Data\Game_Start_Time = ElapsedMilliseconds()
     Repeat
@@ -315,6 +321,7 @@ Repeat ; used for restarting the game
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Graphics, @Menus, @Story_Actions)
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessCustomControls(@System, @Players)
+      ProcessCustomAI(@System, @Graphics)
       ProcessCustomStory(@Graphics, @Story_Actions)
       ProcessStory(@System, @Graphics, @Story_Actions, @Menus)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
@@ -504,8 +511,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.12 LTS (Windows - x64)
-; CursorPosition = 502
-; FirstLine = 435
+; CursorPosition = 176
+; FirstLine = 142
 ; Folding = --
 ; EnableXP
 ; DPIAware

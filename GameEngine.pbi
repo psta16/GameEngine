@@ -2225,7 +2225,9 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
   For c = 0 To *System\System_Font_Instance_Count - 1
     DisplaySystemFontInstance(*System, *Graphics, c)
   Next c
-
+  
+  
+  
 EndProcedure
 
 Procedure ShowMenu(*System.System_Structure, *Menus.Menus_Structure)
@@ -3661,8 +3663,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.12 LTS (Windows - x64)
-; CursorPosition = 2599
-; FirstLine = 2549
+; CursorPosition = 2628
+; FirstLine = 2601
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
