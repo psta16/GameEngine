@@ -123,11 +123,15 @@ EndEnumeration
 
 Enumeration Menu_Type
   #Menu_Type_Player_Count_Select
+  #Menu_Type_Game_Pause
 EndEnumeration
 
 Enumeration Menu_Action
   #Menu_Action_Start_One_Player
   #Menu_Action_Start_Two_Player
+  #Menu_Action_Quit
+  #Menu_Action_Quit_Current_Game
+  #Menu_Action_Continue
 EndEnumeration
 
 Enumeration Object_Control
@@ -192,6 +196,7 @@ Enumeration Story_Actions
   #Story_Action_Restore_Level
   #Story_Action_Goto
   #Story_Action_Display_System_Text
+  #Story_Action_Hide_System_Text
   #Story_Action_End
 EndEnumeration
 
@@ -249,18 +254,26 @@ Global Delta_Time.d = 0
 
 Structure Variable_Structure
   Var_Type.i
-  StructureUnion
-    Byte.b
-    Ascii.a
-    Char.c
-    Word.w
-    Unicode.u
-    Long.l
-    Integer.i
-    Float.f
-    Double.d
-  EndStructureUnion
-  String.s
+  Value_Byte.b
+  Value_Ascii.a
+  Value_Char.c
+  Value_Word.w
+  Value_Unicode.u
+  Value_Long.l
+  Value_Integer.i
+  Value_Float.f
+  Value_Double.d
+  Value_String.s
+  Default_Value_Byte.b
+  Default_Value_Ascii.a
+  Default_Value_Char.c
+  Default_Value_Word.w
+  Default_Value_Unicode.u
+  Default_Value_Long.l
+  Default_Value_Integer.i
+  Default_Value_Float.f
+  Default_Value_Double.d
+  Default_Value_String.s
 EndStructure
 
 Structure Variable_Constraint_Structure
@@ -269,6 +282,11 @@ Structure Variable_Constraint_Structure
   Value.i
   Story_Action.i
   Triggered.i
+EndStructure
+
+Structure Keyboard_Structure
+  Key.i
+  Key_Read.i
 EndStructure
 
 Structure Desktop_Structure ; structure to store parametres for each available display
@@ -313,7 +331,7 @@ Structure System_Structure
   Mouse_Save_X.i   ; saves the position of the mouse when switching back to desktop (alt+tab)
   Mouse_Save_Y.i
   Quit.i                 ; flag to quit game 1 = quit. To restart the game use the global Restart variable
-  Keyb.i[#Max_Keyboard_Value]       ; Array to hold which keyboard keys are pushed
+  Keyb.Keyboard_Structure[#Max_Keyboard_Value]       ; Array to hold which keyboard keys are pushed
   Allow_Restart.i        ; allows the game engine to be restarted
   Allow_Switch_to_Window.i  ; to allow switching between window and full screen
   Allow_Screen_Capture.i    ; allows a screenshot to be taken
@@ -346,6 +364,7 @@ Structure System_Structure
   Variable_Constraints_Count.i
   Menu_Count.i
   Menu_Items_Count.i
+  Disable_Esc_Quit.i
 EndStructure
 
 Structure Debug_Structure
@@ -411,7 +430,7 @@ Structure Screen_Settings_Structure
   Screen_Filter_Sprite.i             ; filter for CRT overlay
   Zoomed_Width.i ; used to find the dimensions of the screen based on the biggest size while still having square pixels
   Zoomed_Height.i
-EndStructure  
+EndStructure 
 
 Structure FPS_Data_Structure
   ; variables for measuring FPS
@@ -556,6 +575,7 @@ EndStructure
 
 Structure Menu_Structure
   Name.s
+  Level.i
   Menu_Type.i
   Num_Items.i
   First_Item.i
@@ -582,24 +602,6 @@ Structure Menus_Structure
   Menu.Menu_Structure[#Max_Menus]
   Menu_Item.Menu_Item_Structure[#Max_Menu_Items]
 EndStructure
-
-;Structure Menu_Control_Structure ; ways of controlling menus
-;  Menu_Control_Type.i ; specifies the type of the menu control system, see Enumeration Menu_System
-;  Menu_Control_Action.i ; this is the action the control will take, see Enumeration Menu_Control_Actions
-;  Menu_Control_Hardware_Type.i   ; see Enumeration Control_Hardware
-;  Menu_Control_ID.i              ; this is the ID of the actual control, for example a keyboard key
-;EndStructure
-
-;Structure Menu_Settings_Structure
-;  Menu_Active.i           ; when true means that the menu system is active and has control
-;  Menu_System_Type.i    ; the type of menu system
-;  Menu_Background.i       ; see enumeration Menu_Background
-;  Data_Menu_Background_Source.i   ; see enumeration Data_Source
-;  Menu_Background_Colour.i        ; background colour for the menu
-;  Menu_Action.i
-;  Menu_Controls_Count.i ; total number of menu controls loaded
-;  Menu_Control.Menu_Control_Structure[#Max_Menu_Controls] ; array that holds menu controls
-;EndStructure
 
 ; Game
 
@@ -1023,6 +1025,7 @@ Procedure LoadMenus(*System.System_Structure, *Menus.Menus_Structure)
   EndIf
   For c = 0 To *System\Menu_Count - 1
     Read.s *Menus\Menu[c]\Name
+    Read.i *Menus\Menu[c]\Level
     Read.i *Menus\Menu[c]\Menu_Type
     Read.i *Menus\Menu[c]\Num_Items
     Read.i *Menus\Menu[c]\First_Item
@@ -1084,25 +1087,35 @@ Procedure LoadVariables(*System.System_Structure)
     Read.i *System\Variable[c]\Var_Type
     Select *System\Variable[c]\Var_Type
       Case #Variable_Type_Ascii
-        Read.a *System\Variable[c]\Ascii
+        Read.a *System\Variable[c]\Value_Ascii
+        Read.a *System\Variable[c]\Default_Value_Ascii
       Case #Variable_Type_Byte
-        Read.b *System\Variable[c]\Byte
+        Read.b *System\Variable[c]\Value_Byte
+        Read.b *System\Variable[c]\Default_Value_Byte
       Case #Variable_Type_Char
-        Read.c *System\Variable[c]\Char
+        Read.c *System\Variable[c]\Value_Char
+        Read.c *System\Variable[c]\Default_Value_Char
       Case #Variable_Type_Double
-        Read.d *System\Variable[c]\Double
+        Read.d *System\Variable[c]\Value_Double
+        Read.d *System\Variable[c]\Default_Value_Double
       Case #Variable_Type_Float
-        Read.f *System\Variable[c]\Float
+        Read.f *System\Variable[c]\Value_Float
+        Read.f *System\Variable[c]\Default_Value_Float
       Case #Variable_Type_Integer
-        Read.i *System\Variable[c]\Integer
+        Read.i *System\Variable[c]\Value_Integer
+        Read.i *System\Variable[c]\Default_Value_Integer
       Case #Variable_Type_Long
-        Read.l *System\Variable[c]\Long
+        Read.l *System\Variable[c]\Value_Long
+        Read.l *System\Variable[c]\Default_Value_Long
       Case #Variable_Type_String
-        Read.s *System\Variable[c]\String
+        Read.s *System\Variable[c]\Value_String
+        Read.s *System\Variable[c]\Default_Value_String
       Case #Variable_Type_Unicode
-        Read.u *System\Variable[c]\Unicode
+        Read.u *System\Variable[c]\Value_Unicode
+        Read.u *System\Variable[c]\Default_Value_Unicode
       Case #Variable_Type_Word
-        Read.w *System\Variable[c]\Word
+        Read.w *System\Variable[c]\Value_Word
+        Read.w *System\Variable[c]\Default_Value_Word
     EndSelect
   Next c
   Debug "LoadVariables: " + *System\Variable_Count + " variable(s) loaded"
@@ -1140,7 +1153,6 @@ Procedure LoadStoryActions(*System.System_Structure, *Story_Actions.Story_Action
     Read.i *Story_Actions\Story_Action[c]\Action_Value
     Read.i *Story_Actions\Story_Action[c]\Custom
     Read.i *Story_Actions\Story_Action[c]\Custom_Value
-    Read.i *Story_Actions\Story_Action[c]\Time_Length
     Read.i *Story_Actions\Story_Action[c]\Score_Amount
     Read.i *Story_Actions\Story_Action[c]\Score_Variable
     Read.i *Story_Actions\Story_Action[c]\Sprite_Instance
@@ -2007,7 +2019,7 @@ Procedure DisplaySystemFontInstance(*System.System_Structure, *Graphics.Graphics
     If Variable > -1
       Select *System\Variable[Variable]\Var_Type
         Case #Variable_Type_Integer, #Variable_Type_Ascii, #Variable_Type_Byte, #Variable_Type_Long, #Variable_Type_Unicode, #Variable_Type_Word
-          Display_String = Str(*System\Variable[Variable]\Integer)
+          Display_String = Str(*System\Variable[Variable]\Value_Integer)
       EndSelect
     Else
       Display_String = *Graphics\System_Font_Instance[i]\S
@@ -2386,89 +2398,38 @@ Procedure RestoreLevel(*System.System_Structure, *Graphics.Graphics_Structure, *
   Next c
 EndProcedure
 
-Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure)
-  Static Current_Time.q
-  Protected Velocity_X.d, Velocity_Y.d
-  Protected Score_Variable.i
-  If *System\Story_Action_Count > 0 And Not *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom And *System\Game_State = #Game_State_Game
-    Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
-      Case #Story_Action_Start
-        Debug "ProcessStory: start"
-        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-      Case #Story_Action_Pause
-        If *System\Pause_Gameplay = 0 
-          Current_Time = ElapsedMilliseconds()
-          *System\Pause_Gameplay = 1
-          Debug "ProcessStory: pause"
-        EndIf
-        If ElapsedMilliseconds() - Current_Time > *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action_Value
-          *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-          *System\Pause_Gameplay = 0
-        EndIf
-      Case #Story_Action_Sprite_Visible
-        Debug "ProcessStory: sprite visible"
-        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Visible = #True
-        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-      Case #Story_Action_Sprite_Change_Velocity
-        Debug "ProcessStory: change velocity"
-        Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
-        Velocity_Y = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_Y
-        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = Velocity_X
-        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = Velocity_Y
-        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-      Case #Story_Action_Continue
-      Case #Story_Action_Player_Point
-        Debug "ProcessStory: player point"
-        Score_Variable = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Score_Variable
-        Select *System\Variable[Score_Variable]\Var_Type
-          Case #Variable_Type_Integer
-            *System\Variable[Score_Variable]\Integer = *System\Variable[Score_Variable]\Integer + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Score_Amount
-          Case #Variable_Type_Long
-            *System\Variable[Score_Variable]\Integer = *System\Variable[Score_Variable]\Integer + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Score_Amount
-        EndSelect
-        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-      Case #Story_Action_Restore_Level
-        Debug "ProcessStory: restore level"
-        RestoreLevel(*System, *Graphics, *Story_Actions)
-        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-      Case #Story_Action_Goto
-        Debug "ProcessStory: goto " + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\New_Position
-        *Story_Actions\Story_Position = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\New_Position
-      Case #Story_Action_Display_System_Text
-        Debug "ProcessStory: display system text"
-        *Graphics\System_Font_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action_Value]\Visible = 1
-        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
-      Case #Story_Action_End
-        Debug "ProcessStory: end"
-        *System\Game_State = #Game_State_Menu
-    EndSelect
-  EndIf
-EndProcedure
-
 ;- Input
+
+Procedure CheckKeyPress(*System.System_Structure)
+  Protected c.i
+  For c = 0 To #Max_Keyboard_Value
+    If KeyboardPushed(c) And Not *System\Keyb[c]\Key_Read
+      *System\Keyb[c]\Key = 1
+    EndIf
+    If KeyboardReleased(c)
+      *System\Keyb[c]\Key = 0
+      *System\Keyb[c]\Key_Read = 0
+    EndIf
+  Next c
+EndProcedure
 
 Procedure KeyPressed(*System.System_Structure, k.i)
   ; Returns whether a key was pressed, one shot
   Protected Pressed.i = 0
-      If KeyboardReleased(k)
-        *System\Keyb[k] = 0
-        Pressed = 0
-      EndIf
-      If KeyboardPushed(k)
-        If Not *System\Keyb[k]
-          ; Key push has not been registered yet
-          *System\Keyb[k] = 1
-          Pressed = 1
-        EndIf
-      EndIf
+  If *System\Keyb[k]\Key And Not *System\Keyb[k]\Key_Read
+    Pressed = 1
+    *System\Keyb[k]\Key = 0
+    *System\Keyb[k]\Key_Read = 1
+  EndIf
   ProcedureReturn Pressed
 EndProcedure
 
-Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure, *Menus.Menus_Structure)
+Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure, *Menus.Menus_Structure, *Story_Actions.Story_Actions_Structure)
   Protected c.i
   If Not *Screen_Settings\Full_Screen_Inactive
     ; Disable keyboard when classic full screen inactive
     ExamineKeyboard()
+    CheckKeyPress(*System)
     ; Always process CTRL, SHIFT and ALT pushed commands first
     ; Process alt commands
     If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
@@ -2510,14 +2471,30 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
       EndIf
       If KeyPressed(*System, #PB_Key_Return)
         Select *Menus\Menu[*Menus\Current_Menu]\Menu_Type
+          Case #Menu_Type_Game_Pause
+            Select *Menus\Menu_Item[*Menus\Current_Item]\Action
+              Case #Menu_Action_Continue
+                *System\Game_State = #Game_State_Game
+              Case #Menu_Action_Quit_Current_Game
+                Debug "Quit current game"
+                *System\Game_State = #Game_State_Menu
+                *Menus\Current_Menu = #Menu_Type_Player_Count_Select
+                *Menus\Current_Item = *Menus\Menu[*Menus\Current_Menu]\First_Item
+            EndSelect
           Case #Menu_Type_Player_Count_Select
             Select *Menus\Menu_Item[*Menus\Current_Item]\Action
               Case #Menu_Action_Start_One_Player
                 *System\Game_State = #Game_State_Game
                 *System\Player_Count = 1
+                *Story_Actions\Story_Position = 0
+                Debug "One player start"
               Case #Menu_Action_Start_Two_Player
                 *System\Game_State = #Game_State_Game
                 *System\Player_Count = 2
+                *Story_Actions\Story_Position = 0
+                Debug "Two player start"
+              Case #Menu_Action_Quit
+                *System\Quit = 1
             EndSelect
         EndSelect
       EndIf
@@ -2604,7 +2581,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     
     If ElapsedMilliseconds() - *System\Time_Full_Screen_Switched > 1000
       ; The F11 key needs to be released on a timer since resetting the screen resets the keyboard buffer
-      *System\Keyb[#PB_Key_F11] = 0
+      *System\Keyb[#PB_Key_F11]\Key = 0
     EndIf
     
     If KeyPressed(*System, #PB_Key_F12)
@@ -2616,8 +2593,15 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     EndIf 
     
     If KeyPressed(*System, #PB_Key_Escape)
-      Debug "ProcessKeyboard: quit"
-      *System\Quit = 1
+      If *System\Game_State = #Game_State_Menu And Not *System\Disable_Esc_Quit
+        Debug "ProcessKeyboard: quit"
+        *System\Quit = 1
+      EndIf
+      If *System\Game_State = #Game_State_Game
+        *System\Game_State = #Game_State_Menu
+        *Menus\Current_Menu = #Menu_Type_Game_Pause
+        *Menus\Current_Item = *Menus\Menu[*Menus\Current_Menu]\First_Item
+      EndIf
     EndIf
   EndIf
 EndProcedure
@@ -2648,6 +2632,77 @@ Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure
         Next d
       EndIf
     Next c
+  EndIf
+EndProcedure
+
+Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure, *Menus.Menus_Structure)
+  Static Current_Time.q
+  Protected Velocity_X.d, Velocity_Y.d
+  Protected Score_Variable.i
+  Protected c.i
+  If *System\Story_Action_Count > 0 And Not *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Custom And *System\Game_State = #Game_State_Game
+    Select *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action
+      Case #Story_Action_Start
+        Debug "ProcessStory: start"
+        ; Set variable to start values
+        For c = 0 To *System\Variable_Count-1
+          Select *System\Variable[c]\Var_Type
+            Case #Variable_Type_Integer
+              *System\Variable[c]\Value_Integer = *System\Variable[c]\Default_Value_Integer
+              Debug "Default value: " + *System\Variable[c]\Default_Value_Integer
+          EndSelect
+        Next c
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+      Case #Story_Action_Pause
+        If *System\Pause_Gameplay = 0 
+          Current_Time = ElapsedMilliseconds()
+          *System\Pause_Gameplay = 1
+          Debug "ProcessStory: pause"
+        EndIf
+        If ElapsedMilliseconds() - Current_Time > *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action_Value
+          *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+          *System\Pause_Gameplay = 0
+        EndIf
+      Case #Story_Action_Sprite_Visible
+        Debug "ProcessStory: sprite visible"
+        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Visible = #True
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+      Case #Story_Action_Sprite_Change_Velocity
+        Debug "ProcessStory: change velocity"
+        Velocity_X = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_X
+        Velocity_Y = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Velocity_Y
+        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_X = Velocity_X
+        *Graphics\Sprite_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Sprite_Instance]\Velocity_Y = Velocity_Y
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+      Case #Story_Action_Continue
+      Case #Story_Action_Player_Point
+        Debug "ProcessStory: player point"
+        Score_Variable = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Score_Variable
+        Select *System\Variable[Score_Variable]\Var_Type
+          Case #Variable_Type_Integer
+            *System\Variable[Score_Variable]\Value_Integer = *System\Variable[Score_Variable]\Value_Integer + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\Score_Amount
+        EndSelect
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+      Case #Story_Action_Restore_Level
+        Debug "ProcessStory: restore level"
+        RestoreLevel(*System, *Graphics, *Story_Actions)
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+      Case #Story_Action_Goto
+        Debug "ProcessStory: goto " + *Story_Actions\Story_Action[*Story_Actions\Story_Position]\New_Position
+        *Story_Actions\Story_Position = *Story_Actions\Story_Action[*Story_Actions\Story_Position]\New_Position
+      Case #Story_Action_Display_System_Text
+        Debug "ProcessStory: display system text"
+        *Graphics\System_Font_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action_Value]\Visible = #True
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+      Case #Story_Action_Hide_System_Text
+        *Graphics\System_Font_Instance[*Story_Actions\Story_Action[*Story_Actions\Story_Position]\Action_Value]\Visible = #False
+        *Story_Actions\Story_Position = *Story_Actions\Story_Position + 1
+      Case #Story_Action_End
+        Debug "ProcessStory: end"
+        *System\Game_State = #Game_State_Menu
+        *Menus\Current_Menu = #Menu_Type_Player_Count_Select
+        *Menus\Current_Item = *Menus\Menu[*Menus\Current_Menu]\First_Item
+    EndSelect
   EndIf
 EndProcedure
 
@@ -2725,11 +2780,11 @@ Procedure ProcessVariableConstraints(*System.System_Structure, *Story_Actions.St
   For c = 0 To *System\Variable_Constraints_Count-1
     Select *System\Variable_Constraint[c]\Constraint_Type
       Case #Variable_Constraint_Type_Greater_Than
-        If *System\Variable[*System\Variable_Constraint[c]\Variable]\Integer <= *System\Variable_Constraint[c]\Value
+        If *System\Variable[*System\Variable_Constraint[c]\Variable]\Value_Integer <= *System\Variable_Constraint[c]\Value
           ; untrigger the constraint if it is below
           *System\Variable_Constraint[c]\Triggered = 0
         EndIf
-        If *System\Variable[*System\Variable_Constraint[c]\Variable]\Integer > *System\Variable_Constraint[c]\Value And Not *System\Variable_Constraint[c]\Triggered
+        If *System\Variable[*System\Variable_Constraint[c]\Variable]\Value_Integer > *System\Variable_Constraint[c]\Value And Not *System\Variable_Constraint[c]\Triggered
           ; one shot trigger
           *System\Variable_Constraint[c]\Triggered = 1
           *Story_Actions\Story_Position = *System\Variable_Constraint[c]\Story_Action
@@ -3388,10 +3443,10 @@ Repeat ; used for restarting the game
       Debug_Settings\Debug_Var[0] = "FPS: " + FPS_Data\FPS
       ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, @Graphics)
       ProcessMouse(@System, @Screen_Settings)
-      ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Graphics)
+      ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Graphics, @Menus, @Story_Actions)
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessCustomStory(@Graphics, @Story_Actions)
-      ProcessStory(@System, @Graphics, @Story_Actions)
+      ProcessStory(@System, @Graphics, @Story_Actions, @Menus)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
       ProcessCustomCollisions(@System, @Graphics, @Collisions)
       ProcessCollisions(@System, @Graphics, @Collisions)
@@ -3606,8 +3661,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.12 LTS (Windows - x64)
-; CursorPosition = 2403
-; FirstLine = 2371
+; CursorPosition = 2599
+; FirstLine = 2549
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
