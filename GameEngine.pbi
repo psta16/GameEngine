@@ -1,6 +1,6 @@
 ﻿; Universal Game Engine
-; 02/01/2017
-; 21/11/2025 - v1.0 released for BatGame
+; 02/01/2017 - Started project
+; 21/11/2025 - v0.1 released for BatGame
 
 ; BUGS:
 ; 20241113 - LINUX - Switching from full screen windowed mode back to windowed mode seems to leave the window maximised
@@ -3664,7 +3664,7 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 1
+; CursorPosition = 2
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
