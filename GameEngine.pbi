@@ -1712,38 +1712,6 @@ Procedure SetScreen(*System.System_Structure, *Window_Settings.Window_Settings_S
   ProcedureReturn 1
 EndProcedure 
 
-;Procedure InitialiseFonts(*System.System_Structure)
-;  Protected.i Result
-;  Font::Initialise()
-;  Define Font_Parameters1.Font::Parameters_Structure
-;  With Font_Parameters1
-;    \Name = "Fixedsys Neo" ; used for debug info
-;    \Filename = *System\Data_Directory + "data/fonts/FixedsysNeo/FixedsysNeo.ttf"
-;    \Size = 8
-;    CompilerIf #PB_Compiler_OS = #PB_OS_Windows Or #PB_Compiler_OS = #PB_OS_Linux
-;      \Crop_Bottom_Ratio = 1.1
-;      \Crop_Top_Ratio = 0.06
-;    CompilerEndIf
-;    CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
-;      \Crop_Bottom_Ratio = 0.55
-;      \Crop_Right_Ratio = 0.4
-;      \Crop_Top_Ratio = 0.01
-;    CompilerEndIf
-;    \Colour = RGBA(255, 255, 255, 255)
-;    \Back_Colour = RGBA(0, 0, 0, 0)
-;    \Available = Font::#Font_Characters_All
-;    \Border = 0
-;    \Border_Colour = RGBA(255, 0, 0, 255)
-;    \Include_Sprite = 1 ; sprites
-;  EndWith
-;  Result = Font::CreateFontUnicode(#Font_Fixedsys_Neo_Plus, @Font_Parameters1)
-;  If Result = -1
-;    Debug "Failed initialising font Fixedsys Neo Plus"
-;    ProcedureReturn 0
-;  EndIf
-;  ProcedureReturn 1
-;EndProcedure
-
 Procedure ResetScreen(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
   *Window_Settings\Window_Debug_Edit_Gadget = 0 ; reset the gadgets on the debug window
   SetScreen(*System, *Window_Settings, *Screen_Settings)
@@ -2099,20 +2067,7 @@ Procedure DrawLine(*Screen_Settings.Screen_Settings_Structure, x1.i, y1.i, x2.i,
   Else
     YStep = -1 
   EndIf
-  ;If Dash_Length < 1 : Dash_Length = 1 : EndIf
-  ;Max_Offset = Dash_Length * 2 - 1
-  ;If Offset > Max_Offset : Offset = Max_Offset: EndIf
-  ;If Offset < 0 : Offset = 0 : EndIf
-  ;cc = Offset ; colour counter
-  ;If cc > Dash_Length - 1 : cs = 1 : Else : cs = 0 : EndIf
   For x = x1 To x2
-    ;If cs = 0 : c = col1 : Else : c = col2 : EndIf
-    ;d = 1 - d
-    ;If d = 0
-    ;  c = #Black
-    ;Else
-    ;  c = #White
-    ;EndIf      
     If Steep 
       ;Plot(y, x, c)
       DrawPixel(y, x, Colour, *Screen_Settings)
@@ -2125,14 +2080,6 @@ Procedure DrawLine(*Screen_Settings.Screen_Settings_Structure, x1.i, y1.i, x2.i,
       y = y + YStep
       Error = Error + DeltaX
     EndIf
-    ;cc = cc + 1
-    ;If cc = Dash_Length
-    ;  cs = 1 - cs
-    ;EndIf
-    ;If cc = Dash_Length * 2
-    ;  cc = 0
-    ;  cs = 1 - cs
-    ;EndIf
   Next
   ProcedureReturn cc ; return the offset so drawing can continue  
 EndProcedure
@@ -2195,29 +2142,6 @@ EndProcedure
 
 Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
   Protected c.i
-  ;For c = 1 To 1000
-  ;  DrawPixel(*Screen_Settings, (Random(*Screen_Settings\Screen_Res_Width)), (Random(*Screen_Settings\Screen_Res_Height)), #White)
-  ;Next
- 
-  ;DrawPixel(255, 0, #White, *Screen_Settings)
-  ;DrawPixel(255, 223, #White, *Screen_Settings)
-  ;DrawLine(*Screen_Settings, 0, 20, 60, 20, RGBA(255, 255, 255, 255))
-  ;DrawLine(*Screen_Settings, 0, 20, 0, 80, RGBA(255, 255, 255, 255))
-  ;DrawLine(*Screen_Settings, 0, 20, 60, 80, RGBA(255, 255, 255, 255))
-  
-  ;DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 16, 255, #Red)
-  ;DisplaySystemFontString(*System, "abcdefghijklmnopqrstuvwxyz", 0, 24, 255, #Yellow)
-  ;DisplaySystemFontString(*System, "0123456789", 0, 32, 255, #Green)
-  ;DisplaySystemFontString(*System, " !" + Chr(34) + "#$%&'()*+,-./:;<=>?@|[]£\^`~{}€¥©™", 0, 40, 255, #White)
-  ;DisplaySystemFontString(*System, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ", 0, 48, 255, #Gray)
-  
-  ;DisplayTransparentSprite(*System\Font_Char_Sprite[78], 100, 100, 255, #White)
-  ;DisplaySpriteResource(*P, *System\Mouse_Sprite_Index, 80, 50)
-  
-  ;DrawDashedLine(*System, *Screen_Settings, 100, 80, 200, 120, #Black, #White, 2)
-  
-  ;DisplayTransparentSprite(*Graphics\Sprite_Resource[1]\ID, 10, 10)
-  
   For c = 0 To *System\Sprite_Instance_Count - 1
     If *Graphics\Sprite_Instance[c]\Visible
       DisplaySpriteInstance(*Graphics, c)
@@ -2226,9 +2150,6 @@ Procedure DrawSprites(*System.System_Structure, *Screen_Settings.Screen_Settings
   For c = 0 To *System\System_Font_Instance_Count - 1
     DisplaySystemFontInstance(*System, *Graphics, c)
   Next c
-  
-  
-  
 EndProcedure
 
 Procedure ShowMenu(*System.System_Structure, *Menus.Menus_Structure)
@@ -2268,9 +2189,6 @@ EndProcedure
 
 Procedure ShowZoomed2DScreen(*Screen_Settings.Screen_Settings_Structure)
   Protected Use_Sprite.i
-  ;ZoomSprite(*Screen_Settings\Screen_Sprite, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height)
-  ;Debug "Screen_Res_Width: " + *Screen_Settings\Screen_Res_Width
-  ;Debug "Screen_Actual_Width: " + Round(*Screen_Settings\Screen_Actual_Width * 1.5, #PB_Round_Up)
   If Not *Screen_Settings\Border And *Screen_Settings\Screen_Res_Width = *Screen_Settings\Screen_Actual_Width
     Use_Sprite = 0
   Else
@@ -2638,7 +2556,7 @@ Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure
   EndIf
 EndProcedure
 
-Procedure ProcessStory(*System.System_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure, *Menus.Menus_Structure)
+Procedure ProcessStory(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure, *Story_Actions.Story_Actions_Structure, *Menus.Menus_Structure)
   Static Current_Time.q
   Protected Velocity_X.d, Velocity_Y.d
   Protected Score_Variable.i
@@ -3664,7 +3582,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 2
+; CursorPosition = 191
+; FirstLine = 159
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
