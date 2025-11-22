@@ -233,6 +233,7 @@ Global Delta_Time.d = 0
 #Max_Vector_Graphics_Resources = 32
 #Max_System_Font_Instances = 32
 #Debug_Window_Update_Rate = 100 ; every 100ms
+#Debug_FPS_Colour = #White
 
 ; Menu
 #Max_Menus = 4
@@ -365,6 +366,7 @@ Structure System_Structure
   Variable_Constraints_Count.i
   Menu_Count.i
   Menu_Items_Count.i
+  F11_Pressed.i ; needed to manage the F11 key because when switching to full screen it resets the keyboard buffer
   Disable_Esc_Quit.i
 EndStructure
 
@@ -1723,6 +1725,7 @@ EndProcedure
 Procedure SwitchFullScreen(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
   ; Handles reloading of resources
   Protected x.i, y.i
+  *System\F11_Pressed = 1
   *Window_Settings\Window_Debug_Edit_Gadget = 0 ; reset the gadgets on the debug window
   *Screen_Settings\Full_Screen = 1 - *Screen_Settings\Full_Screen ; toggle full screen
   If Not SetScreen(*System, *Window_Settings, *Screen_Settings)
@@ -2004,8 +2007,7 @@ Procedure ShowDebugInfo(*System.System_Structure, *Screen_Settings.Screen_Settin
     ;FPS = "FPS:"
     ;FPS = FPS + Str(*FPS_Data\FPS)
     FPS = Str(*FPS_Data\FPS)
-    ;Font::DisplayStringSpriteUnicode(#Font_Fixedsys_Neo_Plus, FPS, 0, 0)
-    DisplaySystemFontString(*System, FPS, 0, 0, 255, #Black, 8, 8)
+    DisplaySystemFontString(*System, FPS, 0, 0, 255, #Debug_FPS_Colour, 8, 8)
   EndIf
 EndProcedure
 
@@ -2237,7 +2239,7 @@ Procedure AddScreenFilter(*Screen_Settings.Screen_Settings_Structure)
   EndIf
 EndProcedure
 
-Procedure ShowFullResGraphics(*System.System_Structure)
+Procedure ShowNativeResGraphics(*System.System_Structure)
   ; Useful for showing system messages or a console etc
   
 EndProcedure
@@ -2420,7 +2422,6 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
         EndSelect
       EndIf
     EndIf
-    
     If *Screen_Settings\Full_Screen
       If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
         If KeyPressed(*System, #PB_Key_F4)
@@ -2435,9 +2436,10 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     Else
       ; Remove F10 and Alt
       CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-        ;If KeyboardPushed(#PB_Key_F10) Or KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
-        ;  keybd_event_(#PB_Key_F9, 0, #KEYEVENTF_KEYUP, 0)
-        ;  Debug "ProcessKeyboard: F10/Alt key pushed while in Window mode"
+        If KeyboardPushed(#PB_Key_F10) Or KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
+          keybd_event_(#PB_Key_F9, 0, #KEYEVENTF_KEYUP, 0)
+          Debug "ProcessKeyboard: F10/Alt key pushed while in Window mode"
+        EndIf
       CompilerEndIf
       If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
         If KeyPressed(*System, #PB_Key_1)
@@ -2496,13 +2498,17 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
         ; switch between window or full screen
         SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
       Else
-        Debug "ProcessKeyboard: not allowed to switch between full screen and window"
+        Debug "ProcessKeyboard: switch between window and full screen disabled"
       EndIf
     EndIf
-    
-    If ElapsedMilliseconds() - *System\Time_Full_Screen_Switched > 1000
+
+    If ElapsedMilliseconds() - *System\Time_Full_Screen_Switched > 1000 And *System\F11_Pressed
       ; The F11 key needs to be released on a timer since resetting the screen resets the keyboard buffer
+      ; and it doesn't know that the key has been released
+      *System\F11_Pressed = 0
+      *System\Keyb[#PB_Key_F11]\Key_Read = 0
       *System\Keyb[#PB_Key_F11]\Key = 0
+      Debug "ProcessKeyboard: reset F11 key"
     EndIf
     
     If KeyPressed(*System, #PB_Key_F12)
@@ -3367,7 +3373,7 @@ Repeat ; used for restarting the game
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Graphics, @Menus, @Story_Actions)
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessCustomStory(@Graphics, @Story_Actions)
-      ProcessStory(@System, @Graphics, @Story_Actions, @Menus)
+      ProcessStory(@System, @Screen_Settings, @Graphics, @Story_Actions, @Menus)
       ProcessSpriteConstraints(@System, @Graphics, @Sprite_Constraints, @Story_Actions)
       ProcessCustomCollisions(@System, @Graphics, @Collisions)
       ProcessCollisions(@System, @Graphics, @Collisions)
@@ -3385,7 +3391,7 @@ Repeat ; used for restarting the game
       AddScreenFilter(@Screen_Settings)
       DoPostProcessing(@System) ; eg screen capture
       DrawMouse(@System, @Screen_Settings, @Graphics)
-      ShowFullResGraphics(@Screen_Settings) ; eg system messages or console (not captured by screen capture)
+      ShowNativeResGraphics(@Screen_Settings) ; eg system messages or console (not captured by screen capture)
       ShowDebugWindowInfo(@System, @Window_Settings, @FPS_Data, @Debug_Settings)
       DoFlipBuffer(@Screen_Settings)
       CheckFullScreen(@System, @Window_Settings, @Screen_Settings)  ; check for switching back to main window system (alt+tab), must be after FlipBuffers      
@@ -3582,8 +3588,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 191
-; FirstLine = 159
+; CursorPosition = 2506
+; FirstLine = 2454
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
