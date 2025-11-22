@@ -300,74 +300,75 @@ Structure Desktop_Structure ; structure to store parametres for each available d
 EndStructure
 
 Structure System_Structure
-  Game_State.i ; state of the game eg menu or game play
-  Current_Directory.s
-  Data_Directory.s
-  MutexID.i    ; used to check if more than one instance of the game is running
-  MutexError.i
-  Minimum_Colour_Depth.i
-  Sprites_Loaded.i
-  Font_Char_Sprite.i[#Num_System_Font_Char] ; sprite ID for the system font
-  Fatal_Error_Message.s
-  Game_Title.s
-  Game_Config_File.s     ; filename of the confg file
-  Sprite_List_Data_Source.i ; The source for the sprite resource list (see enumeration Data_Source)
-  Sprite_Resource_Count.i   ; number of sprite resources
-  Sprite_Instance_Count.i ; number of sprite instances
-  Game_Resource_Location.s                                         ; location of files
-  Debug_Window.i                                                   ; turns on the debug window
-  Debug_Var_Count.i ; count of the number of debug variables in the Debug_Var() array, used with the debug window
-  Config_File.i             ; set to 1 if config file exists, used for when there's no config file
-  Last_Screen_Capture_File.s; last file used by screen capture
-  Last_Screen_Capture_Number.i ; used for capturing more than one frame per second  
-  Render_Engine3D.i            ; select which 3D rendering engine to use, select none for 2D only
-  Last_Debug_Window_Update.q   ; time in milliseconds when the debug window was last updated
-  Show_Debug_Info.i            ; when set this will show things like FPS etc on screen
-  Show_Mouse.i           ; shows the mouse
-  Mouse_Control.i        ; mouse is controlling the player
-  Mouse_X.f              ; location of the mouse pointer when it is over the window
-  Mouse_Offset_X.i       ; offset of the mouse sprite displayed
-  Mouse_Y.f
-  Mouse_Offset_Y.i
-  Take_Screen_Capture.i ; flag to take a screen capture
-  Mouse_Save_X.i   ; saves the position of the mouse when switching back to desktop (alt+tab)
-  Mouse_Save_Y.i
-  Quit.i                 ; flag to quit game 1 = quit. To restart the game use the global Restart variable
-  Keyb.Keyboard_Structure[#Max_Keyboard_Value]       ; Array to hold which keyboard keys are pushed
-  Allow_Restart.i        ; allows the game engine to be restarted
-  Allow_Switch_to_Window.i  ; to allow switching between window and full screen
-  Allow_Screen_Capture.i    ; allows a screenshot to be taken
-  Allow_AltF4_Full_Screen.i ; allows full screen to be quit using Alt+F4
-  Mouse_Sensitivity_X.f
-  Mouse_Sensitivity_Y.f
-  Mouse_Button_Left.i ; gives the actual mouse button state, only works in ExamineMouse() mode
-  Mouse_Button_Middle.i
-  Mouse_Button_Right.i  
-  Mouse_Wheel_Movement.i ; movement of the mouse wheel since the last ExamineMouse()  
-  Mouse_Left_Click.i  ; set when the mouse is clicked while in window mode
-  Mouse_Right_Click.i
-  Config_Loaded.i           ; set to 1 once the config is loaded. Cannot save until loaded  
-  Initialisation_Error.i    ; will be set when there's an error. Helps track down the first error causing an issue
-  Initialise_Error_Message.s; special string for giving an initialisation error message. Only set this using SetInitialiseError()
-  Initialised.i             ; set when the game engine is initialised
-  Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
-  Sprite_Vector_Resource_Count.i ; number of vector resources
-  Variable.Variable_Structure[#Max_Variables] ; variables used for displaying values on screen etc
-  Variable_Constraint.Variable_Constraint_Structure[#Max_Variable_Constraints]
-  Variable_Count.i
-  System_Font_Instance_Count.i                ; number of system font instances
-  Controls_Count.i                            ; number of control sets
-  Object_Controls_Count.i
-  Player_Count.i ; number of active players in the game
-  Sprite_Constraints_Count.i
-  Story_Action_Count.i
-  Pause_Gameplay.i
-  Collisions_Count.i
-  Variable_Constraints_Count.i
-  Menu_Count.i
-  Menu_Items_Count.i
-  F11_Pressed.i ; needed to manage the F11 key because when switching to full screen it resets the keyboard buffer
-  Disable_Esc_Quit.i
+Allow_AltF4_Full_Screen.i ; allows full screen to be quit using Alt+F4
+Allow_Restart.i        ; allows the game engine to be restarted
+Allow_Screen_Capture.i    ; allows a screenshot to be taken
+Allow_Switch_to_Window.i  ; to allow switching between window and full screen
+Collisions_Count.i
+Config_File.i             ; set to 1 if config file exists, used for when there's no config file
+Config_Loaded.i           ; set to 1 once the config is loaded. Cannot save until loaded
+Controls_Count.i                            ; number of control sets
+Current_Directory.s
+Data_Directory.s
+Debug_Var_Count.i ; count of the number of debug variables in the Debug_Var() array, used with the debug window
+Debug_Window.i                                                   ; turns on the debug window
+Disable_Esc_Quit.i
+Disable_F9_Toggle_Border.i ; disables the F9 key to toggle showing the border
+F11_Pressed.i ; needed to manage the F11 key because when switching to full screen it resets the keyboard buffer
+Fatal_Error_Message.s
+Font_Char_Sprite.i[#Num_System_Font_Char] ; sprite ID for the system font
+Game_Config_File.s     ; filename of the confg file
+Game_Resource_Location.s                                         ; location of files
+Game_State.i ; state of the game eg menu or game play
+Game_Title.s
+Initialisation_Error.i    ; will be set when there's an error. Helps track down the first error causing an issue
+Initialise_Error_Message.s; special string for giving an initialisation error message. Only set this using SetInitialiseError()
+Initialised.i             ; set when the game engine is initialised
+Keyb.Keyboard_Structure[#Max_Keyboard_Value]       ; Array to hold which keyboard keys are pushed
+Last_Debug_Window_Update.q   ; time in milliseconds when the debug window was last updated
+Last_Screen_Capture_File.s; last file used by screen capture
+Last_Screen_Capture_Number.i ; used for capturing more than one frame per second
+Menu_Count.i
+Menu_Items_Count.i
+Minimum_Colour_Depth.i
+Mouse_Button_Left.i ; gives the actual mouse button state, only works in ExamineMouse() mode
+Mouse_Button_Middle.i
+Mouse_Button_Right.i
+Mouse_Control.i        ; mouse is controlling the player
+Mouse_Left_Click.i  ; set when the mouse is clicked while in window mode
+Mouse_Offset_X.i       ; offset of the mouse sprite displayed
+Mouse_Offset_Y.i
+Mouse_Right_Click.i
+Mouse_Save_X.i   ; saves the position of the mouse when switching back to desktop (alt+tab)
+Mouse_Save_Y.i
+Mouse_Sensitivity_X.f
+Mouse_Sensitivity_Y.f
+Mouse_Wheel_Movement.i ; movement of the mouse wheel since the last ExamineMouse()
+Mouse_X.f              ; location of the mouse pointer when it is over the window
+Mouse_Y.f
+MutexError.i
+MutexID.i    ; used to check if more than one instance of the game is running
+Object_Controls_Count.i
+Pause_Gameplay.i
+Player_Count.i ; number of active players in the game
+Quit.i                 ; flag to quit game 1 = quit. To restart the game use the global Restart variable
+Render_Engine3D.i            ; select which 3D rendering engine to use, select none for 2D only
+Show_Debug_Info.i            ; when set this will show things like FPS etc on screen
+Show_Mouse.i           ; shows the mouse
+Sprite_Constraints_Count.i
+Sprite_Instance_Count.i ; number of sprite instances
+Sprite_List_Data_Source.i ; The source for the sprite resource list (see enumeration Data_Source)
+Sprite_Resource_Count.i   ; number of sprite resources
+Sprite_Vector_Resource_Count.i ; number of vector resources
+Sprites_Loaded.i
+Story_Action_Count.i
+System_Font_Instance_Count.i                ; number of system font instances
+Take_Screen_Capture.i ; flag to take a screen capture
+Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
+Variable.Variable_Structure[#Max_Variables] ; variables used for displaying values on screen etc
+Variable_Constraint.Variable_Constraint_Structure[#Max_Variable_Constraints]
+Variable_Constraints_Count.i
+Variable_Count.i
 EndStructure
 
 Structure Debug_Structure
@@ -1596,6 +1597,7 @@ Procedure SetWindowScreen(*System.System_Structure, *Screen_Settings.Screen_Sett
     *Screen_Settings\Screen_Open = 0
   EndIf
   If OpenWindowedScreen(WindowID(#Game_Window_Main), *Screen_Settings\Screen_Left, *Screen_Settings\Screen_Top, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height, #False, 0, 0, *Screen_Settings\Flip_Mode)
+    Debug "SetWindowScreen: windowed screen opened"
     *Screen_Settings\Screen_Open = 1
     *Screen_Settings\Screen_Active = 1
   Else
@@ -1643,7 +1645,7 @@ Procedure SetScreen(*System.System_Structure, *Window_Settings.Window_Settings_S
     EndIf 
   EndIf
   If Not (*Screen_Settings\Full_Screen And *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic)
-    ; If not full screen then a window needs to be opened
+    ; If not a classic full screen then a window needs to be opened
     If *Window_Settings\Window_X > *Screen_Settings\Total_Desktop_Width And Not *Screen_Settings\Full_Screen
       ; check the window is visible, useful if you unplug a monitor
       ; Only reset the window if it's not in windowed full screen mode
@@ -1725,7 +1727,6 @@ EndProcedure
 Procedure SwitchFullScreen(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure, *Graphics.Graphics_Structure)
   ; Handles reloading of resources
   Protected x.i, y.i
-  *System\F11_Pressed = 1
   *Window_Settings\Window_Debug_Edit_Gadget = 0 ; reset the gadgets on the debug window
   *Screen_Settings\Full_Screen = 1 - *Screen_Settings\Full_Screen ; toggle full screen
   If Not SetScreen(*System, *Window_Settings, *Screen_Settings)
@@ -2435,12 +2436,12 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
       EndIf
     Else
       ; Remove F10 and Alt
-      CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-        If KeyboardPushed(#PB_Key_F10) Or KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
-          keybd_event_(#PB_Key_F9, 0, #KEYEVENTF_KEYUP, 0)
-          Debug "ProcessKeyboard: F10/Alt key pushed while in Window mode"
-        EndIf
-      CompilerEndIf
+      ;CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ;  If KeyboardPushed(#PB_Key_F10) Or KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
+      ;    keybd_event_(#PB_Key_F9, 0, #KEYEVENTF_KEYUP, 0)
+      ;    Debug "ProcessKeyboard: F10/Alt key pushed while in Window mode"
+      ;  EndIf
+      ;CompilerEndIf
       If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
         If KeyPressed(*System, #PB_Key_1)
           *Screen_Settings\Set_Zoom = 1
@@ -2489,8 +2490,14 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     If KeyPressed(*System, #PB_Key_F9)
       ; toggle border
       If *Screen_Settings\Border_Enable
-        *Screen_Settings\Border = 1 - *Screen_Settings\Border
-      EndIf    
+        If  Not *System\Disable_F9_Toggle_Border
+          *Screen_Settings\Border = 1 - *Screen_Settings\Border
+        Else
+          Debug "ProcessKeyboard: toggle border disabled"
+        EndIf
+      Else
+        Debug "ProcessKeyboard: border disabled"
+      EndIf
     EndIf
     
     If KeyPressed(*System, #PB_Key_F11)
@@ -3151,7 +3158,11 @@ Procedure LoadConfig(*System.System_Structure, *Window_Settings.Window_Settings_
   OpenPreferences(f)
   Debug "LoadConfig: loading window preferences"
   PreferenceGroup("Window")
-  *Screen_Settings\Full_Screen = ReadPreferenceInteger("Full_Screen", 0)
+  If *System\Allow_Switch_to_Window
+    ; Full screen is ignored if Allow_Switch_to_Window is false
+    ; This allows for a game to always be full screen or a window
+    *Screen_Settings\Full_Screen = ReadPreferenceInteger("Full_Screen", 0)
+  EndIf
   *Window_Settings\Window_X = ReadPreferenceInteger("Window_X", 0)
   *Window_Settings\Window_Y = ReadPreferenceInteger("Window_Y", 0)
   *Window_Settings\Window_W = ReadPreferenceInteger("Window_W", *Window_Settings\Window_W)
@@ -3333,9 +3344,10 @@ System\Debug_Window = 1
 System\Current_Directory = GetCurrentDirectory()
 System\Render_Engine3D = #Render_Engine3D_Builtin
 System\Show_Debug_Info = 1 ; onscreen debug info
-System\Allow_Switch_to_Window = 1
+System\Allow_Switch_to_Window = 0
 System\Game_State = #Game_State_Menu
-Window_Settings\Allow_Window_Resize = 1
+System\Disable_F9_Toggle_Border = 1
+Window_Settings\Allow_Window_Resize = 0
 Window_Settings\Reset_Window = 0
 Window_Settings\Background_Colour = #Black
 Window_Settings\Window_Debug_W = 120
@@ -3346,13 +3358,19 @@ Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
 Screen_Settings\Border_Enable = 1
 Screen_Settings\Border = 0 ; turn the border on by default
 Screen_Settings\Classic_Screen_Background_Colour = #Black
-Screen_Settings\Border_Width = 316
+;Screen_Settings\Border_Width = 316
+;Screen_Settings\Border_Height = 284
+;Screen_Settings\Screen_Res_Width = 256
+;Screen_Settings\Screen_Res_Height = 224
+Screen_Settings\Border_Width = 444
 Screen_Settings\Border_Height = 284
-Screen_Settings\Screen_Res_Width = 256
+Screen_Settings\Screen_Res_Width = 384
 Screen_Settings\Screen_Res_Height = 224
+
+
 Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
 Screen_Settings\Background_Colour = #Blue
-Screen_Settings\Full_Screen = 0
+Screen_Settings\Full_Screen = 1
 Screen_Settings\Full_Screen_Type = #Full_Screen_Windowed
 Story_Actions\Story_Position = 0
 
@@ -3588,8 +3606,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 2506
-; FirstLine = 2454
+; CursorPosition = 2498
+; FirstLine = 2464
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
