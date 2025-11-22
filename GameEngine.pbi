@@ -304,6 +304,7 @@ Allow_AltF4_Full_Screen.i ; allows full screen to be quit using Alt+F4
 Allow_Restart.i        ; allows the game engine to be restarted
 Allow_Screen_Capture.i    ; allows a screenshot to be taken
 Allow_Switch_to_Window.i  ; to allow switching between window and full screen
+Allow_Toggle_Border.i ; allows the F9 key to toggle showing the border
 Collisions_Count.i
 Config_File.i             ; set to 1 if config file exists, used for when there's no config file
 Config_Loaded.i           ; set to 1 once the config is loaded. Cannot save until loaded
@@ -313,7 +314,7 @@ Data_Directory.s
 Debug_Var_Count.i ; count of the number of debug variables in the Debug_Var() array, used with the debug window
 Debug_Window.i                                                   ; turns on the debug window
 Disable_Esc_Quit.i
-Allow_Toggle_Border.i ; allows the F9 key to toggle showing the border
+Enter_Pressed.i ; true after enter has been pressed. Used for switching from full screen to window
 F11_Pressed.i ; needed to manage the F11 key because when switching to full screen it resets the keyboard buffer
 Fatal_Error_Message.s
 Font_Char_Sprite.i[#Num_System_Font_Char] ; sprite ID for the system font
@@ -2369,6 +2370,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
       If KeyPressed(*System, #PB_Key_Return)
         Debug "ProcessKeyboard: switch full screen"
+        *System\Enter_Pressed = 1
         SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
       EndIf
     EndIf
@@ -2440,7 +2442,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
             Debug "ProcessKeyboard: quit by Alt+F4 in fullscreen"
             *System\Quit = 1
           Else
-            Debug "ProcessKeyboard: not allowed to quit by Alt+F4 in fullscreen"
+            Debug "ProcessKeyboard: Alt+F4 in fullscreen quit disabled"
           EndIf
         EndIf
       EndIf
@@ -2520,7 +2522,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
       EndIf
     EndIf
 
-    If ElapsedMilliseconds() - *System\Time_Full_Screen_Switched > 1000 And *System\F11_Pressed
+    If ElapsedMilliseconds() - *System\Time_Full_Screen_Switched > 300 And *System\F11_Pressed
       ; The F11 key needs to be released on a timer since resetting the screen resets the keyboard buffer
       ; and it doesn't know that the key has been released
       *System\F11_Pressed = 0
@@ -2528,6 +2530,15 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
       *System\Keyb[#PB_Key_F11]\Key = 0
       Debug "ProcessKeyboard: reset F11 key"
     EndIf
+    
+    If ElapsedMilliseconds() - *System\Time_Full_Screen_Switched > 300 And *System\Enter_Pressed
+      ; The F11 key needs to be released on a timer since resetting the screen resets the keyboard buffer
+      ; and it doesn't know that the key has been released
+      *System\Enter_Pressed = 0
+      *System\Keyb[#PB_Key_Return]\Key_Read = 0
+      *System\Keyb[#PB_Key_Return]\Key = 0
+      Debug "ProcessKeyboard: reset enter key"
+    EndIf    
     
     If KeyPressed(*System, #PB_Key_F12)
       If *System\Allow_Screen_Capture
@@ -3375,9 +3386,9 @@ Screen_Settings\Classic_Screen_Background_Colour = #Black
 ;Screen_Settings\Screen_Res_Width = 256
 ;Screen_Settings\Screen_Res_Height = 224
 Screen_Settings\Border_Width = 444
-Screen_Settings\Border_Height = 316
+Screen_Settings\Border_Height = 284
 Screen_Settings\Screen_Res_Width = 384
-Screen_Settings\Screen_Res_Height = 256
+Screen_Settings\Screen_Res_Height = 224
 Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
 Screen_Settings\Background_Colour = #Blue
 Screen_Settings\Full_Screen = 1
@@ -3616,8 +3627,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 3370
-; FirstLine = 3333
+; CursorPosition = 316
+; FirstLine = 276
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
