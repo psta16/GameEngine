@@ -3373,7 +3373,7 @@ System\Game_State = #Game_State_Menu
 System\Allow_Toggle_Border = 0
 System\Allow_Screen_Capture = 1
 System\Allow_Esc_Quit = 1
-Window_Settings\Allow_Window_Resize = 0
+Window_Settings\Allow_Window_Resize = 1
 Window_Settings\Reset_Window = 0
 Window_Settings\Background_Colour = #Black
 Window_Settings\Window_Debug_W = 120
@@ -3630,8 +3630,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 2433
-; FirstLine = 2373
+; CursorPosition = 3375
+; FirstLine = 3339
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
