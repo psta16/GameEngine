@@ -1755,6 +1755,12 @@ EndProcedure
 
 Procedure SaveScreen(*System.System_Structure)
   Protected s.i, d.s, n.s, f.s
+  If ExamineDirectory(0, "myfolder", "")
+    ; Directory exists, do nothing
+    FinishDirectory(0)
+  Else
+    CreateDirectory("screenshots")
+  EndIf
   s = GrabSprite(#PB_Any, 0, 0, ScreenWidth(), ScreenHeight())
   d = FormatDate("%yyyy%mm%dd-%hh%ii%ss", Date())
   n = ""
@@ -1766,7 +1772,7 @@ Procedure SaveScreen(*System.System_Structure)
     ; reset the counter because the time has incremented to the next second
     *System\Last_Screen_Capture_Number = 0
   EndIf
-  f = *System\Current_Directory + "screen-capture-" + d + n + ".png"
+  f = *System\Current_Directory + "screenshots\screen-capture-" + d + n + ".png"
   *System\Last_Screen_Capture_File = d
   If SaveSprite(s, f, #PB_ImagePlugin_PNG)
     Debug "SaveScreen: saved screen-capture-" + f
@@ -3348,6 +3354,7 @@ System\Show_Debug_Info = 1 ; onscreen debug info
 System\Allow_Switch_to_Window = 1
 System\Game_State = #Game_State_Menu
 System\Disable_F9_Toggle_Border = 1
+System\Allow_Screen_Capture = 1
 Window_Settings\Allow_Window_Resize = 0
 Window_Settings\Reset_Window = 0
 Window_Settings\Background_Colour = #Black
@@ -3359,14 +3366,14 @@ Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
 Screen_Settings\Border_Enable = 1
 Screen_Settings\Border = 0 ; turn the border on by default
 Screen_Settings\Classic_Screen_Background_Colour = #Black
-Screen_Settings\Border_Width = 316
-Screen_Settings\Border_Height = 284
-Screen_Settings\Screen_Res_Width = 256
-Screen_Settings\Screen_Res_Height = 224
-;Screen_Settings\Border_Width = 444
+;Screen_Settings\Border_Width = 316
 ;Screen_Settings\Border_Height = 284
-;Screen_Settings\Screen_Res_Width = 384
+;Screen_Settings\Screen_Res_Width = 256
 ;Screen_Settings\Screen_Res_Height = 224
+Screen_Settings\Border_Width = 444
+Screen_Settings\Border_Height = 316
+Screen_Settings\Screen_Res_Width = 384
+Screen_Settings\Screen_Res_Height = 256
 Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
 Screen_Settings\Background_Colour = #Blue
 Screen_Settings\Full_Screen = 1
@@ -3605,8 +3612,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 2505
-; FirstLine = 2477
+; CursorPosition = 1774
+; FirstLine = 1755
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
