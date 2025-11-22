@@ -1282,6 +1282,8 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
   Protected Scratch.i ; this is used as a variable for reading data to be discarded
   Protected Found.i, Zoom.i
   Protected Background_Colour.i
+  Protected Pixel_Size.d
+  Protected Filter_Height.i
   ; Create pixel sprite
   *Screen_Settings\Pixel_Sprite = CreateSprite(#PB_Any, 1, 1, #PB_Sprite_AlphaBlending)
   StartDrawing(SpriteOutput(*Screen_Settings\Pixel_Sprite))
@@ -1292,6 +1294,7 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
   *Screen_Settings\Screen_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height, #PB_Sprite_AlphaBlending)
   TransparentSpriteColor(*Screen_Settings\Screen_Sprite, #Magenta)
   ; Find zoomed size that is as big as possible
+  Pixel_Size = *Screen_Settings\Screen_Actual_Height / *Screen_Settings\Screen_Res_Height
   Zoom = 0
   Repeat
     Zoom = Zoom + 1
@@ -1302,11 +1305,18 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
       Zoom = Zoom - 1
     EndIf
   Until Found
-  *Screen_Settings\Screen_Filter_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height, #PB_Sprite_AlphaBlending)
+  If Int(Pixel_Size) <> Pixel_Size
+    ; actual screen height is not perfectly divisible by the res height
+    Zoom = Zoom + 1
+  EndIf
+  ; Make the filter sprite the height which can be slightly bigger than the actual height, but it gets resized
+  Filter_Height = *Screen_Settings\Screen_Res_Height * Zoom
+  *Screen_Settings\Screen_Filter_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Actual_Width, Filter_Height, #PB_Sprite_AlphaBlending)
   TransparentSpriteColor(*Screen_Settings\Screen_Sprite, #Magenta)
   StartDrawing(SpriteOutput(*Screen_Settings\Screen_Filter_Sprite))
   DrawingMode(#PB_2DDrawing_AllChannels)
   y = 0
+  Debug "LoadSpriteResources: creating filter mask with pixel size: " + Zoom
   Repeat
     For c = 0 To Zoom-1
       Line(0, y+c, *Screen_Settings\Screen_Actual_Width, 1, RGBA(0, 0, 0, GetCRTFilterLineValue(Zoom, c)))
@@ -2184,10 +2194,11 @@ Procedure GrabScreen(*Screen_Settings.Screen_Settings_Structure)
 EndProcedure
 
 Procedure Draw2DGraphics(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
-  ;StartDrawing(SpriteOutput(*Screen_Settings\Screen_Sprite))
-  ;DrawingMode(#PB_2DDrawing_Outlined)
-  ;Box(0, 0, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height, RGBA(255, 0, 0, 255))
-  ;StopDrawing()
+  StartDrawing(SpriteOutput(*Screen_Settings\Screen_Sprite))
+  DrawingMode(#PB_2DDrawing_Outlined)
+  Box(100, 100, 100, 100, RGBA(255, 0, 0, 255))
+  Box(150, 50, 100, 100, RGBA(0, 255, 0, 255))
+  StopDrawing()
 EndProcedure
 
 Procedure DrawBorder(*Screen_Settings.Screen_Settings_Structure)
@@ -2226,6 +2237,7 @@ Procedure ShowZoomed2DScreen(*Screen_Settings.Screen_Settings_Structure)
 EndProcedure
 
 Procedure AddScreenFilter(*Screen_Settings.Screen_Settings_Structure)
+  ; Full screen is not working properly the lines are not in the right place
   If *Screen_Settings\Screen_Filter
     If *Screen_Settings\Full_Screen And *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
       ;If *Screen_Settings\Border
@@ -2238,6 +2250,7 @@ Procedure AddScreenFilter(*Screen_Settings.Screen_Settings_Structure)
         ;DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Inner_X, *Screen_Settings\Screen_Inner_Y)
       Else
         SpriteQuality(#PB_Sprite_BilinearFiltering)
+        ;SpriteQuality(#PB_Sprite_NoFiltering)
         ZoomSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height)
         DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, 0, 0)
         SpriteQuality(#PB_Sprite_NoFiltering)
@@ -3364,7 +3377,8 @@ Screen_Settings\Num_Monitors = 0
 Screen_Settings\Total_Desktop_Width = 0
 Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
 Screen_Settings\Border_Enable = 1
-Screen_Settings\Border = 0 ; turn the border on by default
+Screen_Settings\Border = 0
+Screen_Settings\Screen_Filter = 1
 Screen_Settings\Classic_Screen_Background_Colour = #Black
 ;Screen_Settings\Border_Width = 316
 ;Screen_Settings\Border_Height = 284
@@ -3612,8 +3626,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 1774
-; FirstLine = 1755
+; CursorPosition = 1311
+; FirstLine = 1276
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
