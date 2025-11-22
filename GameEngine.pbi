@@ -300,7 +300,7 @@ Structure Desktop_Structure ; structure to store parametres for each available d
 EndStructure
 
 Structure System_Structure
-Allow_AltF4_Full_Screen.i ; allows full screen to be quit using Alt+F4
+Allow_Esc_Quit.i ; allow ESC to quit game, only used in testing
 Allow_Restart.i        ; allows the game engine to be restarted
 Allow_Screen_Capture.i    ; allows a screenshot to be taken
 Allow_Switch_to_Window.i  ; to allow switching between window and full screen
@@ -313,7 +313,6 @@ Current_Directory.s
 Data_Directory.s
 Debug_Var_Count.i ; count of the number of debug variables in the Debug_Var() array, used with the debug window
 Debug_Window.i                                                   ; turns on the debug window
-Disable_Esc_Quit.i
 Enter_Pressed.i ; true after enter has been pressed. Used for switching from full screen to window
 F11_Pressed.i ; needed to manage the F11 key because when switching to full screen it resets the keyboard buffer
 Fatal_Error_Message.s
@@ -2387,11 +2386,53 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     ; Always process CTRL, SHIFT and ALT pushed commands first
     ; Process alt commands
     If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
+      If KeyPressed(*System, #PB_Key_F4)
+        Debug "ProcessKeyboard: Alt+F4 pressed"
+        *System\Quit = 1
+      EndIf
       If KeyPressed(*System, #PB_Key_Return)
         Debug "ProcessKeyboard: switch full screen"
         *System\Enter_Pressed = 1
         SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
       EndIf
+        If Not *Screen_Settings\Full_Screen
+          If KeyPressed(*System, #PB_Key_1)
+            *Screen_Settings\Set_Zoom = 1
+            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
+          EndIf
+          If KeyPressed(*System, #PB_Key_2)
+            *Screen_Settings\Set_Zoom = 2
+            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
+          EndIf
+          If KeyPressed(*System, #PB_Key_3)
+            *Screen_Settings\Set_Zoom = 3
+            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
+          EndIf
+          If KeyPressed(*System, #PB_Key_4)
+            *Screen_Settings\Set_Zoom = 4
+            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
+          EndIf
+          If KeyPressed(*System, #PB_Key_5)
+            *Screen_Settings\Set_Zoom = 5
+            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
+          EndIf
+          If KeyPressed(*System, #PB_Key_6)
+            *Screen_Settings\Set_Zoom = 6
+            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
+          EndIf
+          If KeyPressed(*System, #PB_Key_7)
+            *Screen_Settings\Set_Zoom = 7
+            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
+          EndIf
+          If KeyPressed(*System, #PB_Key_8)
+            *Screen_Settings\Set_Zoom = 8
+            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
+          EndIf
+          If KeyPressed(*System, #PB_Key_9)
+            *Screen_Settings\Set_Zoom = 9
+            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
+          EndIf 
+        EndIf
     EndIf
     ; Process control commands
     If KeyboardPushed(#PB_Key_LeftControl) Or KeyboardPushed(#PB_Key_RightControl)
@@ -2454,64 +2495,6 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
         EndSelect
       EndIf
     EndIf
-    If *Screen_Settings\Full_Screen
-      If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
-        If KeyPressed(*System, #PB_Key_F4)
-          If *System\Allow_AltF4_Full_Screen
-            Debug "ProcessKeyboard: quit by Alt+F4 in fullscreen"
-            *System\Quit = 1
-          Else
-            Debug "ProcessKeyboard: Alt+F4 in fullscreen quit disabled"
-          EndIf
-        EndIf
-      EndIf
-    Else
-      ; Remove F10 and Alt
-      ;CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-      ;  If KeyboardPushed(#PB_Key_F10) Or KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
-      ;    keybd_event_(#PB_Key_F9, 0, #KEYEVENTF_KEYUP, 0)
-      ;    Debug "ProcessKeyboard: F10/Alt key pushed while in Window mode"
-      ;  EndIf
-      ;CompilerEndIf
-      If KeyboardPushed(#PB_Key_LeftAlt) Or KeyboardPushed(#PB_Key_RightAlt)
-        If KeyPressed(*System, #PB_Key_1)
-          *Screen_Settings\Set_Zoom = 1
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-        EndIf
-        If KeyPressed(*System, #PB_Key_2)
-          *Screen_Settings\Set_Zoom = 2
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-        EndIf
-        If KeyPressed(*System, #PB_Key_3)
-          *Screen_Settings\Set_Zoom = 3
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-        EndIf
-        If KeyPressed(*System, #PB_Key_4)
-          *Screen_Settings\Set_Zoom = 4
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-        EndIf
-        If KeyPressed(*System, #PB_Key_5)
-          *Screen_Settings\Set_Zoom = 5
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-        EndIf
-        If KeyPressed(*System, #PB_Key_6)
-          *Screen_Settings\Set_Zoom = 6
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-        EndIf
-        If KeyPressed(*System, #PB_Key_7)
-          *Screen_Settings\Set_Zoom = 7
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-        EndIf
-        If KeyPressed(*System, #PB_Key_8)
-          *Screen_Settings\Set_Zoom = 8
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-        EndIf
-        If KeyPressed(*System, #PB_Key_9)
-          *Screen_Settings\Set_Zoom = 9
-          ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-        EndIf          
-      EndIf
-    EndIf
 
     If KeyPressed(*System, #PB_Key_F3)
       ; toggle border
@@ -2568,7 +2551,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     EndIf 
     
     If KeyPressed(*System, #PB_Key_Escape)
-      If *System\Game_State = #Game_State_Menu And Not *System\Disable_Esc_Quit
+      If *System\Game_State = #Game_State_Menu And *System\Allow_Esc_Quit
         Debug "ProcessKeyboard: quit"
         *System\Quit = 1
       EndIf
@@ -3389,6 +3372,7 @@ System\Allow_Switch_to_Window = 1
 System\Game_State = #Game_State_Menu
 System\Allow_Toggle_Border = 0
 System\Allow_Screen_Capture = 1
+System\Allow_Esc_Quit = 1
 Window_Settings\Allow_Window_Resize = 0
 Window_Settings\Reset_Window = 0
 Window_Settings\Background_Colour = #Black
@@ -3646,8 +3630,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 751
-; FirstLine = 718
+; CursorPosition = 2433
+; FirstLine = 2373
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
