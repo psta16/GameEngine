@@ -2503,6 +2503,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     If KeyPressed(*System, #PB_Key_F11)
       If *System\Allow_Switch_to_Window
         ; switch between window or full screen
+        *System\F11_Pressed = 1
         SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
       Else
         Debug "ProcessKeyboard: switch between window and full screen disabled"
@@ -2522,7 +2523,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
       If *System\Allow_Screen_Capture
         *System\Take_Screen_Capture = 1
       Else
-        Debug "ProcessKeyboard: not allowed to screen capture"
+        Debug "ProcessKeyboard: screen capture disabled"
       EndIf
     EndIf 
     
@@ -3344,7 +3345,7 @@ System\Debug_Window = 1
 System\Current_Directory = GetCurrentDirectory()
 System\Render_Engine3D = #Render_Engine3D_Builtin
 System\Show_Debug_Info = 1 ; onscreen debug info
-System\Allow_Switch_to_Window = 0
+System\Allow_Switch_to_Window = 1
 System\Game_State = #Game_State_Menu
 System\Disable_F9_Toggle_Border = 1
 Window_Settings\Allow_Window_Resize = 0
@@ -3358,16 +3359,14 @@ Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
 Screen_Settings\Border_Enable = 1
 Screen_Settings\Border = 0 ; turn the border on by default
 Screen_Settings\Classic_Screen_Background_Colour = #Black
-;Screen_Settings\Border_Width = 316
-;Screen_Settings\Border_Height = 284
-;Screen_Settings\Screen_Res_Width = 256
-;Screen_Settings\Screen_Res_Height = 224
-Screen_Settings\Border_Width = 444
+Screen_Settings\Border_Width = 316
 Screen_Settings\Border_Height = 284
-Screen_Settings\Screen_Res_Width = 384
+Screen_Settings\Screen_Res_Width = 256
 Screen_Settings\Screen_Res_Height = 224
-
-
+;Screen_Settings\Border_Width = 444
+;Screen_Settings\Border_Height = 284
+;Screen_Settings\Screen_Res_Width = 384
+;Screen_Settings\Screen_Res_Height = 224
 Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
 Screen_Settings\Background_Colour = #Blue
 Screen_Settings\Full_Screen = 1
@@ -3606,8 +3605,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 2498
-; FirstLine = 2464
+; CursorPosition = 2505
+; FirstLine = 2477
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
