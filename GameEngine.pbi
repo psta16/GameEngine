@@ -738,6 +738,24 @@ Procedure Fatal_Error(*System.System_Structure)
   End 1 ; 1 means there was an error
 EndProcedure
 
+;- Window Callback
+
+Procedure WindowCallback(hWnd, uMsg, wParam, lParam)
+  Select uMsg
+    Case #WM_SYSCOMMAND ; prevent alt "ding" functionality
+      If wParam = #SC_KEYMENU       ; sent when Alt / F10 tries to activate menu
+        ProcedureReturn 0           ; swallow it → no menu mode, no ding
+      EndIf
+    Case #WM_SYSKEYDOWN ; prevent alt "ding" functionality
+      ; Optional: swallow ALL "system" key presses (Alt combos)
+      ProcedureReturn 0
+    Case #WM_SYSCHAR ; prevent alt "ding" functionality
+      ; Optional: prevents the beep in some cases
+      ProcedureReturn 0
+  EndSelect
+  ProcedureReturn #PB_ProcessPureBasicEvents
+EndProcedure
+
 ;- Utilities
 
 Procedure.q GetPhysicalMem()
@@ -1698,6 +1716,7 @@ Procedure SetScreen(*System.System_Structure, *Window_Settings.Window_Settings_S
       SetWindowColor(#Game_Window_Main, *Window_Settings\Background_Colour) 
       *Window_Settings\Window_Open = 1
       WindowBounds(#Game_Window_Main, *Screen_Settings\Screen_Res_Width / DesktopResolutionX(), *Screen_Settings\Screen_Res_Height / DesktopResolutionY(), #PB_Default, #PB_Default)
+      SetWindowCallback(@WindowCallback())
       ; Sets the limit of how small a window can be resized
       If Not *System\Config_File Or *Window_Settings\Reset_Window ; update window coordinates because there was no config file
         Debug "SetScreen: no config file, setting window properties"
@@ -3379,19 +3398,19 @@ Screen_Settings\Num_Monitors = 0
 Screen_Settings\Total_Desktop_Width = 0
 Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
 Screen_Settings\Border_Enable = 1
-Screen_Settings\Screen_Filter = 1
+Screen_Settings\Screen_Filter = 0
 Screen_Settings\Classic_Screen_Background_Colour = #Black
-;Screen_Settings\Border_Width = 316
-;Screen_Settings\Border_Height = 284
-;Screen_Settings\Screen_Res_Width = 256
-;Screen_Settings\Screen_Res_Height = 224
-Screen_Settings\Border_Width = 444
+Screen_Settings\Border_Width = 316
 Screen_Settings\Border_Height = 284
-Screen_Settings\Screen_Res_Width = 384
+Screen_Settings\Screen_Res_Width = 256
 Screen_Settings\Screen_Res_Height = 224
+;Screen_Settings\Border_Width = 444
+;Screen_Settings\Border_Height = 284
+;Screen_Settings\Screen_Res_Width = 384
+;Screen_Settings\Screen_Res_Height = 224
 Screen_Settings\Border_Colour = RGBA(120, 170, 255, 255)
 Screen_Settings\Background_Colour = #Blue
-Screen_Settings\Full_Screen = 1
+Screen_Settings\Full_Screen = 0
 Screen_Settings\Full_Screen_Type = #Full_Screen_Windowed
 Story_Actions\Story_Position = 0
 
@@ -3627,8 +3646,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 316
-; FirstLine = 276
+; CursorPosition = 751
+; FirstLine = 718
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
