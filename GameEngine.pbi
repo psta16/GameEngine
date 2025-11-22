@@ -313,7 +313,7 @@ Data_Directory.s
 Debug_Var_Count.i ; count of the number of debug variables in the Debug_Var() array, used with the debug window
 Debug_Window.i                                                   ; turns on the debug window
 Disable_Esc_Quit.i
-Disable_F9_Toggle_Border.i ; disables the F9 key to toggle showing the border
+Allow_Toggle_Border.i ; allows the F9 key to toggle showing the border
 F11_Pressed.i ; needed to manage the F11 key because when switching to full screen it resets the keyboard buffer
 Fatal_Error_Message.s
 Font_Char_Sprite.i[#Num_System_Font_Char] ; sprite ID for the system font
@@ -990,30 +990,31 @@ Procedure GetCRTFilterLineValue(Pixel_Size.i, Position.i)
     ProcedureReturn 0 ; no filter
   EndIf
   If Pixel_Size = 2
-    If Position = 0:ProcedureReturn 200:EndIf
+    If Position = 0:ProcedureReturn 150:EndIf
     If Position = 1:ProcedureReturn 0:EndIf
   EndIf  
   If Pixel_Size = 3
-    If Position = 0:ProcedureReturn 254:EndIf
+    If Position = 0:ProcedureReturn 150:EndIf
     If Position = 1:ProcedureReturn 0:EndIf
-    If Position = 2:ProcedureReturn 160:EndIf
+    If Position = 2:ProcedureReturn 75:EndIf
   EndIf
   If Pixel_Size = 4
-    If Position = 0:ProcedureReturn 254:EndIf
-    If Position = 1:ProcedureReturn 80:EndIf
+    If Position = 0:ProcedureReturn 150:EndIf
+    If Position = 1:ProcedureReturn 75:EndIf
     If Position = 2:ProcedureReturn 0:EndIf
-    If Position = 3:ProcedureReturn 160:EndIf
+    If Position = 3:ProcedureReturn 75:EndIf
   EndIf
   If Pixel_Size = 5
-    If Position = 0:ProcedureReturn 254:EndIf
-    If Position = 1:ProcedureReturn 80:EndIf
+    If Position = 0:ProcedureReturn 150:EndIf
+    If Position = 1:ProcedureReturn 75:EndIf
     If Position = 2:ProcedureReturn 0:EndIf
-    If Position = 3:ProcedureReturn 80:EndIf
-    If Position = 4:ProcedureReturn 180:EndIf
+    If Position = 3:ProcedureReturn 20:EndIf
+    If Position = 4:ProcedureReturn 75:EndIf
   EndIf
   If Pixel_Size >= 6
     Angle = 360 / Pixel_Size * Position
-    Return_Val = (127 * Cos(Radian(Angle)) + 128) - 1
+    Return_Val = (255 * (Cos(Radian(Angle)) + 1)) / 2 ; from fully opaque to fully transparent (0 - 255)
+    ;Return_Val = ((Cos(Radian(Angle)) + 1) / 2) * 150 ; less transparency (0 - 150)
     ProcedureReturn Return_Val
   EndIf
 EndProcedure
@@ -1309,6 +1310,7 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
     ; actual screen height is not perfectly divisible by the res height
     Zoom = Zoom + 1
   EndIf
+  Debug "Screen actual height: " + *Screen_Settings\Screen_Actual_Height
   ; Make the filter sprite the height which can be slightly bigger than the actual height, but it gets resized
   Filter_Height = *Screen_Settings\Screen_Res_Height * Zoom
   *Screen_Settings\Screen_Filter_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Actual_Width, Filter_Height, #PB_Sprite_AlphaBlending)
@@ -1324,9 +1326,7 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
     y = y + zoom
   Until y > *Screen_Settings\Zoomed_Height-1
   StopDrawing()
-      SpriteQuality(#PB_Sprite_BilinearFiltering)
-      ZoomSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height)
-  
+  ZoomSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height)
   a = 0 ; used to read internal then external sprite resources
   i = 0 ; used to load sprite resources
   j = 0 ; used to create/load sprites
@@ -2242,13 +2242,7 @@ EndProcedure
 Procedure AddScreenFilter(*Screen_Settings.Screen_Settings_Structure)
   ; Full screen is not working properly the lines are not in the right place
   If *Screen_Settings\Screen_Filter
-    If *Screen_Settings\Full_Screen And *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic
-      ;If *Screen_Settings\Border
-      ;  DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Inner_X, *Screen_Settings\Screen_Inner_Y)
-      ;Else
-      ;  DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Left, *Screen_Settings\Screen_Top)
-      ;EndIf      
-    Else
+    If Not (*Screen_Settings\Full_Screen And *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic)
       ; zoom the filter sprite to the right size
       SpriteQuality(#PB_Sprite_BilinearFiltering)
       DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, 0, 0)
@@ -2506,7 +2500,7 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
     If KeyPressed(*System, #PB_Key_F9)
       ; toggle border
       If *Screen_Settings\Border_Enable
-        If  Not *System\Disable_F9_Toggle_Border
+        If  *System\Allow_Toggle_Border
           *Screen_Settings\Border = 1 - *Screen_Settings\Border
         Else
           Debug "ProcessKeyboard: toggle border disabled"
@@ -3363,7 +3357,7 @@ System\Render_Engine3D = #Render_Engine3D_Builtin
 System\Show_Debug_Info = 1 ; onscreen debug info
 System\Allow_Switch_to_Window = 1
 System\Game_State = #Game_State_Menu
-System\Disable_F9_Toggle_Border = 1
+System\Allow_Toggle_Border = 0
 System\Allow_Screen_Capture = 1
 Window_Settings\Allow_Window_Resize = 0
 Window_Settings\Reset_Window = 0
@@ -3374,7 +3368,6 @@ Screen_Settings\Num_Monitors = 0
 Screen_Settings\Total_Desktop_Width = 0
 Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
 Screen_Settings\Border_Enable = 1
-Screen_Settings\Border = 0
 Screen_Settings\Screen_Filter = 1
 Screen_Settings\Classic_Screen_Background_Colour = #Black
 ;Screen_Settings\Border_Width = 316
@@ -3623,8 +3616,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 1328
-; FirstLine = 1279
+; CursorPosition = 3370
+; FirstLine = 3333
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
