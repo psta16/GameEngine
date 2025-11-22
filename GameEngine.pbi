@@ -1324,6 +1324,9 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
     y = y + zoom
   Until y > *Screen_Settings\Zoomed_Height-1
   StopDrawing()
+      SpriteQuality(#PB_Sprite_BilinearFiltering)
+      ZoomSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height)
+  
   a = 0 ; used to read internal then external sprite resources
   i = 0 ; used to load sprite resources
   j = 0 ; used to create/load sprites
@@ -2246,15 +2249,9 @@ Procedure AddScreenFilter(*Screen_Settings.Screen_Settings_Structure)
       ;  DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Left, *Screen_Settings\Screen_Top)
       ;EndIf      
     Else
-      If *Screen_Settings\Border
-        ;DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Inner_X, *Screen_Settings\Screen_Inner_Y)
-      Else
-        SpriteQuality(#PB_Sprite_BilinearFiltering)
-        ;SpriteQuality(#PB_Sprite_NoFiltering)
-        ZoomSprite(*Screen_Settings\Screen_Filter_Sprite, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height)
-        DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, 0, 0)
-        SpriteQuality(#PB_Sprite_NoFiltering)
-      EndIf
+      ; zoom the filter sprite to the right size
+      SpriteQuality(#PB_Sprite_BilinearFiltering)
+      DisplayTransparentSprite(*Screen_Settings\Screen_Filter_Sprite, 0, 0)
     EndIf
   EndIf
 EndProcedure
@@ -3626,8 +3623,8 @@ DataSection
 EndDataSection
 
 ; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 1311
-; FirstLine = 1276
+; CursorPosition = 1328
+; FirstLine = 1279
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
