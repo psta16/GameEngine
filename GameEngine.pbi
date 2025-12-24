@@ -1,5 +1,7 @@
 ﻿; Universal Game Engine (02/01/2017)
 
+; TODO- 20251224 - figure out why when you resize the screen (or toggle full screen) it goes dim
+
 ; BUGS:
 ; 20241113 - LINUX - Switching from full screen windowed mode back to windowed mode seems to leave the window maximised
 
@@ -409,42 +411,43 @@ Structure Window_Settings_Structure
 EndStructure
 
 Structure Screen_Settings_Structure
-  Border.i ; sets whether the border is shown
-  Border_Enable.i ; allows the border to be shown
-  Border_Width.i ; border must be wider than screen res
-  Border_Height.i
-  Screen_Res_Width.i
-  Screen_Res_Height.i
-  Screen_Ratio.d ; 1 = square, 1.33 = 4:3, 1.77 = 16:9 , 1.6 = 16:10
-  Pixel_Sprite.i ; ID of the sprite to be used for pixels
-  Screen_Sprite.i; sprite used to grab the entire screen
-  Border_Colour.i
   Background_Colour.i ; default background colour used for clearing the screen
-  Full_Screen.i       ; set when in full screen mode
+  Border.i ; sets whether the border is shown
+  Border_Colour.i
+  Border_Enable.i ; allows the border to be shown
+  Border_Height.i
+  Border_Width.i ; border must be wider than screen res
+  Classic_Screen_Background_Colour.i ; the colour used for the background of the classic screen (usually black)
+  Clear_Screen_Sprite.i ; sprite used to clear the screen
+  Desktop.Desktop_Structure[#Max_Monitors_Supported] ; Array to hold information about all monitorswdadsawdadwassdsa
+  Flip_Mode.i ; Video flip mode: 0 = no sync, 1 = sync, 2 = smart sync
+  Full_Screen.i ; set when in full screen mode
+  Full_Screen_Inactive.i ; set when the user switches from the full screen to the desktop
   Full_Screen_Type.i
-  Screen_Actual_Width.i ; actual size of the screen
+  Num_Monitors.i
+  Pixel_Sprite.i ; ID of the sprite to be used for pixels
+  Screen_Active.i ; set when the screen is active (including the windowed screen)
   Screen_Actual_Height.i
-  Screen_Inner_Width.i ; size without border
+  Screen_Actual_Width.i ; actual size of the screen
+  Screen_Filter.i ; turns the screen filter on or off
+  Screen_Filter_Sprite.i ; filter for CRT overlay
+  Screen_H.i
   Screen_Inner_Height.i
+  Screen_Inner_Width.i ; size without border
   Screen_Inner_X.i ; coordinates of the screen in the final resolution (used for border)
   Screen_Inner_Y.i
-  Num_Monitors.i
   Screen_Left.i
-  Screen_Top.i
-  Desktop.Desktop_Structure[#Max_Monitors_Supported] ; Array to hold information about all monitorswdadsawdadwassdsa
-  Total_Desktop_Width.i                              ; used for checking if the window is displayed off screen
-  Selected_Desktop.i ; the selected monitor
-  Screen_W.i ; dimensions of the screen for the monitor that is selected
-  Screen_H.i
-  Flip_Mode.i  ; Video flip mode: 0 = no sync, 1 = sync, 2 = smart sync
   Screen_Open.i; flag set when screen successfuly open (window or full screen)
-  Screen_Active.i ; set when the screen is active (including the windowed screen)
-  Classic_Screen_Background_Colour.i ; the colour used for the background of the classic screen (usually black)
-  Full_Screen_Inactive.i             ; set when the user switches from the full screen to the desktop
-  Screen_Filter.i ; turns the screen filter on or off
-  Screen_Filter_Sprite.i             ; filter for CRT overlay
-  Zoomed_Width.i ; used to find the dimensions of the screen based on the biggest size while still having square pixels
+  Screen_Ratio.d ; 1 = square, 1.33 = 4:3, 1.77 = 16:9 , 1.6 = 16:10
+  Screen_Res_Height.i
+  Screen_Res_Width.i
+  Screen_Sprite.i; sprite used to grab the entire screen
+  Screen_Top.i
+  Screen_W.i ; dimensions of the screen for the monitor that is selected
+  Selected_Desktop.i ; the selected monitor
+  Total_Desktop_Width.i ; used for checking if the window is displayed off screen
   Zoomed_Height.i
+  Zoomed_Width.i ; used to find the dimensions of the screen based on the biggest size while still having square pixels
 EndStructure 
 
 Structure FPS_Data_Structure
@@ -1326,6 +1329,14 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
   DrawingMode(#PB_2DDrawing_AllChannels)
   Plot(0, 0, RGBA(255, 255, 255, 255))
   StopDrawing()
+  ; Create clear screen sprite
+  Debug "LoadSpriteResources: creating clear screen sprite, size: " + *Screen_Settings\Screen_Res_Width + " x " + *Screen_Settings\Screen_Res_Height
+  *Screen_Settings\Clear_Screen_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height)
+  StartDrawing(SpriteOutput(*Screen_Settings\Clear_Screen_Sprite))
+  DrawingMode(#PB_2DDrawing_AllChannels)
+  Box(0, 0, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height, *Screen_Settings\Background_Colour)
+  ;Box(0, 0, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height, #Red)
+  StopDrawing()
   ; Create screen sprite
   *Screen_Settings\Screen_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height, #PB_Sprite_AlphaBlending)
   TransparentSpriteColor(*Screen_Settings\Screen_Sprite, #Magenta)
@@ -1652,6 +1663,11 @@ Procedure SetWindowScreen(*System.System_Structure, *Screen_Settings.Screen_Sett
     Debug "SetWindowScreen: could not initialise windowed screen"
     ProcedureReturn 0
   EndIf
+  If *System\Enable_3D_Engine
+    CreateCamera(0, 0, 0, 100, 100)
+    CameraBackColor(0, *Screen_Settings\Background_Colour)
+    RenderWorld()
+  EndIf  
   ProcedureReturn 1
 EndProcedure
 
@@ -1835,12 +1851,14 @@ EndProcedure
 
 Procedure DoClearScreen(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
   If *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic And *Screen_Settings\Full_Screen
-    ClearScreen(*Screen_Settings\Classic_Screen_Background_Colour)
-    ZoomSprite(*Screen_Settings\Pixel_Sprite, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height)
-    DisplayTransparentSprite(*Screen_Settings\Pixel_Sprite, 0, 0, 255, *Screen_Settings\Background_Colour)
+    ;ClearScreen(*Screen_Settings\Classic_Screen_Background_Colour)
+    ;ZoomSprite(*Screen_Settings\Pixel_Sprite, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height)
+    ;DisplayTransparentSprite(*Screen_Settings\Pixel_Sprite, 0, 0, 255, *Screen_Settings\Background_Colour)
+    DisplaySprite(*Screen_Settings\Clear_Screen_Sprite, 0, 0)
   Else
     If Not *Screen_Settings\Full_Screen_Inactive
-      ClearScreen(*Screen_Settings\Background_Colour)
+      ;ClearScreen(*Screen_Settings\Background_Colour)
+      DisplaySprite(*Screen_Settings\Clear_Screen_Sprite, 0, 0)
     EndIf
   EndIf
 EndProcedure
@@ -2261,7 +2279,7 @@ Procedure ShowZoomed2DScreen(*Screen_Settings.Screen_Settings_Structure)
         ZoomSprite(*Screen_Settings\Screen_Sprite, *Screen_Settings\Screen_Inner_Width, *Screen_Settings\Screen_Inner_Height)
         DisplayTransparentSprite(*Screen_Settings\Screen_Sprite, *Screen_Settings\Screen_Inner_X, *Screen_Settings\Screen_Inner_Y)
       Else
-        ClearScreen(*Screen_Settings\Classic_Screen_Background_Colour) ; clear the screen to get rid of the native res screen
+        ;ClearScreen(*Screen_Settings\Classic_Screen_Background_Colour) ; clear the screen to get rid of the native res screen
         ZoomSprite(*Screen_Settings\Screen_Sprite, *Screen_Settings\Screen_Actual_Width, *Screen_Settings\Screen_Actual_Height)
         DisplayTransparentSprite(*Screen_Settings\Screen_Sprite, *Screen_Settings\Screen_Left, *Screen_Settings\Screen_Top)
       EndIf      
@@ -3301,17 +3319,6 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
     ProcedureReturn 0
   EndIf
   
-  
-  If *System\Enable_3D_Engine
-    CreateCamera(0, 0, 0, 100, 100)
-    CameraBackColor(0, *Screen_Settings\Background_Colour)
-    RenderWorld()
-  Else
-    ClearScreen(*Screen_Settings\Background_Colour)
-  EndIf
-  
-  FlipBuffers()
-  
   LoadVectorResources(*System, *Graphics)
   LoadSpriteResources(*System, *Screen_Settings, *Graphics)
   LoadSystemFont(*System)
@@ -3373,7 +3380,7 @@ System\Allow_Switch_to_Window = 1
 System\Allow_Toggle_Border = 0
 System\Current_Directory = GetCurrentDirectory()
 System\Debug_Window = 0
-System\Enable_3D_Engine = 0
+System\Enable_3D_Engine = 1
 System\Fatal_Error_Message = "none"
 System\Game_Config_File = "settings.cfg"
 System\Game_Resource_Location = "Data"
@@ -3436,6 +3443,7 @@ Repeat ; used for restarting the game
       ProcessVariableConstraints(@System, @Story_Actions)
       DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
+      DoClearScreen(@System, @Screen_Settings)
       DrawSprites(@System, @Screen_Settings, @Graphics)
       ShowMenu(@System, @Menus)
       ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
@@ -3642,8 +3650,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.21 (Windows - x64)
-; CursorPosition = 3061
-; FirstLine = 2997
+; CursorPosition = 3321
+; FirstLine = 3290
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
