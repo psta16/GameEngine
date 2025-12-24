@@ -1,7 +1,5 @@
 ﻿; Universal Game Engine (02/01/2017)
 
-; TODO- 20251224 - figure out why when you resize the screen (or toggle full screen) it goes dim
-
 ; BUGS:
 ; 20241113 - LINUX - Switching from full screen windowed mode back to windowed mode seems to leave the window maximised
 
@@ -1647,6 +1645,39 @@ Procedure GetScreenPosition(*Screen_Settings.Screen_Settings_Structure)
   *Screen_Settings\Screen_Inner_Y = (*Screen_Settings\Screen_Actual_Height - *Screen_Settings\Screen_Inner_Height) / 2
 EndProcedure
 
+Procedure Init3DEngine(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
+  If *System\Enable_3D_Engine
+    ; Light
+    CreateLight(0 ,RGB(190, 190, 190), 400, 120, 100, #PB_Light_Directional)
+    SetLightColor(0, #PB_Light_SpecularColor, RGB(255*0.4, 255*0.4,255*0.4)) 
+    LightDirection(0 ,0.6, -0.6, -0.75)
+    AmbientColor(RGB(255*0.5, 255*0.5,255*0.5))
+    ; Camera 
+    CreateCamera(0, 0, 0, *Screen_Settings\Screen_Res_Width / *Screen_Settings\Screen_Actual_Width * 100, *Screen_Settings\Screen_Res_Height / *Screen_Settings\Screen_Actual_Height * 100)
+    CameraBackColor(0, *Screen_Settings\Background_Colour)
+    MoveCamera(0, 8, 2, 8, #PB_Absolute)
+    CameraLookAt(0, 0, 0, 0)
+    ; Create the grid texture for the ground
+    CreateTexture(0, 512, 512)
+    StartDrawing(TextureOutput(0))
+    Box(0, 0, 512, 512, RGB(230, 230, 230))
+    Box(252, 0, 6, 512, RGB(255, 255, 255))
+    Box(0, 252, 512, 6, RGB(255, 255, 255))
+    Box(0, 0, 3, 512, RGB(0, 0, 0)) ; draw the black lines on both sides of the texture to centre it
+    Box(509, 0, 3, 512, RGB(0, 0, 0))
+    Box(0, 0, 512, 3, RGB(0, 0, 0))
+    Box(0, 509, 512, 3, RGB(0, 0, 0))
+    StopDrawing()
+    ; Material
+    CreateMaterial(0, TextureID(0))
+    ; Ground
+    CreatePlane(0, 20000, 20000, 50, 50, 1000, 1000) ; 20000 / 1000 = 20m per black line
+    CreateEntity(0, MeshID(0), MaterialID(0))
+    EntityRenderMode(0, #PB_Shadow_None) 
+    CreateEntityBody(0, #PB_Entity_PlaneBody, 0, 0, 1)     
+  EndIf  
+EndProcedure
+
 Procedure SetWindowScreen(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
   ; Sets the window screen closing the old one if necessary
   GetScreenPosition(*Screen_Settings)
@@ -1663,11 +1694,7 @@ Procedure SetWindowScreen(*System.System_Structure, *Screen_Settings.Screen_Sett
     Debug "SetWindowScreen: could not initialise windowed screen"
     ProcedureReturn 0
   EndIf
-  If *System\Enable_3D_Engine
-    CreateCamera(0, 0, 0, 100, 100)
-    CameraBackColor(0, *Screen_Settings\Background_Colour)
-    RenderWorld()
-  EndIf  
+  Init3DEngine(*System, *Screen_Settings)
   ProcedureReturn 1
 EndProcedure
 
@@ -3319,6 +3346,8 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
     ProcedureReturn 0
   EndIf
   
+  Init3DEngine(*System, *Screen_Settings)
+  
   LoadVectorResources(*System, *Graphics)
   LoadSpriteResources(*System, *Screen_Settings, *Graphics)
   LoadSystemFont(*System)
@@ -3441,9 +3470,8 @@ Repeat ; used for restarting the game
       ProcessCollisions(@System, @Graphics, @Collisions)
       ProcessSpritePositions(@System, @Graphics)
       ProcessVariableConstraints(@System, @Story_Actions)
-      DoClearScreen(@System, @Screen_Settings)
+      ;DoClearScreen(@System, @Screen_Settings) ; not needed due to Draw3DWorld()
       Draw3DWorld(@System)
-      DoClearScreen(@System, @Screen_Settings)
       DrawSprites(@System, @Screen_Settings, @Graphics)
       ShowMenu(@System, @Menus)
       ShowDebugInfo(@System, @Screen_Settings, @FPS_Data)
@@ -3650,9 +3678,9 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.21 (Windows - x64)
-; CursorPosition = 3321
-; FirstLine = 3290
-; Folding = -----------------
+; CursorPosition = 1657
+; FirstLine = 1631
+; Folding = ------------------
 ; EnableXP
 ; DPIAware
 ; Executable = ..\..\GameEngine.exe
