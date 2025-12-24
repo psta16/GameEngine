@@ -1354,7 +1354,7 @@ Procedure LoadSpriteResources(*System.System_Structure, *Screen_Settings.Screen_
     ; actual screen height is not perfectly divisible by the res height
     Zoom = Zoom + 1
   EndIf
-  Debug "Screen actual height: " + *Screen_Settings\Screen_Actual_Height
+  Debug "LoadSpriteResources: screen actual height: " + *Screen_Settings\Screen_Actual_Height
   ; Make the filter sprite the height which can be slightly bigger than the actual height, but it gets resized
   Filter_Height = *Screen_Settings\Screen_Res_Height * Zoom
   *Screen_Settings\Screen_Filter_Sprite = CreateSprite(#PB_Any, *Screen_Settings\Screen_Actual_Width, Filter_Height, #PB_Sprite_AlphaBlending)
@@ -1622,13 +1622,13 @@ Procedure GetScreenPosition(*Screen_Settings.Screen_Settings_Structure)
   Height = Inner_Height
   If Inner_Width / *Screen_Settings\Screen_Ratio > Inner_Height
     ; zoom to the height
-    Debug "Zooming to height"
+    Debug "GetScreenPosition: Zooming To height"
     Width = Height * *Screen_Settings\Screen_Ratio
     Screen_Top = 0
     Screen_Left = ((Inner_Width / 2) - (Width / 2))
   Else
     ; Zoom to width
-    Debug "Zooming to width"
+    Debug "GetScreenPosition: Zooming to width"
     Height = Width / *Screen_Settings\Screen_Ratio
     Screen_Left = 0
     Screen_Top = ((Inner_Height / 2) - (Height / 2))
@@ -1655,6 +1655,7 @@ Procedure Init3DEngine(*System.System_Structure, *Screen_Settings.Screen_Setting
     ; Camera 
     CreateCamera(0, 0, 0, (*Screen_Settings\Screen_Res_Width / *Screen_Settings\Screen_Actual_Width * 100)+1, (*Screen_Settings\Screen_Res_Height / *Screen_Settings\Screen_Actual_Height * 100)+1)
     CameraBackColor(0, *Screen_Settings\Background_Colour)
+    ;MoveCamera(0, 8, 2, 8, #PB_Absolute)
     MoveCamera(0, 8, 2, 8, #PB_Absolute)
     CameraLookAt(0, 0, 0, 0)
     ; Create the grid texture for the ground
@@ -1877,13 +1878,13 @@ Procedure SaveScreen(*System.System_Structure)
 EndProcedure
 
 Procedure DoClearScreen(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
-  If *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic And *Screen_Settings\Full_Screen
+  If *Screen_Settings\Full_Screen_Type = #Full_Screen_Classic And *Screen_Settings\Full_Screen And Not *System\Enable_3D_Engine
     ;ClearScreen(*Screen_Settings\Classic_Screen_Background_Colour)
     ;ZoomSprite(*Screen_Settings\Pixel_Sprite, *Screen_Settings\Screen_Res_Width, *Screen_Settings\Screen_Res_Height)
     ;DisplayTransparentSprite(*Screen_Settings\Pixel_Sprite, 0, 0, 255, *Screen_Settings\Background_Colour)
     DisplaySprite(*Screen_Settings\Clear_Screen_Sprite, 0, 0)
   Else
-    If Not *Screen_Settings\Full_Screen_Inactive
+    If Not *Screen_Settings\Full_Screen_Inactive And Not *System\Enable_3D_Engine
       ;ClearScreen(*Screen_Settings\Background_Colour)
       DisplaySprite(*Screen_Settings\Clear_Screen_Sprite, 0, 0)
     EndIf
@@ -3470,7 +3471,7 @@ Repeat ; used for restarting the game
       ProcessCollisions(@System, @Graphics, @Collisions)
       ProcessSpritePositions(@System, @Graphics)
       ProcessVariableConstraints(@System, @Story_Actions)
-      ;DoClearScreen(@System, @Screen_Settings) ; not needed due to Draw3DWorld()
+      DoClearScreen(@System, @Screen_Settings)
       Draw3DWorld(@System)
       DrawSprites(@System, @Screen_Settings, @Graphics)
       ShowMenu(@System, @Menus)
@@ -3678,8 +3679,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.21 (Windows - x64)
-; CursorPosition = 1655
-; FirstLine = 1647
+; CursorPosition = 1356
+; FirstLine = 1305
 ; Folding = ------------------
 ; EnableXP
 ; DPIAware
