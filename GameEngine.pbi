@@ -1,6 +1,4 @@
-﻿; Universal Game Engine
-; 02/01/2017 - Started project
-; 21/11/2025 - v0.1 released for BatGame
+﻿; Universal Game Engine (02/01/2017)
 
 ; BUGS:
 ; 20241113 - LINUX - Switching from full screen windowed mode back to windowed mode seems to leave the window maximised
@@ -29,6 +27,7 @@ EndImport
 ;- Prototypes
 
 CompilerIf #PB_Compiler_OS = #PB_OS_Linux
+  ; Used for Linux to find the refresh rate of the monitor
   PrototypeC gdk_display_get_default() ; r1 = gdkdisplay
   PrototypeC gdk_display_get_monitor_at_window(*display, *gdkwindow); r1 = gdkmonitor
   PrototypeC gdk_monitor_get_display(*monitor)
@@ -229,11 +228,13 @@ Global Delta_Time.d = 0
 #Max_Variable_Constraints = 16
 #Max_Debug_Vars = 32
 #Max_Keyboard_Value = 300 ; used for storing which keys are down
+#Max_Joysticks = 8
+#Max_Joystick_Buttons = 10 ; maximum buttons per joystick
 #Mouse_Sprite = 0
 #Max_Vector_Graphics_Resources = 32
 #Max_System_Font_Instances = 32
-#Debug_Window_Update_Rate = 100 ; every 100ms
-#Debug_FPS_Colour = #White
+#Debug_Window_Update_Rate = 500 ; every 100ms
+#Debug_FPS_Colour = #Yellow
 
 ; Menu
 #Max_Menus = 4
@@ -291,6 +292,14 @@ Structure Keyboard_Structure
   Key_Read.i
 EndStructure
 
+Structure Joystick_Structure
+  Left_Axis_H.d
+  Left_Axis_V.d
+  Right_Axis_H.d
+  Right_Axis_V.d
+  Button.i[#Max_Joystick_Buttons]
+EndStructure
+
 Structure Desktop_Structure ; structure to store parametres for each available display
   Name.s
   Width.i
@@ -300,75 +309,78 @@ Structure Desktop_Structure ; structure to store parametres for each available d
 EndStructure
 
 Structure System_Structure
-Allow_Esc_Quit.i ; allow ESC to quit game, only used in testing
-Allow_Restart.i        ; allows the game engine to be restarted
-Allow_Screen_Capture.i    ; allows a screenshot to be taken
-Allow_Switch_to_Window.i  ; to allow switching between window and full screen
-Allow_Toggle_Border.i ; allows the F9 key to toggle showing the border
-Collisions_Count.i
-Config_File.i             ; set to 1 if config file exists, used for when there's no config file
-Config_Loaded.i           ; set to 1 once the config is loaded. Cannot save until loaded
-Controls_Count.i                            ; number of control sets
-Current_Directory.s
-Data_Directory.s
-Debug_Var_Count.i ; count of the number of debug variables in the Debug_Var() array, used with the debug window
-Debug_Window.i                                                   ; turns on the debug window
-Enter_Pressed.i ; true after enter has been pressed. Used for switching from full screen to window
-F11_Pressed.i ; needed to manage the F11 key because when switching to full screen it resets the keyboard buffer
-Fatal_Error_Message.s
-Font_Char_Sprite.i[#Num_System_Font_Char] ; sprite ID for the system font
-Game_Config_File.s     ; filename of the confg file
-Game_Resource_Location.s                                         ; location of files
-Game_State.i ; state of the game eg menu or game play
-Game_Title.s
-Initialisation_Error.i    ; will be set when there's an error. Helps track down the first error causing an issue
-Initialise_Error_Message.s; special string for giving an initialisation error message. Only set this using SetInitialiseError()
-Initialised.i             ; set when the game engine is initialised
-Keyb.Keyboard_Structure[#Max_Keyboard_Value]       ; Array to hold which keyboard keys are pushed
-Last_Debug_Window_Update.q   ; time in milliseconds when the debug window was last updated
-Last_Screen_Capture_File.s; last file used by screen capture
-Last_Screen_Capture_Number.i ; used for capturing more than one frame per second
-Menu_Count.i
-Menu_Items_Count.i
-Minimum_Colour_Depth.i
-Mouse_Button_Left.i ; gives the actual mouse button state, only works in ExamineMouse() mode
-Mouse_Button_Middle.i
-Mouse_Button_Right.i
-Mouse_Control.i        ; mouse is controlling the player
-Mouse_Left_Click.i  ; set when the mouse is clicked while in window mode
-Mouse_Offset_X.i       ; offset of the mouse sprite displayed
-Mouse_Offset_Y.i
-Mouse_Right_Click.i
-Mouse_Save_X.i   ; saves the position of the mouse when switching back to desktop (alt+tab)
-Mouse_Save_Y.i
-Mouse_Sensitivity_X.f
-Mouse_Sensitivity_Y.f
-Mouse_Wheel_Movement.i ; movement of the mouse wheel since the last ExamineMouse()
-Mouse_X.f              ; location of the mouse pointer when it is over the window
-Mouse_Y.f
-MutexError.i
-MutexID.i    ; used to check if more than one instance of the game is running
-Object_Controls_Count.i
-Pause_Gameplay.i
-Player_Count.i ; number of active players in the game
-Quit.i                 ; flag to quit game 1 = quit. To restart the game use the global Restart variable
-Render_Engine3D.i            ; select which 3D rendering engine to use, select none for 2D only
-Show_Debug_Info.i            ; when set this will show things like FPS etc on screen
-Show_Mouse.i           ; shows the mouse
-Sprite_Constraints_Count.i
-Sprite_Instance_Count.i ; number of sprite instances
-Sprite_List_Data_Source.i ; The source for the sprite resource list (see enumeration Data_Source)
-Sprite_Resource_Count.i   ; number of sprite resources
-Sprite_Vector_Resource_Count.i ; number of vector resources
-Sprites_Loaded.i
-Story_Action_Count.i
-System_Font_Instance_Count.i                ; number of system font instances
-Take_Screen_Capture.i ; flag to take a screen capture
-Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
-Variable.Variable_Structure[#Max_Variables] ; variables used for displaying values on screen etc
-Variable_Constraint.Variable_Constraint_Structure[#Max_Variable_Constraints]
-Variable_Constraints_Count.i
-Variable_Count.i
+  Allow_Esc_Quit.i ; allow ESC to quit game, only used in testing
+  Allow_Restart.i        ; allows the game engine to be restarted
+  Allow_Screen_Capture.i    ; allows a screenshot to be taken
+  Allow_Switch_to_Window.i  ; to allow switching between window and full screen
+  Allow_Toggle_Border.i ; allows the F9 key to toggle showing the border
+  Collisions_Count.i
+  Config_File.i             ; set to 1 if config file exists, used for when there's no config file
+  Config_Loaded.i           ; set to 1 once the config is loaded. Cannot save until loaded
+  Controls_Count.i                            ; number of control sets
+  Current_Directory.s
+  Data_Directory.s
+  Debug_Var_Count.i ; count of the number of debug variables in the Debug_Var() array, used with the debug window
+  Debug_Window.i    ; turns on the debug window
+  Enable_3D_Engine.i ; enable the 3D engine
+  Enter_Pressed.i ; true after enter has been pressed. Used for switching from full screen to window
+  F11_Pressed.i ; needed to manage the F11 key because when switching to full screen it resets the keyboard buffer
+  Fatal_Error_Message.s
+  Font_Char_Sprite.i[#Num_System_Font_Char] ; sprite ID for the system font
+  Game_Config_File.s     ; filename of the confg file
+  Game_Resource_Location.s                                         ; location of files
+  Game_State.i ; state of the game eg menu or game play
+  Game_Title.s
+  Initialisation_Error.i    ; will be set when there's an error. Helps track down the first error causing an issue
+  Initialise_Error_Message.s; special string for giving an initialisation error message. Only set this using SetInitialiseError()
+  Initialised.i             ; set when the game engine is initialised
+  Joys.Joystick_Structure[#Max_Joysticks] ; array to hold the joystick data
+  Keyb.Keyboard_Structure[#Max_Keyboard_Value]       ; Array to hold which keyboard keys are pushed
+  Last_Debug_Window_Update.q   ; time in milliseconds when the debug window was last updated
+  Last_Screen_Capture_File.s; last file used by screen capture
+  Last_Screen_Capture_Number.i ; used for capturing more than one frame per second
+  Menu_Count.i ; menu count of 0 means menu disabled
+  Menu_Items_Count.i
+  Minimum_Colour_Depth.i
+  Mouse_Button_Left.i ; gives the actual mouse button state, only works in ExamineMouse() mode
+  Mouse_Button_Middle.i
+  Mouse_Button_Right.i
+  Mouse_Control.i        ; mouse is controlling the player
+  Mouse_Left_Click.i  ; set when the mouse is clicked while in window mode
+  Mouse_Offset_X.i       ; offset of the mouse sprite displayed
+  Mouse_Offset_Y.i
+  Mouse_Right_Click.i
+  Mouse_Save_X.i   ; saves the position of the mouse when switching back to desktop (alt+tab)
+  Mouse_Save_Y.i
+  Mouse_Sensitivity_X.f
+  Mouse_Sensitivity_Y.f
+  Mouse_Wheel_Movement.i ; movement of the mouse wheel since the last ExamineMouse()
+  Mouse_X.f              ; location of the mouse pointer when it is over the window
+  Mouse_Y.f
+  MutexError.i
+  MutexID.i    ; used to check if more than one instance of the game is running
+  Num_Joysticks.i ; holds the number of joysticks connected
+  Object_Controls_Count.i
+  Pause_Gameplay.i
+  Player_Count.i ; number of active players in the game
+  Quit.i                 ; flag to quit game 1 = quit. To restart the game use the global Restart variable
+  Render_Engine3D.i            ; select which 3D rendering engine to use, select none for 2D only
+  Show_Debug_Info.i            ; when set this will show things like FPS etc on screen
+  Show_Mouse.i           ; shows the mouse
+  Sprite_Constraints_Count.i
+  Sprite_Instance_Count.i ; number of sprite instances
+  Sprite_List_Data_Source.i ; The source for the sprite resource list (see enumeration Data_Source)
+  Sprite_Resource_Count.i   ; number of sprite resources
+  Sprite_Vector_Resource_Count.i ; number of vector resources
+  Sprites_Loaded.i
+  Story_Action_Count.i
+  System_Font_Instance_Count.i                ; number of system font instances
+  Take_Screen_Capture.i ; flag to take a screen capture
+  Time_Full_Screen_Switched.q ; special timer to keep track of when the screen was toggled between full screen and window, needed for keyboard handler
+  Variable.Variable_Structure[#Max_Variables] ; variables used for displaying values on screen etc
+  Variable_Constraint.Variable_Constraint_Structure[#Max_Variable_Constraints]
+  Variable_Constraints_Count.i
+  Variable_Count.i
 EndStructure
 
 Structure Debug_Structure
@@ -416,7 +428,6 @@ Structure Screen_Settings_Structure
   Screen_Inner_Height.i
   Screen_Inner_X.i ; coordinates of the screen in the final resolution (used for border)
   Screen_Inner_Y.i
-  Set_Zoom.i ; change this to a number between 1 - 8 to set the zoom of the window
   Num_Monitors.i
   Screen_Left.i
   Screen_Top.i
@@ -454,7 +465,7 @@ Structure FPS_Data_Structure
 EndStructure
 
 Structure Vector_Graphics_Structure
-  Shape_Type.i
+  Shape_Type.i ; see Shapes enumeration
   Background_Transparent.i
   Colour.i
   Background_Colour.i
@@ -694,6 +705,7 @@ Define Menus.Menus_Structure
  
 ;- Macros
 
+CompilerIf #PB_Compiler_OS = #PB_OS_Linux
 Macro _dq_
   "
 EndMacro
@@ -707,6 +719,7 @@ Macro LIBFUNC(_libFunction_, _library_)
     EndIf
   CompilerEndIf
 EndMacro
+CompilerEndIf
 
 ;- Procedures
 
@@ -739,6 +752,7 @@ EndProcedure
 
 ;- Window Callback
 
+CompilerIf #PB_Compiler_OS = #PB_OS_Windows
 Procedure WindowCallback(hWnd, uMsg, wParam, lParam)
   Select uMsg
     Case #WM_SYSCOMMAND ; prevent alt "ding" functionality
@@ -754,6 +768,7 @@ Procedure WindowCallback(hWnd, uMsg, wParam, lParam)
   EndSelect
   ProcedureReturn #PB_ProcessPureBasicEvents
 EndProcedure
+CompilerEndIf
 
 ;- Utilities
 
@@ -790,7 +805,9 @@ Procedure.s GetOSVersionString()
     Case #PB_OS_Windows_10 : OS_Version.s = "Windows 10"
     Case #PB_OS_Windows_11 : OS_Version.s = "Windows 11"
     Case #PB_OS_Windows_Future : OS_Version.s = "Unknown Windows"
-    Default : OS_Version.s = "Unknown Windows"
+    Case #PB_OS_Linux : OS_Version.s = "Linux"
+    Case #PB_OS_MacOS : OS_Version.s = "MacOS"
+    Default : OS_Version.s = "Unknown OS"
   EndSelect
   ProcedureReturn OS_Version
 EndProcedure
@@ -930,7 +947,8 @@ Procedure InitDesktop(*Screen_Settings.Screen_Settings_Structure, *FPS_Data.FPS_
   Protected *Display, *GDKWindow, *Monitor
   *Screen_Settings\Num_Monitors = ExamineDesktops()
   Debug "InitDesktop: " + *Screen_Settings\Num_Monitors + " monitors detected"
-  *Screen_Settings\Selected_Desktop = 0 ; select the first monitor by default, need to add an option to change this somewhere
+  *Screen_Settings\Selected_Desktop = 0 ; TODO - select the first monitor by default, need to add an option to change this somewhere
+  *FPS_Data\FPS = DesktopFrequency(0) ; initialise the FPS to the frequency of the monitor, rather than show zero
   If *Screen_Settings\Num_Monitors > 0
     t = *Screen_Settings\Num_Monitors
     If t > #Max_Monitors_Supported : t = #Max_Monitors_Supported : EndIf
@@ -1055,7 +1073,6 @@ Procedure LoadMenus(*System.System_Structure, *Menus.Menus_Structure)
     Read.i *Menus\Menu[c]\Last_Item
   Next c
   Debug "LoadMenus: " + *System\Menu_Count + " menu(s) loaded"
-  
   Debug "LoadMenus: loading menu items"
   Restore Data_Menu_Items
   Read *System\Menu_Items_Count
@@ -1691,22 +1708,22 @@ Procedure SetScreen(*System.System_Structure, *Window_Settings.Window_Settings_S
       *Window_Settings\Window_Debug_X = 0
       *Window_Settings\Window_Debug_Y = 0
     EndIf    
-    If *Screen_Settings\Set_Zoom
-      Old_Width = *Window_Settings\Window_W
-      Old_Height = *Window_Settings\Window_H
-      *Window_Settings\Window_W = *Screen_Settings\Screen_Res_Width * *Screen_Settings\Set_Zoom
-      *Window_Settings\Window_H = *Screen_Settings\Screen_Res_Height * *Screen_Settings\Set_Zoom
-      If Old_Width < *Window_Settings\Window_W
-        ; move to the left an dup
-        *Window_Settings\Window_X = *Window_Settings\Window_X - ((*Window_Settings\Window_W - Old_Width) / 3)
-        *Window_Settings\Window_Y = *Window_Settings\Window_Y - ((*Window_Settings\Window_H - Old_Height) / 3)
-      Else
-        ; move to the right and down
-        *Window_Settings\Window_X = *Window_Settings\Window_X + ((Old_Width - *Window_Settings\Window_W) / 3)
-        *Window_Settings\Window_Y = *Window_Settings\Window_Y + ((Old_Height - *Window_Settings\Window_H) / 3)      
-      EndIf
-      *Screen_Settings\Set_Zoom = 0
-    EndIf
+    ;If *Screen_Settings\Set_Zoom
+    ;  Old_Width = *Window_Settings\Window_W
+    ;  Old_Height = *Window_Settings\Window_H
+    ;  *Window_Settings\Window_W = *Screen_Settings\Screen_Res_Width * *Screen_Settings\Set_Zoom
+    ;  *Window_Settings\Window_H = *Screen_Settings\Screen_Res_Height * *Screen_Settings\Set_Zoom
+    ;  If Old_Width < *Window_Settings\Window_W
+    ;    ; move to the left an dup
+    ;    *Window_Settings\Window_X = *Window_Settings\Window_X - ((*Window_Settings\Window_W - Old_Width) / 3)
+    ;    *Window_Settings\Window_Y = *Window_Settings\Window_Y - ((*Window_Settings\Window_H - Old_Height) / 3)
+    ;  Else
+    ;    ; move to the right and down
+    ;    *Window_Settings\Window_X = *Window_Settings\Window_X + ((Old_Width - *Window_Settings\Window_W) / 3)
+    ;    *Window_Settings\Window_Y = *Window_Settings\Window_Y + ((Old_Height - *Window_Settings\Window_H) / 3)      
+    ;  EndIf
+    ;  *Screen_Settings\Set_Zoom = 0
+    ;EndIf
     SetWindowFlags(*Window_Settings, *Screen_Settings, @Window_Flags)
     Debug "SetScreen: opening window"
     If OpenWindow(#Game_Window_Main, *Window_Settings\Window_X, *Window_Settings\Window_Y, *Window_Settings\Window_W / DesktopResolutionX(), *Window_Settings\Window_H / DesktopResolutionY(), *System\Game_Title, Window_Flags)  
@@ -1715,7 +1732,9 @@ Procedure SetScreen(*System.System_Structure, *Window_Settings.Window_Settings_S
       SetWindowColor(#Game_Window_Main, *Window_Settings\Background_Colour) 
       *Window_Settings\Window_Open = 1
       WindowBounds(#Game_Window_Main, *Screen_Settings\Screen_Res_Width / DesktopResolutionX(), *Screen_Settings\Screen_Res_Height / DesktopResolutionY(), #PB_Default, #PB_Default)
-      SetWindowCallback(@WindowCallback())
+      CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+        SetWindowCallback(@WindowCallback())
+      CompilerEndIf
       ; Sets the limit of how small a window can be resized
       If Not *System\Config_File Or *Window_Settings\Reset_Window ; update window coordinates because there was no config file
         Debug "SetScreen: no config file, setting window properties"
@@ -1834,10 +1853,9 @@ Procedure DoFlipBuffer(*Screen_Settings.Screen_Settings_Structure)
 EndProcedure
 
 Procedure Draw3DWorld(*System.System_Structure)
-  Select *System\Render_Engine3D
-    Case #Render_Engine3D_Ogre
-      ; Insert 3D engine here
-  EndSelect
+  If *System\Enable_3D_Engine
+    RenderWorld()
+  EndIf
 EndProcedure
 
 Procedure DisplaySpriteInstance(*Graphics.Graphics_Structure, i.i)
@@ -2218,8 +2236,9 @@ EndProcedure
 Procedure Draw2DGraphics(*System.System_Structure, *Screen_Settings.Screen_Settings_Structure)
   StartDrawing(SpriteOutput(*Screen_Settings\Screen_Sprite))
   DrawingMode(#PB_2DDrawing_Outlined)
-  Box(100, 100, 100, 100, RGBA(255, 0, 0, 255))
-  Box(150, 50, 100, 100, RGBA(0, 255, 0, 255))
+  ;Box(20, 20, 100, 100, RGBA(255, 255, 0, 255))
+  ;Box(100, 100, 100, 100, RGBA(255, 0, 0, 255))
+  ;Box(150, 50, 100, 100, RGBA(0, 255, 0, 255))
   StopDrawing()
 EndProcedure
 
@@ -2395,44 +2414,6 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
         *System\Enter_Pressed = 1
         SwitchFullScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
       EndIf
-        If Not *Screen_Settings\Full_Screen
-          If KeyPressed(*System, #PB_Key_1)
-            *Screen_Settings\Set_Zoom = 1
-            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-          EndIf
-          If KeyPressed(*System, #PB_Key_2)
-            *Screen_Settings\Set_Zoom = 2
-            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-          EndIf
-          If KeyPressed(*System, #PB_Key_3)
-            *Screen_Settings\Set_Zoom = 3
-            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-          EndIf
-          If KeyPressed(*System, #PB_Key_4)
-            *Screen_Settings\Set_Zoom = 4
-            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-          EndIf
-          If KeyPressed(*System, #PB_Key_5)
-            *Screen_Settings\Set_Zoom = 5
-            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-          EndIf
-          If KeyPressed(*System, #PB_Key_6)
-            *Screen_Settings\Set_Zoom = 6
-            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-          EndIf
-          If KeyPressed(*System, #PB_Key_7)
-            *Screen_Settings\Set_Zoom = 7
-            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-          EndIf
-          If KeyPressed(*System, #PB_Key_8)
-            *Screen_Settings\Set_Zoom = 8
-            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-          EndIf
-          If KeyPressed(*System, #PB_Key_9)
-            *Screen_Settings\Set_Zoom = 9
-            ResetScreen(*System, *Window_Settings, *Screen_Settings, *Graphics)
-          EndIf 
-        EndIf
     EndIf
     ; Process control commands
     If KeyboardPushed(#PB_Key_LeftControl) Or KeyboardPushed(#PB_Key_RightControl)
@@ -2562,6 +2543,23 @@ Procedure ProcessKeyboard(*System.System_Structure, *Window_Settings.Window_Sett
       EndIf
     EndIf
   EndIf
+EndProcedure
+
+Procedure ProcessJoystick(*System.System_Structure)
+  Protected c.i, d.i
+  Protected Status.i
+  For c = 0 To *System\Num_Joysticks-1
+    Status = ExamineJoystick(c)
+    If Status ; joystick has valid state
+      *System\Joys[c]\Left_Axis_H = JoystickAxisX(c, 0, #PB_Relative)
+      *System\Joys[c]\Left_Axis_V = JoystickAxisY(c, 0, #PB_Relative)
+      *System\Joys[c]\Right_Axis_H = JoystickAxisX(c, 1, #PB_Relative)
+      *System\Joys[c]\Right_Axis_V = JoystickAxisY(c, 1, #PB_Relative)
+      For d = 0 To #Max_Joystick_Buttons-1
+        *System\Joys[c]\Button[d] = JoystickButton(c, d+1)
+      Next d
+    EndIf
+  Next c
 EndProcedure
 
 Procedure ProcessControls(*System.System_Structure, *Graphics.Graphics_Structure, *Controls.Controls_Structure, *Players.Players_Structure)
@@ -3004,8 +3002,8 @@ Procedure ProcessWindowEvents(*System.System_Structure, *Window_Settings.Window_
                 ; Only update window variables if it's a normal window
                 ; This is needed for maximise etc to work
                 If *Window_Settings\Window_W <> WindowWidth(#Game_Window_Main) * DesktopResolutionX() Or *Window_Settings\Window_H <> WindowHeight(#Game_Window_Main) * DesktopResolutionY()
-                  *Window_Settings\Window_W = WindowWidth(#Game_Window_Main)
-                  *Window_Settings\Window_H = WindowHeight(#Game_Window_Main)
+                  *Window_Settings\Window_W = WindowWidth(#Game_Window_Main) * DesktopResolutionX()
+                  *Window_Settings\Window_H = WindowHeight(#Game_Window_Main) * DesktopResolutionY()
                   *Window_Settings\Window_Moved = 1
                   ; Don't close the window And reopen (SetScreen), just reset the window screen
                   SetWindowScreen(*System, *Screen_Settings)
@@ -3058,10 +3056,10 @@ Procedure ProcessWindowEvents(*System.System_Structure, *Window_Settings.Window_
           *Window_Settings\Window_Maximised = 0
           *Window_Settings\Window_Minimised = 1
         Case #PB_Event_LeftClick
-          Debug "ProcessWindowEvents: primary mouse button clicked"
+          Debug "ProcessWindowEvents: left mouse button clicked"
           *System\Mouse_Left_Click = 1
         Case #PB_Event_RightClick
-          Debug "ProcessWindowEvents: secondary mouse button clicked"
+          Debug "ProcessWindowEvents: right mouse button clicked"
           *System\Mouse_Right_Click = 1
       EndSelect
     Until Event = 0
@@ -3083,7 +3081,6 @@ Procedure ProcessFPS(*FPS_Data.FPS_Data_Structure)
       *FPS_Data\Initialised = 1
     EndIf  
     If *FPS_Data\Initialised
-      ;Debug "Frequency: " + *FPS_Data\Frequency
       *FPS_Data\FPS = 1000 / (*FPS_Data\Average_Sum / *FPS_Data\Frequency)
     Else
       *FPS_Data\FPS = 1000 / (*FPS_Data\Average_Sum / *FPS_Data\Average_Index)
@@ -3100,10 +3097,6 @@ Procedure ProcessSystem(*FPS_Data.FPS_Data_Structure)
   *FPS_Data\Game_Run_Time = ElapsedMilliseconds() - *FPS_Data\Game_Start_Time
   *FPS_Data\Frame = *FPS_Data\Frame + 1  
   ProcessFPS(*FPS_Data)
-  ;If *FPS_Data\FPS = 0
-  ;  *FPS_Data\FPS = 1 ; prevent divide by zero
-  ;EndIf
-  ;Delta_Time = 60.0 / *FPS_Data\FPS * 4.0 ; adjust speed of moving objects based on FPS
   Delta_Time = *FPS_Data\Last_Frame_Time / 1000 ; adjust speed of moving objects based on FPS
 EndProcedure
 
@@ -3111,8 +3104,8 @@ Procedure SaveConfig(*System.System_Structure, *Window_Settings.Window_Settings_
   ; Never call SaveConfig before LoadConfig
   ; Save levels: 1 - window settings, 2 - game settings
   Protected f.s
-  f = GetCurrentDirectory() + *System\Game_Config_File
   If *System\Config_Loaded ; only save if the config has been loaded
+    f = GetCurrentDirectory() + *System\Game_Config_File
     If Level = 1 Or Level = 2
       ; Create or open the config file
       If Not *System\Config_File
@@ -3171,15 +3164,11 @@ EndProcedure
 
 Procedure LoadConfig(*System.System_Structure, *Window_Settings.Window_Settings_Structure, *Screen_Settings.Screen_Settings_Structure)
   ; Loads configuration if available and sets defaults when no config is available
-  ; If there is no config file then SaveConfig will be called
-  Protected f.s
-  ; Layer 1
-  f = *System\Game_Config_File
-  If FileSize(f)>0
+  If FileSize(*System\Game_Config_File)>0
     *System\Config_File = 1 ; config file found
   EndIf
   Debug "LoadConfig: opening " + *System\Game_Config_File
-  OpenPreferences(f)
+  OpenPreferences(*System\Game_Config_File)
   Debug "LoadConfig: loading window preferences"
   PreferenceGroup("Window")
   If *System\Allow_Switch_to_Window
@@ -3248,8 +3237,37 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   
   InitKeyboard()
   InitMouse()
+  
+  *System\Num_Joysticks = InitJoystick()
+  Debug "Initialise: number of joysticks: " + *System\Num_Joysticks
+  For c = 0 To *System\Num_Joysticks-1
+    Debug "  Joystick " + c + ": " + JoystickName(c)
+  Next c
   UsePNGImageEncoder() ; enable PNG encoding for saving screen captures
   UsePNGImageDecoder()
+  
+  If *System\Enable_3D_Engine
+    CompilerSelect #PB_Compiler_OS
+      CompilerCase #PB_OS_Windows
+        If Not InitEngine3D(#PB_Engine3D_DebugLog, "engine3d.dll")
+         Debug "Could not initialise 3D engine"
+         SetInitialiseError(*System, "Could not initialise 3D engine")
+         ProcedureReturn 0
+        EndIf  
+      CompilerCase #PB_OS_Linux
+        If Not InitEngine3D(#PB_Engine3D_DebugLog, "engine3d.so")
+          Debug "Could not initialise 3D engine"
+          SetInitialiseError(*System, "Could not initialise 3D engine")
+          ProcedureReturn 0
+        EndIf     
+      CompilerCase #PB_OS_MacOS
+        If Not InitEngine3D(#PB_Engine3D_DebugLog, "engine3d.dylib")
+          Debug "Could not initialise 3D engine"
+          SetInitialiseError(*System, "Could not initialise 3D engine")
+          ProcedureReturn 0
+        EndIf
+    CompilerEndSelect   
+  EndIf
   
   If Not InitDesktop(*Screen_Settings, *FPS_Data)
     Debug "Initialise: could not initialise desktop"
@@ -3258,8 +3276,8 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   EndIf
   
   If *Screen_Settings\Desktop[0]\Depth < *System\Minimum_Colour_Depth
-    Debug "Initialise: Unable to set minimum colour depth: " + *System\Minimum_Colour_Depth + " bit"
-    SetInitialiseError(*System, "Unable to set minimum colour depth: " + *System\Minimum_Colour_Depth + " bit")
+    Debug "Initialise: Unable to set colour depth to minimum colour depth: " + *System\Minimum_Colour_Depth + " bit"
+    SetInitialiseError(*System, "Unable to set colour depth to minimum colour depth: " + *System\Minimum_Colour_Depth + " bit")
     ProcedureReturn 0    
   EndIf
   
@@ -3283,18 +3301,16 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
     ProcedureReturn 0
   EndIf
   
-  ClearScreen(*Screen_Settings\Background_Colour)
+  
+  If *System\Enable_3D_Engine
+    CreateCamera(0, 0, 0, 100, 100)
+    CameraBackColor(0, *Screen_Settings\Background_Colour)
+    RenderWorld()
+  Else
+    ClearScreen(*Screen_Settings\Background_Colour)
+  EndIf
   
   FlipBuffers()
-  
-  If *System\Render_Engine3D <> #Render_Engine3D_None
-    ; Don't initialise 3D if it is not enabled
-    Debug "Initialise: 3D engine"
-    Select *System\Render_Engine3D ; Initialise render engine
-      Case #Render_Engine3D_Builtin
-        ; not written yet
-    EndSelect
-  EndIf
   
   LoadVectorResources(*System, *Graphics)
   LoadSpriteResources(*System, *Screen_Settings, *Graphics)
@@ -3309,15 +3325,6 @@ Procedure Initialise(*System.System_Structure, *Window_Settings.Window_Settings_
   LoadVariables(*System)
   LoadVariableConstraints(*System)
   LoadMenus(*System, *Menu)
-    
-  ;If Not InitialiseFonts(*System)
-  ;  Debug "Initialise: could not initialise fonts"
-  ;  SetInitialiseError(*P, "Could not initialise fonts")
-  ;  ProcedureReturn 0
-  ;EndIf  
-  
-  ; Elevate control to layer 2 (menu)
-  ;*Screen_Settings\Background_Colour = *Menu_Settings\Menu_Background_Colour
     
   Debug "Initialise: completed"
   *System\Initialised = 1
@@ -3359,29 +3366,34 @@ CompilerSelect #PB_Compiler_OS
   CompilerCase #PB_OS_MacOS
     System\Minimum_Colour_Depth = 32
 CompilerEndSelect  
-System\Fatal_Error_Message = "none"
-System\Game_Title = "Universal Game Engine"
-System\Game_Config_File = "settings.cfg"
-System\Sprite_List_Data_Source = #Data_Source_Internal_Memory
-System\Game_Resource_Location = "Data"
-System\Debug_Window = 1
+
+System\Allow_Esc_Quit = 0
+System\Allow_Screen_Capture = 1
+System\Allow_Switch_to_Window = 1
+System\Allow_Toggle_Border = 0
 System\Current_Directory = GetCurrentDirectory()
+System\Debug_Window = 0
+System\Enable_3D_Engine = 0
+System\Fatal_Error_Message = "none"
+System\Game_Config_File = "settings.cfg"
+System\Game_Resource_Location = "Data"
+System\Game_State = #Game_State_Menu
+System\Game_Title = "Universal Game Engine"
 System\Render_Engine3D = #Render_Engine3D_Builtin
 System\Show_Debug_Info = 1 ; onscreen debug info
-System\Allow_Switch_to_Window = 1
-System\Game_State = #Game_State_Menu
-System\Allow_Toggle_Border = 0
-System\Allow_Screen_Capture = 1
-System\Allow_Esc_Quit = 1
+System\Sprite_List_Data_Source = #Data_Source_Internal_Memory
+
 Window_Settings\Allow_Window_Resize = 1
 Window_Settings\Reset_Window = 0
 Window_Settings\Background_Colour = #Black
 Window_Settings\Window_Debug_W = 120
 Window_Settings\Window_Debug_H = 300
+
 Screen_Settings\Num_Monitors = 0
 Screen_Settings\Total_Desktop_Width = 0
 Screen_Settings\Flip_Mode = #PB_Screen_WaitSynchronization
-Screen_Settings\Border_Enable = 1
+;Screen_Settings\Flip_Mode = #PB_Screen_NoSynchronization
+Screen_Settings\Border_Enable = 0
 Screen_Settings\Screen_Filter = 0
 Screen_Settings\Classic_Screen_Background_Colour = #Black
 Screen_Settings\Border_Width = 316
@@ -3409,10 +3421,11 @@ Repeat ; used for restarting the game
     Repeat
       ; main game loop
       ProcessSystem(@FPS_Data) ; must be first in the main loop
-      Debug_Settings\Debug_Var[0] = "FPS: " + FPS_Data\FPS
+      ;Debug_Settings\Debug_Var[0] = "FPS: " + FPS_Data\FPS
       ProcessWindowEvents(@System, @Window_Settings, @Screen_Settings, @Graphics)
       ProcessMouse(@System, @Screen_Settings)
       ProcessKeyboard(@System, @Window_Settings, @Screen_Settings, @Graphics, @Menus, @Story_Actions)
+      ProcessJoystick(@System)
       ProcessControls(@System, @Graphics, @Controls, @Players)
       ProcessCustomStory(@Graphics, @Story_Actions)
       ProcessStory(@System, @Screen_Settings, @Graphics, @Story_Actions, @Menus)
@@ -3628,10 +3641,9 @@ DataSection
   CompilerEndIf
   
 EndDataSection
-
-; IDE Options = PureBasic 6.20 (Windows - x64)
-; CursorPosition = 3375
-; FirstLine = 3339
+; IDE Options = PureBasic 6.21 (Windows - x64)
+; CursorPosition = 3061
+; FirstLine = 2997
 ; Folding = -----------------
 ; EnableXP
 ; DPIAware
