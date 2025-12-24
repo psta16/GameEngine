@@ -1653,7 +1653,7 @@ Procedure Init3DEngine(*System.System_Structure, *Screen_Settings.Screen_Setting
     LightDirection(0 ,0.6, -0.6, -0.75)
     AmbientColor(RGB(255*0.5, 255*0.5,255*0.5))
     ; Camera 
-    CreateCamera(0, 0, 0, *Screen_Settings\Screen_Res_Width / *Screen_Settings\Screen_Actual_Width * 100, *Screen_Settings\Screen_Res_Height / *Screen_Settings\Screen_Actual_Height * 100)
+    CreateCamera(0, 0, 0, (*Screen_Settings\Screen_Res_Width / *Screen_Settings\Screen_Actual_Width * 100)+1, (*Screen_Settings\Screen_Res_Height / *Screen_Settings\Screen_Actual_Height * 100)+1)
     CameraBackColor(0, *Screen_Settings\Background_Colour)
     MoveCamera(0, 8, 2, 8, #PB_Absolute)
     CameraLookAt(0, 0, 0, 0)
@@ -3678,8 +3678,8 @@ DataSection
   
 EndDataSection
 ; IDE Options = PureBasic 6.21 (Windows - x64)
-; CursorPosition = 1657
-; FirstLine = 1631
+; CursorPosition = 1655
+; FirstLine = 1647
 ; Folding = ------------------
 ; EnableXP
 ; DPIAware
